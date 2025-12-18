@@ -29,5 +29,10 @@ build/
 
 # Netlify (mantido para referência, mas não usado na Vercel)
 .netlify/
+netlify.toml
+_redirects
+
+# Server local (não usado na Vercel)
+server.js
 
 
