@@ -53,7 +53,8 @@ Sistema completo de gestão para restaurante de sushi, incluindo cardápio onlin
 │   ├── cupons.js          # API de cupons
 │   ├── cupons/
 │   │   └── validar.js     # API de validação de cupons
-│   ├── auth-login.js      # API de autenticação
+│   ├── auth/
+│   │   └── login.js       # API de autenticação (/api/auth/login)
 │   ├── database.js        # API de dados públicos
 │   └── upload-imagem.js  # API de upload de imagens
 ├── js/                    # JavaScript do cliente

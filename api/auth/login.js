@@ -1,5 +1,5 @@
 // Vercel Serverless Function: POST /api/auth/login
-const { getCollection } = require('./mongodb');
+const { getCollection } = require('../mongodb');
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -82,5 +82,4 @@ module.exports = async (req, res) => {
         return res.status(500).json({ success: false, message: 'Erro ao validar login' });
     }
 };
-
 
