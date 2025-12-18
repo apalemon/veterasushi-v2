@@ -1,0 +1,1020 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Pedidos - Vetera Sushi</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/gestor.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- HEADER -->
+    <header>
+        <div class="header-container">
+            <a href="index.html" class="logo" style="display: flex; align-items: center; gap: 10px;">
+                <img src="logo.png" alt="Vetera Sushi" style="height: 40px; width: auto;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <span style="display: none;">Vetera Sushi</span>
+            </a>
+            <nav>
+                <ul class="nav-menu">
+                    <li><a href="index.html">Cardápio</a></li>
+                    <li>
+                        <button class="btn-logout" onclick="fazerLogout()">Sair</button>
+                    </li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <!-- CONTAINER PRINCIPAL -->
+    <div class="gestor-container">
+        <!-- SIDEBAR ESQUERDA -->
+        <aside class="gestor-sidebar">
+            <div class="sidebar-header">
+                <h2><i class="fas fa-fish"></i> Vetera Sushi</h2>
+                <div class="db-status" id="db-status">
+                    <span class="status-indicator"></span>
+                    <span>Banco JSON ativo</span>
+                </div>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item" onclick="mostrarSecao('nova-venda'); return false;">
+                    <span class="nav-icon"><i class="fas fa-shopping-cart"></i></span>
+                    <span>Nova Venda</span>
+                </a>
+                <a href="#" class="nav-item active" onclick="mostrarSecao('pedidos'); return false;">
+                    <span class="nav-icon"><i class="fas fa-clipboard-list"></i></span>
+                    <span>Pedidos</span>
+                </a>
+                <a href="#" class="nav-item" onclick="mostrarSecao('ocultos'); return false;">
+                    <span class="nav-icon"><i class="fas fa-eye-slash"></i></span>
+                    <span>Ocultos</span>
+                </a>
+                <a href="#" class="nav-item" onclick="mostrarSecao('detalhes'); return false;">
+                    <span class="nav-icon"><i class="fas fa-chart-line"></i></span>
+                    <span>Detalhes</span>
+                </a>
+                <a href="#" class="nav-item" onclick="mostrarSecao('produtos'); return false;">
+                    <span class="nav-icon"><i class="fas fa-fish"></i></span>
+                    <span>Produtos</span>
+                </a>
+                <a href="#" class="nav-item" onclick="mostrarSecao('cupons'); return false;">
+                    <span class="nav-icon"><i class="fas fa-ticket-alt"></i></span>
+                    <span>Cupons</span>
+                </a>
+                <a href="#" class="nav-item" onclick="mostrarSecao('condicionais'); return false;">
+                    <span class="nav-icon"><i class="fas fa-sliders-h"></i></span>
+                    <span>Condicionais</span>
+                </a>
+                <a href="#" class="nav-item" onclick="mostrarSecao('horarios'); return false;">
+                    <span class="nav-icon"><i class="fas fa-clock"></i></span>
+                    <span>Horários</span>
+                </a>
+                <a href="#" class="nav-item" onclick="mostrarSecao('configuracoes'); return false;">
+                    <span class="nav-icon"><i class="fas fa-cog"></i></span>
+                    <span>Configurações</span>
+                </a>
+                <a href="#" class="nav-item" onclick="mostrarSecao('categorias'); return false;">
+                    <span class="nav-icon"><i class="fas fa-folder"></i></span>
+                    <span>Categorias</span>
+                </a>
+                <a href="#" class="nav-item" onclick="mostrarSecao('usuarios'); return false;">
+                    <span class="nav-icon"><i class="fas fa-users"></i></span>
+                    <span>Usuários</span>
+                </a>
+                <a href="#" class="nav-item" onclick="fazerBackup(); return false;" style="background: var(--sucesso); color: #fff; margin-top: 10px;">
+                    <span class="nav-icon"><i class="fas fa-download"></i></span>
+                    <span>Fazer Backup</span>
+                </a>
+            </nav>
+        </aside>
+
+        <!-- CONTEÚDO PRINCIPAL -->
+        <main class="gestor-main">
+            <!-- SEÇÃO NOVA VENDA (igual ao PDV) -->
+            <section id="sec-nova-venda" class="gestor-section">
+                <div class="section-header">
+                    <h1>Nova Venda</h1>
+                    <div class="header-actions">
+                        <input type="text" class="search-input" id="product-search-pdv" placeholder="🔍 Pesquisar produtos..." style="max-width: 300px;">
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: 1fr 420px; gap: 25px; margin-top: 2rem;">
+                    <!-- Painel Esquerdo: Itens do Menu -->
+                    <div class="panel-pdv" style="background: var(--cinza-medio); border: 1px solid rgba(220, 38, 38, 0.1); border-radius: 16px; padding: 30px;">
+                        <h2 style="margin: 0 0 15px 0; font-size: 20px; font-weight: 700; color: #fff;">Itens do Menu</h2>
+                        <div style="font-size: 13px; color: var(--texto-medio); margin-bottom: 25px;">Selecione os itens e quantidades</div>
+                        
+                        <div class="menu-list-pdv" id="menu-list-pdv" style="display: grid; gap: 10px; margin-top: 15px; max-height: 500px; overflow-y: auto;">
+                            <!-- Itens serão inseridos aqui -->
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; margin-top: 15px;">
+                            <button class="btn btn-primary" onclick="atualizarPedidoPDV()" style="flex: 1;">
+                                <i class="fas fa-sync-alt"></i> Atualizar Pedido
+                            </button>
+                            <button class="btn btn-secondary" onclick="limparPedidoPDV()" style="flex: 1;">
+                                <i class="fas fa-eraser"></i> Limpar
+                            </button>
+                        </div>
+                        
+                        <div style="margin-top: 20px;">
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; font-size: 13px; color: var(--texto-medio); margin-bottom: 8px; font-weight: 500;">
+                                    <i class="fas fa-user"></i> Cliente
+                                </label>
+                                <input type="text" class="form-input" id="customer-name-pdv" placeholder="Nome do cliente" required style="width: 100%;">
+                            </div>
+                            <div style="margin-bottom: 15px;">
+                                <label style="display: block; font-size: 13px; color: var(--texto-medio); margin-bottom: 8px; font-weight: 500;">
+                                    <i class="fas fa-map-marker-alt"></i> Endereço
+                                </label>
+                                <input type="text" class="form-input" id="customer-address-pdv" placeholder="Endereço do cliente" required style="width: 100%;">
+                            </div>
+                            <div>
+                                <label style="display: block; font-size: 13px; color: var(--texto-medio); margin-bottom: 8px; font-weight: 500;">
+                                    <i class="fas fa-tag"></i> Desconto
+                                </label>
+                                <div style="display: flex; gap: 10px; align-items: center;">
+                                    <input type="number" class="form-input" id="discount-pdv" step="0.01" min="0" value="0" placeholder="0.00" style="flex: 1;">
+                                    <select class="form-select" id="discount-type-pdv" style="width: 100px;">
+                                        <option value="amount">R$</option>
+                                        <option value="percent">%</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Painel Direito: Resumo do Pedido -->
+                    <div class="panel-pdv" style="background: var(--cinza-medio); border: 1px solid rgba(220, 38, 38, 0.1); border-radius: 16px; padding: 30px;">
+                        <h2 style="margin: 0 0 15px 0; font-size: 20px; font-weight: 700; color: #fff;">Resumo do Pedido</h2>
+                        <div style="font-size: 13px; color: var(--texto-medio); margin-bottom: 25px;">Revise e finalize a venda</div>
+                        
+                        <div style="margin-top: 20px;">
+                            <label style="display: block; font-size: 13px; color: var(--texto-medio); margin-bottom: 8px; font-weight: 500;">
+                                <i class="fas fa-credit-card"></i> Forma de Pagamento
+                            </label>
+                            <select class="form-select" id="payment-method-pdv" style="width: 100%;">
+                                <option>Dinheiro</option>
+                                <option>Cartão - Crédito</option>
+                                <option>Cartão - Débito</option>
+                                <option>PIX</option>
+                                <option>Pago pelo iFood</option>
+                            </select>
+                        </div>
+                        
+                        <div style="margin-top: 20px;">
+                            <label style="display: block; font-size: 13px; color: var(--texto-medio); margin-bottom: 8px; font-weight: 500;">
+                                <i class="fas fa-truck"></i> Taxa de Entrega
+                            </label>
+                            <input type="number" class="form-input" id="delivery-fee-pdv" min="0" step="0.01" value="0" placeholder="0,00" style="width: 100%;">
+                        </div>
+                        
+                        <h3 style="margin-top: 20px; font-size: 16px; color: #fff;">Itens no Pedido</h3>
+                        <div class="order-lines-pdv" id="order-lines-pdv" style="background: rgba(0, 0, 0, 0.3); border-radius: 8px; padding: 15px; max-height: 300px; overflow-y: auto; border: 1px solid rgba(220, 38, 38, 0.1); margin-top: 10px;">
+                            <div style="text-align: center; color: var(--texto-medio); font-size: 13px;">Nenhum item no pedido.</div>
+                        </div>
+                        
+                        <div class="totals-pdv" style="margin-top: 15px; display: flex; flex-direction: column; gap: 8px; padding-top: 15px; border-top: 1px solid rgba(220, 38, 38, 0.2);">
+                            <div style="display: flex; justify-content: space-between; font-weight: 600; color: #fff;">
+                                <span>Subtotal</span>
+                                <span id="subtotal-pdv">R$ 0,00</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-weight: 600; color: #fff;">
+                                <span>Desconto</span>
+                                <span id="discount-display-pdv" style="color: var(--vermelho-claro);">R$ 0,00</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-weight: 600; color: #fff;">
+                                <span>Taxa de Entrega</span>
+                                <span id="delivery-fee-display-pdv">R$ 0,00</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; font-weight: 600; color: var(--vermelho-claro); font-size: 20px; margin-top: 5px;">
+                                <span>Total</span>
+                                <span id="total-display-pdv">R$ 0,00</span>
+                            </div>
+                        </div>
+                        
+                        <div style="display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;">
+                            <button class="btn btn-primary" onclick="gerarNotaFiscalPDV()" style="flex: 1; min-width: 200px;">
+                                <i class="fas fa-file-pdf"></i> Gerar Nota Fiscal
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+            
+            <!-- SEÇÃO PEDIDOS -->
+            <section id="sec-pedidos" class="gestor-section active">
+                <div class="section-header">
+                    <h1>Gestor de Pedidos</h1>
+                    <div class="header-actions">
+                        <input type="text" class="search-input" id="search-pedidos" placeholder="🔍 Pesquisar pedidos..." onkeyup="filtrarPedidos()">
+                        <div class="status-badge" id="novos-pedidos-badge" style="display: none;">
+                            <span id="novos-pedidos-count">0</span> novos
+                        </div>
+                    </div>
+                </div>
+
+                <!-- FILTROS -->
+                <div class="filtros-container">
+                    <button class="filtro-btn active" onclick="filtrarPorStatus('todos')">Todos</button>
+                    <button class="filtro-btn" onclick="filtrarPorStatus('aguardando_pagamento')">Aguardando</button>
+                    <button class="filtro-btn" onclick="filtrarPorStatus('pago')">Pagos</button>
+                    <button class="filtro-btn" onclick="filtrarPorStatus('em_preparo')">Em Preparo</button>
+                    <button class="filtro-btn" onclick="filtrarPorStatus('finalizado')">Finalizados</button>
+                </div>
+
+                <!-- LISTA DE PEDIDOS -->
+                <div class="pedidos-grid" id="pedidos-grid">
+                    <!-- Pedidos serão inseridos aqui -->
+                </div>
+            </section>
+
+            <!-- SEÇÃO OCULTOS -->
+            <section id="sec-ocultos" class="gestor-section">
+                <div class="section-header">
+                    <h1>Pedidos Ocultos</h1>
+                    <div class="header-actions">
+                        <input type="text" class="search-input" id="search-ocultos" placeholder="🔍 Pesquisar pedidos..." onkeyup="filtrarPedidosOcultos()">
+                    </div>
+                </div>
+
+                <!-- LISTA DE PEDIDOS OCULTOS -->
+                <div class="pedidos-grid" id="pedidos-ocultos-grid">
+                    <!-- Pedidos ocultos serão inseridos aqui -->
+                </div>
+            </section>
+
+            <!-- SEÇÃO DETALHES (Relatório) -->
+            <section id="sec-detalhes" class="gestor-section">
+                <div class="section-header">
+                    <h1>Detalhes de Vendas</h1>
+                    <div class="header-actions">
+                        <select id="month-filter-detalhes" style="padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(220, 38, 38, 0.3); background: rgba(0, 0, 0, 0.5); color: #fff;">
+                            <!-- Meses serão inseridos aqui -->
+                        </select>
+                        <button class="btn btn-secondary" onclick="exportarDetalhesCSV()" style="margin-left: 10px;">
+                            <i class="fas fa-download"></i> Baixar CSV
+                        </button>
+                    </div>
+                </div>
+                
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 20px; margin-bottom: 25px;">
+                    <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(220, 38, 38, 0.1); border-radius: 10px; padding: 18px;">
+                        <div style="font-size: 12px; color: var(--texto-medio); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; font-weight: 600;">Pedidos</div>
+                        <div style="font-size: 24px; font-weight: 700; color: #fff;" id="summary-pedidos">0</div>
+                    </div>
+                    <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(220, 38, 38, 0.1); border-radius: 10px; padding: 18px;">
+                        <div style="font-size: 12px; color: var(--texto-medio); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; font-weight: 600;">Bruto</div>
+                        <div style="font-size: 24px; font-weight: 700; color: #fff;" id="summary-bruto">R$ 0,00</div>
+                    </div>
+                    <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(220, 38, 38, 0.1); border-radius: 10px; padding: 18px;">
+                        <div style="font-size: 12px; color: var(--texto-medio); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; font-weight: 600;">Descontos</div>
+                        <div style="font-size: 24px; font-weight: 700; color: #fff;" id="summary-descontos">R$ 0,00</div>
+                    </div>
+                    <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(220, 38, 38, 0.1); border-radius: 10px; padding: 18px;">
+                        <div style="font-size: 12px; color: var(--texto-medio); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; font-weight: 600;">Total Líquido</div>
+                        <div style="font-size: 24px; font-weight: 700; color: var(--vermelho-claro);" id="summary-total">R$ 0,00</div>
+                    </div>
+                </div>
+                
+                <div style="background: var(--cinza-medio); border: 1px solid rgba(220, 38, 38, 0.1); border-radius: 12px; padding: 25px; margin-bottom: 25px;">
+                    <h2 style="margin: 0 0 15px 0; font-size: 18px; font-weight: 600; color: #fff;">Vendas Registradas</h2>
+                    <div id="sales-table-container-detalhes">
+                        <!-- Tabela será inserida aqui -->
+                    </div>
+                </div>
+                
+                <div style="background: var(--cinza-medio); border: 1px solid rgba(220, 38, 38, 0.1); border-radius: 12px; padding: 25px;">
+                    <h2 style="margin: 0 0 15px 0; font-size: 18px; font-weight: 600; color: #fff;">Resumo por Item</h2>
+                    <div id="items-summary-container-detalhes">
+                        <!-- Resumo será inserido aqui -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- SEÇÃO PRODUTOS -->
+            <section id="sec-produtos" class="gestor-section">
+                <div class="section-header">
+                    <h1>Produtos</h1>
+                    <button class="btn btn-primary" onclick="window.abrirModalProduto()">+ Adicionar</button>
+                </div>
+                <div class="produtos-admin-grid" id="produtos-admin-grid">
+                    <!-- Produtos serão inseridos aqui -->
+                </div>
+            </section>
+
+            <!-- SEÇÃO CUPONS -->
+            <section id="sec-cupons" class="gestor-section">
+                <div class="section-header">
+                    <h1>Cupons</h1>
+                    <button class="btn btn-primary" onclick="window.abrirModalCupomGestor()">+ Adicionar Cupom</button>
+                </div>
+                <div class="cupons-grid" id="cupons-grid">
+                    <!-- Cupons serão inseridos aqui -->
+                </div>
+            </section>
+
+            <!-- SEÇÃO CATEGORIAS -->
+            <section id="sec-categorias" class="gestor-section">
+                <div class="section-header">
+                    <h1>Categorias</h1>
+                    <button class="btn btn-primary" onclick="abrirModalCategoria()">+ Adicionar Categoria</button>
+                </div>
+                <div class="categorias-list" id="categorias-list">
+                    <!-- Categorias serão inseridas aqui -->
+                </div>
+            </section>
+
+            <!-- SEÇÃO USUÁRIOS -->
+            <section id="sec-usuarios" class="gestor-section">
+                <div class="section-header">
+                    <h1>Usuários</h1>
+                    <button class="btn btn-primary" onclick="abrirModalUsuario()">+ Adicionar Usuário</button>
+                </div>
+                <div class="usuarios-table-container">
+                    <table class="usuarios-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Usuário</th>
+                                <th>Nome</th>
+                                <th>Nível</th>
+                                <th>Status</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-usuarios">
+                            <!-- Usuários serão inseridos aqui -->
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- SEÇÃO CONDICIONAIS -->
+            <section id="sec-condicionais" class="gestor-section">
+                <div class="section-header">
+                    <h1><i class="fas fa-sliders-h"></i> Regras Condicionais</h1>
+                    <button class="btn btn-primary" onclick="abrirModalCondicional()">
+                        <i class="fas fa-plus"></i> Nova Regra
+                    </button>
+                </div>
+                
+                <div style="background: var(--cinza-medio); border-radius: 12px; padding: 25px; margin-top: 20px;">
+                    <p style="color: var(--texto-medio); margin-bottom: 20px; line-height: 1.6;">
+                        <i class="fas fa-info-circle" style="color: var(--vermelho-claro); margin-right: 8px;"></i>
+                        Configure regras automáticas que aplicam descontos, frete grátis ou outras ações baseadas em condições específicas. 
+                        As regras são aplicadas na ordem de prioridade (quanto menor o número, maior a prioridade).
+                    </p>
+                    
+                    <div id="lista-condicionais" style="display: grid; gap: 15px;">
+                        <!-- Regras condicionais serão inseridas aqui -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- SEÇÃO HORÁRIOS -->
+            <section id="sec-horarios" class="gestor-section">
+                <div class="section-header">
+                    <h1><i class="fas fa-clock"></i> Horários de Funcionamento</h1>
+                    <div style="display: flex; gap: 10px;">
+                        <button class="btn btn-success" id="btn-abrir-loja" onclick="abrirLojaManual()" style="display: none;">
+                            <i class="fas fa-door-open"></i> Abrir Loja
+                        </button>
+                        <button class="btn btn-danger" id="btn-fechar-loja" onclick="fecharLojaManual()" style="display: none;">
+                            <i class="fas fa-door-closed"></i> Fechar Loja
+                        </button>
+                        <button class="btn btn-secondary" id="btn-voltar-automatico" onclick="voltarModoAutomatico()" style="display: none;">
+                            <i class="fas fa-clock"></i> Voltar ao Automático
+                        </button>
+                    </div>
+                </div>
+                
+                <div style="background: var(--cinza-medio); border-radius: 12px; padding: 25px; margin-top: 20px;">
+                    <p style="color: var(--texto-medio); margin-bottom: 20px; line-height: 1.6;">
+                        <i class="fas fa-info-circle" style="color: var(--vermelho-claro); margin-right: 8px;"></i>
+                        Configure os horários de funcionamento da loja. Quando a loja estiver fechada, os clientes não poderão finalizar pedidos.
+                    </p>
+                    
+                    <form id="form-horarios" onsubmit="salvarHorarios(event)">
+                        <div style="background: var(--bg-primary); border: 2px solid var(--borda); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                            <h3 style="color: var(--text-primary); margin: 0 0 20px 0; font-size: 18px; display: flex; align-items: center; gap: 10px;">
+                                <i class="fas fa-calendar-week" style="color: var(--vermelho-claro);"></i> Horários por Dia da Semana
+                            </h3>
+                            
+                            <div id="horarios-dias" style="display: grid; gap: 15px;">
+                                <!-- Horários serão inseridos aqui -->
+                            </div>
+                        </div>
+                        
+                        <div style="background: var(--bg-primary); border: 2px solid var(--borda); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                            <h3 style="color: var(--text-primary); margin: 0 0 15px 0; font-size: 18px; display: flex; align-items: center; gap: 10px;">
+                                <i class="fas fa-globe-americas" style="color: var(--vermelho-claro);"></i> Configurações Gerais
+                            </h3>
+                            
+                            <div class="form-group">
+                                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 1rem; background: var(--bg-secondary); border: 2px solid var(--borda); border-radius: var(--radius-md); transition: var(--transition-normal);" 
+                                       onmouseover="this.style.borderColor='var(--vermelho-claro)'; this.style.background='var(--accent-light)'" 
+                                       onmouseout="this.style.borderColor='var(--borda)'; this.style.background='var(--bg-secondary)'">
+                                    <input type="checkbox" id="horarios-ativo" checked>
+                                    <span style="font-weight: 600; color: var(--text-primary);">
+                                        <i class="fas fa-toggle-on" style="color: var(--sucesso);"></i> Sistema de horários ativo
+                                    </span>
+                                </label>
+                                <small style="color: var(--text-secondary); font-size: 0.85rem; display: block; margin-top: 0.5rem; margin-left: 2.5rem;">
+                                    Quando desativado, a loja fica sempre aberta
+                                </small>
+                            </div>
+                            
+                            <div class="form-group" style="margin-top: 15px;">
+                                <label class="form-label">Fuso Horário</label>
+                                <select class="form-select" id="horarios-fuso">
+                                    <option value="America/Sao_Paulo" selected>Brasília (GMT-3)</option>
+                                    <option value="America/Manaus">Manaus (GMT-4)</option>
+                                    <option value="America/Rio_Branco">Rio Branco (GMT-5)</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div style="background: var(--bg-primary); border: 2px solid var(--borda); border-radius: 12px; padding: 20px; margin-bottom: 20px;">
+                            <h3 style="color: var(--text-primary); margin: 0 0 15px 0; font-size: 18px; display: flex; align-items: center; gap: 10px;">
+                                <i class="fas fa-eye" style="color: var(--vermelho-claro);"></i> Status Atual
+                            </h3>
+                            <div id="horarios-status" style="padding: 15px; background: var(--bg-secondary); border-radius: 8px;">
+                                <!-- Status será atualizado aqui -->
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">
+                            <i class="fas fa-save"></i> Salvar Horários
+                        </button>
+                    </form>
+                </div>
+            </section>
+
+            <!-- SEÇÃO CONFIGURAÇÕES -->
+            <section id="sec-configuracoes" class="gestor-section">
+                <div class="section-header">
+                    <h1>Configurações</h1>
+                </div>
+                <div class="config-container">
+                    <form id="form-config">
+                        <div class="form-group">
+                            <label class="form-label">Nome do Estabelecimento</label>
+                            <input type="text" class="form-input" id="config-nome" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Chave PIX</label>
+                            <input type="text" class="form-input" id="config-pix" required>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Telefone</label>
+                            <input type="text" class="form-input" id="config-telefone">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Endereço</label>
+                            <input type="text" class="form-input" id="config-endereco">
+                        </div>
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">Taxa de Entrega (R$)</label>
+                                <input type="number" step="0.01" class="form-input" id="config-taxa">
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Tempo de Preparo (min)</label>
+                                <input type="number" class="form-input" id="config-tempo">
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Salvar</button>
+                    </form>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- MODAL DETALHES DO PEDIDO -->
+    <div class="modal-overlay" id="modal-pedido">
+        <div class="modal modal-large">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-pedido-titulo">Detalhes do Pedido</h2>
+                <button class="modal-close" onclick="fecharModalPedido()"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="modal-pedido-conteudo">
+                <!-- Conteúdo será inserido aqui -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL PRODUTO -->
+    <div class="modal-overlay" id="modal-produto">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-produto-titulo">Adicionar Produto</h2>
+                <button class="modal-close" onclick="fecharModal('modal-produto')"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="form-produto">
+                <input type="hidden" id="produto-id">
+                <div class="form-group">
+                    <label class="form-label">Nome *</label>
+                    <input type="text" class="form-input" id="produto-nome" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Descrição</label>
+                    <textarea class="form-textarea" id="produto-descricao"></textarea>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Preço (R$) *</label>
+                        <input type="number" step="0.01" class="form-input" id="produto-preco" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Categoria *</label>
+                        <select class="form-select" id="produto-categoria" required>
+                            <!-- Categorias serão inseridas aqui -->
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- SEÇÃO DE DESCONTO -->
+                <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px; margin: 20px 0; border: 2px solid var(--borda);">
+                    <h3 style="color: var(--text-primary); margin: 0 0 15px 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-tag" style="color: var(--vermelho-claro);"></i> Desconto no Produto
+                    </h3>
+                    
+                    <div class="form-group">
+                        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 1rem; background: var(--bg-primary); border: 2px solid var(--borda); border-radius: var(--radius-md); transition: var(--transition-normal);" 
+                               onmouseover="this.style.borderColor='var(--vermelho-claro)'; this.style.background='var(--accent-light)'" 
+                               onmouseout="this.style.borderColor='var(--borda)'; this.style.background='var(--bg-primary)'">
+                            <input type="checkbox" id="produto-desconto-ativo" onchange="toggleDescontoProduto()">
+                            <span style="font-weight: 600; color: var(--text-primary);">
+                                <i class="fas fa-tag" style="color: var(--vermelho-claro);"></i> Aplicar desconto neste produto
+                            </span>
+                        </label>
+                    </div>
+                    
+                    <div id="produto-desconto-campos" style="display: none; margin-top: 15px;">
+                        <div class="form-grid">
+                            <div class="form-group">
+                                <label class="form-label">Tipo de Desconto</label>
+                                <select class="form-select" id="produto-desconto-tipo" onchange="atualizarCampoDesconto()">
+                                    <option value="percentual">Percentual (%)</option>
+                                    <option value="fixo">Valor Fixo (R$)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label" id="produto-desconto-valor-label">Valor do Desconto</label>
+                                <input type="number" step="0.01" class="form-input" id="produto-desconto-valor" min="0" placeholder="0.00">
+                            </div>
+                        </div>
+                        <small style="color: var(--text-secondary); font-size: 0.85rem; display: block; margin-top: 0.5rem;">
+                            <i class="fas fa-info-circle"></i> O desconto será aplicado no cardápio, mostrando o preço original riscado e o novo preço.
+                        </small>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="produto-ativo" checked>
+                        <span>Produto ativo</span>
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Salvar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL PRODUTO -->
+    <div class="modal-overlay" id="modal-produto">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-produto-titulo">Adicionar Produto</h2>
+                <button class="modal-close" onclick="fecharModal('modal-produto')"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="form-produto">
+                <input type="hidden" id="produto-id">
+                <div class="form-group">
+                    <label class="form-label">Nome *</label>
+                    <input type="text" class="form-input" id="produto-nome" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Descrição</label>
+                    <textarea class="form-textarea" id="produto-descricao"></textarea>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Preço (R$) *</label>
+                        <input type="number" step="0.01" class="form-input" id="produto-preco" required>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Categoria *</label>
+                        <select class="form-select" id="produto-categoria" required>
+                            <!-- Categorias serão inseridas aqui -->
+                        </select>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Imagem do Produto</label>
+                    <div class="image-upload-container">
+                        <div class="image-preview" id="produto-imagem-preview">
+                            <div class="image-preview-placeholder">Foto</div>
+                        </div>
+                        <div class="file-input-wrapper">
+                            <input type="file" id="produto-imagem-input" accept="image/*" onchange="window.previewImagemProdutoGestor(event)">
+                            <label for="produto-imagem-input" class="file-input-label">
+                                Clique para adicionar imagem
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="produto-ativo" checked>
+                        <span>Produto ativo</span>
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Salvar</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL CUPOM -->
+    <div class="modal-overlay" id="modal-cupom">
+        <div class="modal">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-cupom-titulo">Adicionar Cupom</h2>
+                <button class="modal-close" onclick="fecharModal('modal-cupom')"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="form-cupom" onsubmit="salvarCupomGestor(event)">
+                <input type="hidden" id="cupom-id">
+                <div class="form-group">
+                    <label class="form-label">Código do Cupom *</label>
+                    <input type="text" class="form-input" id="cupom-codigo-input" required placeholder="Ex: DESCONTO10" style="text-transform: uppercase;">
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Tipo *</label>
+                        <select class="form-select" id="cupom-tipo" required>
+                            <option value="percentual">Percentual (%)</option>
+                            <option value="fixo">Valor Fixo (R$)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Valor *</label>
+                        <input type="number" step="0.01" class="form-input" id="cupom-valor" required placeholder="Ex: 10">
+                    </div>
+                </div>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label class="form-label">Valor Mínimo (R$)</label>
+                        <input type="number" step="0.01" class="form-input" id="cupom-minimo" placeholder="0">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">Limite de Usos</label>
+                        <input type="number" class="form-input" id="cupom-limite" placeholder="Ilimitado">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Validade</label>
+                    <input type="date" class="form-input" id="cupom-validade">
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 1rem; background: var(--bg-secondary); border: 2px solid var(--borda); border-radius: var(--radius-md); transition: var(--transition-normal);" onmouseover="this.style.borderColor='var(--vermelho-claro)'; this.style.background='var(--accent-light)'" onmouseout="this.style.borderColor='var(--borda)'; this.style.background='var(--bg-secondary)'">
+                        <input type="checkbox" id="cupom-frete-gratis" onchange="toggleFreteGratis()" style="width: 20px; height: 20px; cursor: pointer;">
+                        <span style="font-weight: 600; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;"><i class="fas fa-truck" style="color: var(--vermelho-claro);"></i> Frete Grátis?</span>
+                    </label>
+                </div>
+                <div class="form-group" id="cupom-distancia-container" style="display: none;">
+                    <label class="form-label"><i class="fas fa-route"></i> Distância Máxima para Frete Grátis (km)</label>
+                    <input type="number" step="0.1" class="form-input" id="cupom-distancia-max" placeholder="Ex: 5.0" min="0">
+                    <small style="color: var(--text-secondary); font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem; margin-top: 0.5rem;"><i class="fas fa-info-circle" style="color: var(--text-muted);"></i> Deixe vazio para frete grátis sem limite de distância</small>
+                </div>
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="cupom-ativo" checked>
+                        <span>Cupom ativo</span>
+                    </label>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">Salvar Cupom</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL CONDICIONAL -->
+    <div class="modal-overlay" id="modal-condicional">
+        <div class="modal" style="max-width: 700px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-condicional-titulo">Nova Regra Condicional</h2>
+                <button class="modal-close" onclick="fecharModal('modal-condicional')"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="form-condicional" onsubmit="salvarCondicional(event)">
+                <input type="hidden" id="condicional-id">
+                
+                <div class="form-group">
+                    <label class="form-label">Nome da Regra *</label>
+                    <input type="text" class="form-input" id="condicional-nome" required placeholder="Ex: Desconto PIX 5%">
+                </div>
+                
+                <div class="form-group">
+                    <label class="form-label">Prioridade *</label>
+                    <input type="number" class="form-input" id="condicional-prioridade" required min="1" value="1" placeholder="1">
+                    <small style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.5rem; display: block;">
+                        <i class="fas fa-info-circle"></i> Quanto menor o número, maior a prioridade (1 = maior prioridade)
+                    </small>
+                </div>
+                
+                <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px; margin: 20px 0; border: 2px solid var(--borda);">
+                    <h3 style="color: var(--text-primary); margin: 0 0 15px 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-filter" style="color: var(--vermelho-claro);"></i> Condições (quando aplicar)
+                    </h3>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Forma de Pagamento</label>
+                        <select class="form-select" id="condicional-pagamento">
+                            <option value="">Qualquer forma</option>
+                            <option value="pix">PIX</option>
+                            <option value="dinheiro">Dinheiro</option>
+                            <option value="cartao">Cartão</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label class="form-label">Valor Mínimo do Pedido (R$)</label>
+                            <input type="number" step="0.01" class="form-input" id="condicional-valor-min" placeholder="0.00" min="0">
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Quantidade Mínima de Itens</label>
+                            <input type="number" class="form-input" id="condicional-qtd-min" placeholder="0" min="0">
+                        </div>
+                    </div>
+                </div>
+                
+                <div style="background: var(--bg-secondary); padding: 20px; border-radius: 12px; margin: 20px 0; border: 2px solid var(--borda);">
+                    <h3 style="color: var(--text-primary); margin: 0 0 15px 0; font-size: 16px; display: flex; align-items: center; gap: 8px;">
+                        <i class="fas fa-bolt" style="color: var(--vermelho-claro);"></i> Ações (o que fazer)
+                    </h3>
+                    
+                    <div class="form-group">
+                        <label class="form-label">Tipo de Desconto</label>
+                        <select class="form-select" id="condicional-acao-tipo" required>
+                            <option value="desconto_percentual">Desconto Percentual (%)</option>
+                            <option value="desconto_fixo">Desconto Fixo (R$)</option>
+                            <option value="frete_gratis">Frete Grátis</option>
+                            <option value="desconto_percentual_frete_gratis">Desconto % + Frete Grátis</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-grid" id="condicional-valor-container">
+                        <div class="form-group">
+                            <label class="form-label" id="condicional-valor-label">Valor do Desconto *</label>
+                            <input type="number" step="0.01" class="form-input" id="condicional-acao-valor" placeholder="0.00" min="0">
+                        </div>
+                        <div class="form-group" id="condicional-distancia-container" style="display: none;">
+                            <label class="form-label">Distância Máxima para Frete Grátis (km)</label>
+                            <input type="number" step="0.1" class="form-input" id="condicional-distancia-max" placeholder="Sem limite" min="0">
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="condicional-ativo" checked>
+                        <span>Regra ativa</span>
+                    </label>
+                </div>
+                
+                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                    <i class="fas fa-save"></i> Salvar Regra
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="js/database.js"></script>
+    <script src="js/auth.js"></script>
+    <script src="js/gestor.js"></script>
+    <script>
+        // Preview de imagem no gestor
+        let produtoImagemBase64Gestor = '';
+
+        window.previewImagemProdutoGestor = function(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    produtoImagemBase64Gestor = e.target.result;
+                    const preview = document.getElementById('produto-imagem-preview');
+                    preview.innerHTML = '<img src="' + produtoImagemBase64Gestor + '" alt="Preview">';
+                };
+                reader.readAsDataURL(file);
+            }
+        };
+
+        // Salvar produto no gestor
+        document.getElementById('form-produto')?.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const id = document.getElementById('produto-id').value;
+            const nome = document.getElementById('produto-nome').value;
+            const descricao = document.getElementById('produto-descricao').value;
+            const preco = parseFloat(document.getElementById('produto-preco').value);
+            const categoria = document.getElementById('produto-categoria').value;
+            const ativo = document.getElementById('produto-ativo').checked;
+            
+            // Determinar ID do produto (novo ou existente)
+            let produtoId = id ? parseInt(id) : null;
+            if (!produtoId) {
+                const ids = db.data.produtos.map(function(p) { return p.id || 0; });
+                produtoId = ids.length > 0 ? Math.max.apply(null, ids) + 1 : 1;
+            }
+            
+            // Salvar imagem no servidor se houver nova imagem
+            let imagemUrl = id ? (db.getProduto(parseInt(id)) ? db.getProduto(parseInt(id)).imagem : '') : '';
+            
+            if (produtoImagemBase64Gestor) {
+                try {
+                    const response = await fetch(window.location.origin + '/api/upload-imagem', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            imagemBase64: produtoImagemBase64Gestor,
+                            produtoId: produtoId,
+                            nomeProduto: nome
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        imagemUrl = result.url || result.caminho || produtoImagemBase64Gestor;
+                        console.log('Imagem salva com sucesso:', imagemUrl);
+                    } else {
+                        const errorText = await response.text();
+                        console.error('Erro ao salvar imagem no servidor:', errorText);
+                        // Se falhar, usar base64 como fallback
+                        imagemUrl = produtoImagemBase64Gestor;
+                    }
+                } catch (error) {
+                    console.error('Erro ao salvar imagem:', error);
+                    // Usar base64 como fallback
+                    imagemUrl = produtoImagemBase64Gestor;
+                }
+            }
+
+            if (!db.data.produtos) db.data.produtos = [];
+
+            if (id) {
+                const index = db.data.produtos.findIndex(function(p) { return p.id === parseInt(id); });
+                if (index !== -1) {
+                    const produtoAtual = db.data.produtos[index];
+                    db.data.produtos[index] = {
+                        id: produtoAtual.id,
+                        nome: nome,
+                        descricao: descricao,
+                        preco: preco,
+                        categoria: categoria,
+                        ativo: ativo,
+                        imagem: imagemUrl,
+                        dataCadastro: produtoAtual.dataCadastro || new Date().toISOString()
+                    };
+                }
+            } else {
+                // Obter dados de desconto
+                const descontoAtivo = document.getElementById('produto-desconto-ativo').checked;
+                const descontoTipo = document.getElementById('produto-desconto-tipo').value;
+                const descontoValor = parseFloat(document.getElementById('produto-desconto-valor').value) || 0;
+                
+                let desconto = null;
+                if (descontoAtivo && descontoValor > 0) {
+                    desconto = {
+                        ativo: true,
+                        tipo: descontoTipo,
+                        valor: descontoValor
+                    };
+                }
+                
+                db.data.produtos.push({
+                    id: produtoId,
+                    nome: nome,
+                    descricao: descricao,
+                    preco: preco,
+                    categoria: categoria,
+                    ativo: ativo,
+                    imagem: imagemUrl,
+                    desconto: desconto
+                });
+            }
+
+            // IMPORTANTE: Salvar no database.json também
+            db.saveData();
+            
+            // Salvar produtos no servidor para persistência
+            try {
+                const response = await fetch(window.location.origin + '/api/produtos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(db.data.produtos || [])
+                });
+                
+                if (response.ok) {
+                    console.log('Produtos salvos no servidor');
+                }
+            } catch (e) {
+                console.warn('Erro ao salvar produtos no servidor:', e);
+            }
+            
+            if (typeof renderizarProdutos === 'function') {
+                renderizarProdutos();
+            }
+            if (typeof fecharModal === 'function') {
+                fecharModal('modal-produto');
+            }
+            produtoImagemBase64Gestor = '';
+            const preview = document.getElementById('produto-imagem-preview');
+            if (preview) {
+                preview.innerHTML = '<div class="image-preview-placeholder">Foto</div>';
+            }
+        });
+
+        // Definir função abrirModalProduto
+        window.abrirModalProduto = function(produtoId = null) {
+            produtoImagemBase64Gestor = '';
+            const modal = document.getElementById('modal-produto');
+            const titulo = document.getElementById('modal-produto-titulo');
+            const form = document.getElementById('form-produto');
+            
+            if (produtoId) {
+                const produto = db.getProduto(produtoId);
+                if (produto) {
+                    titulo.textContent = 'Editar Produto';
+                    document.getElementById('produto-id').value = produto.id;
+                    document.getElementById('produto-nome').value = produto.nome;
+                    document.getElementById('produto-descricao').value = produto.descricao || '';
+                    document.getElementById('produto-preco').value = produto.preco;
+                    document.getElementById('produto-categoria').value = produto.categoria;
+                    document.getElementById('produto-ativo').checked = produto.ativo !== false;
+                    
+                    // Carregar dados de desconto
+                    if (produto.desconto && produto.desconto.ativo) {
+                        document.getElementById('produto-desconto-ativo').checked = true;
+                        document.getElementById('produto-desconto-tipo').value = produto.desconto.tipo || 'percentual';
+                        document.getElementById('produto-desconto-valor').value = produto.desconto.valor || '';
+                        document.getElementById('produto-desconto-campos').style.display = 'block';
+                        if (typeof atualizarCampoDesconto === 'function') {
+                            atualizarCampoDesconto();
+                        }
+                    } else {
+                        document.getElementById('produto-desconto-ativo').checked = false;
+                        document.getElementById('produto-desconto-campos').style.display = 'none';
+                        document.getElementById('produto-desconto-tipo').value = 'percentual';
+                        document.getElementById('produto-desconto-valor').value = '';
+                    }
+                    
+                    const preview = document.getElementById('produto-imagem-preview');
+                    if (produto.imagem) {
+                        const imagemUrl = produto.imagem.startsWith('http') || produto.imagem.startsWith('/') ? produto.imagem : '/Fotos/' + produto.imagem;
+                        preview.innerHTML = '<img src="' + imagemUrl + '" alt="Preview" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">';
+                    } else {
+                        preview.innerHTML = '<div class="image-preview-placeholder">Foto</div>';
+                    }
+                }
+            } else {
+                titulo.textContent = 'Adicionar Produto';
+                form.reset();
+                document.getElementById('produto-id').value = '';
+                document.getElementById('produto-imagem-preview').innerHTML = '<div class="image-preview-placeholder">📷</div>';
+                document.getElementById('produto-desconto-ativo').checked = false;
+                document.getElementById('produto-desconto-campos').style.display = 'none';
+            }
+
+            const select = document.getElementById('produto-categoria');
+            const categorias = db.getCategorias();
+            select.innerHTML = categorias.map(function(cat) {
+                return '<option value="' + cat + '">' + cat + '</option>';
+            }).join('');
+
+            modal.classList.add('active');
+        };
+    </script>
+    <script>
+        // Verificar autenticação
+        if (!auth.isManager()) {
+            window.location.href = 'index.html';
+        }
+
+        // Link admin removido - todas as funcionalidades estão no gestor
+
+        function fazerLogout() {
+            auth.logout();
+            window.location.href = 'index.html';
+        }
+    </script>
+</body>
+</html>
+
+

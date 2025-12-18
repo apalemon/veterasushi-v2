@@ -1,0 +1,703 @@
+/* ============================================
+   GESTOR DE PEDIDOS - DESIGN MODERNO
+   ============================================ */
+
+.gestor-container {
+  display: flex;
+  min-height: calc(100vh - 80px);
+  background: var(--bg);
+  gap: 0;
+}
+
+/* SIDEBAR MODERNA */
+.gestor-sidebar {
+  width: 300px;
+  background: var(--bg-secondary);
+  backdrop-filter: blur(20px);
+  border-right: 2px solid var(--borda);
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  position: sticky;
+  top: 80px;
+  height: calc(100vh - 80px);
+  overflow-y: auto;
+  box-shadow: 4px 0 20px rgba(0, 0, 0, 0.4);
+}
+
+.sidebar-header {
+  padding-bottom: 2rem;
+  border-bottom: 2px solid var(--borda);
+}
+
+.sidebar-header h2 {
+  color: var(--vermelho-claro);
+  margin-bottom: 1rem;
+  font-size: 1.6rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.sidebar-header h2 i {
+  font-size: 1.5rem;
+}
+
+.db-status {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  padding: 0.5rem 1rem;
+  background: var(--card);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--borda);
+}
+
+.status-indicator {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--sucesso);
+  animation: pulse 2s infinite;
+  box-shadow: 0 0 8px var(--sucesso);
+}
+
+@keyframes pulse {
+  0%, 100% { 
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% { 
+    opacity: 0.6;
+    transform: scale(1.2);
+  }
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  color: var(--text-primary);
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: var(--transition-normal);
+  cursor: pointer;
+  border: 2px solid transparent;
+  font-weight: 500;
+}
+
+.nav-item:hover {
+  background: var(--accent-light);
+  border-color: var(--borda-hover);
+  transform: translateX(5px);
+  color: var(--vermelho-claro);
+}
+
+.nav-item.active {
+  background: var(--gradient-primary);
+  color: var(--text-primary);
+  border-color: var(--vermelho-claro);
+  box-shadow: 0 4px 15px var(--sombra-vermelha);
+}
+
+.nav-icon {
+  font-size: 1.2rem;
+  width: 24px;
+  text-align: center;
+}
+
+/* CONTEÚDO PRINCIPAL */
+.gestor-main {
+  flex: 1;
+  padding: 2.5rem;
+  overflow-y: auto;
+  background: var(--bg);
+}
+
+.gestor-section {
+  display: none;
+  animation: fadeIn 0.3s ease;
+}
+
+.gestor-section.active {
+  display: block;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2.5rem;
+  flex-wrap: wrap;
+  gap: 1.5rem;
+  padding-bottom: 1.5rem;
+  border-bottom: 2px solid var(--borda);
+}
+
+.section-header h1 {
+  color: var(--vermelho-claro);
+  font-size: 2.25rem;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.section-header h1 i {
+  font-size: 2rem;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.search-input {
+  padding: 0.85rem 1.25rem;
+  background: var(--bg-secondary);
+  border: 2px solid var(--borda);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  min-width: 280px;
+  transition: var(--transition-normal);
+}
+
+.search-input:focus {
+  outline: none;
+  border-color: var(--vermelho-claro);
+  box-shadow: 0 0 0 4px var(--accent-light);
+  background: var(--cinza-medio);
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.status-badge {
+  background: var(--gradient-primary);
+  color: var(--text-primary);
+  padding: 0.65rem 1.25rem;
+  border-radius: var(--radius-lg);
+  font-weight: 700;
+  font-size: 0.9rem;
+  animation: bounce 1s infinite;
+  box-shadow: 0 4px 15px var(--sombra-vermelha);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+@keyframes bounce {
+  0%, 100% { 
+    transform: translateY(0);
+  }
+  50% { 
+    transform: translateY(-5px);
+  }
+}
+
+/* FILTROS MODERNOS */
+.filtros-container {
+  display: flex;
+  gap: 1rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.filtro-btn {
+  padding: 0.85rem 1.75rem;
+  background: var(--card);
+  border: 2px solid var(--borda);
+  color: var(--text-primary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: var(--transition-normal);
+  font-weight: 600;
+  font-size: 0.95rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.filtro-btn:hover {
+  background: var(--accent-light);
+  border-color: var(--vermelho-claro);
+  transform: translateY(-2px);
+}
+
+.filtro-btn.active {
+  background: var(--gradient-primary);
+  border-color: var(--vermelho-claro);
+  color: var(--text-primary);
+  box-shadow: 0 4px 15px var(--sombra-vermelha);
+}
+
+/* GRID DE PEDIDOS MODERNO */
+.pedidos-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(380px, 1fr));
+  gap: 2rem;
+}
+
+.pedido-card-gestor {
+  background: var(--card);
+  border: 2px solid var(--borda);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  transition: var(--transition-normal);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--sombra-card);
+}
+
+.pedido-card-gestor::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--gradient-primary);
+  transform: scaleX(0);
+  transition: var(--transition-normal);
+}
+
+.pedido-card-gestor:hover {
+  border-color: var(--vermelho-claro);
+  box-shadow: var(--sombra-card-hover);
+  transform: translateY(-3px);
+}
+
+.pedido-card-gestor:hover::before {
+  transform: scaleX(1);
+}
+
+.pedido-card-gestor.novo {
+  animation: slideInRight 0.5s ease;
+  border-color: var(--sucesso);
+}
+
+.pedido-card-gestor.novo::before {
+  background: var(--sucesso);
+  transform: scaleX(1);
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.pedido-header-gestor {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.pedido-id-gestor {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--vermelho-claro);
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pedido-id-gestor::before {
+  content: '#';
+  opacity: 0.6;
+}
+
+.pedido-status-badge {
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-md);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-pendente {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--aviso);
+  border: 1px solid var(--aviso);
+}
+
+.status-aguardando_pagamento {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--aviso);
+  border: 1px solid var(--aviso);
+}
+
+.status-pago {
+  background: rgba(34, 197, 94, 0.2);
+  color: var(--sucesso);
+  border: 1px solid var(--sucesso);
+}
+
+.status-em_preparo {
+  background: rgba(59, 130, 246, 0.2);
+  color: #3b82f6;
+  border: 1px solid #3b82f6;
+}
+
+.status-finalizado,
+.status-concluido {
+  background: rgba(34, 197, 94, 0.2);
+  color: var(--sucesso);
+  border: 1px solid var(--sucesso);
+}
+
+.status-recusado {
+  background: rgba(239, 68, 68, 0.2);
+  color: var(--erro);
+  border: 1px solid var(--erro);
+}
+
+.pedido-info-gestor {
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pedido-info-gestor strong {
+  color: var(--text-primary);
+  font-weight: 600;
+  min-width: 100px;
+}
+
+.pedido-info-gestor i {
+  color: var(--vermelho-claro);
+  font-size: 0.85rem;
+  width: 16px;
+}
+
+.pedido-total-gestor {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--vermelho-claro);
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 2px solid var(--borda);
+  display: flex;
+  align-items: baseline;
+  gap: 0.25rem;
+}
+
+.pedido-total-gestor::before {
+  content: 'Total:';
+  font-size: 1rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+  margin-right: 0.25rem;
+}
+
+/* MODAL GRANDE */
+.modal-large {
+  max-width: 900px;
+  width: 100%;
+}
+
+/* PRODUTOS ADMIN */
+.produtos-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 2rem;
+}
+
+.produto-card-admin {
+  background: var(--card);
+  border: 2px solid var(--borda);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  transition: var(--transition-normal);
+}
+
+.produto-card-admin:hover {
+  border-color: var(--vermelho-claro);
+  box-shadow: var(--sombra-card-hover);
+  transform: translateY(-3px);
+}
+
+/* CUPONS GRID */
+.cupons-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 2rem;
+}
+
+.cupom-card-admin {
+  background: var(--card);
+  border: 2px solid var(--borda);
+  border-radius: var(--radius-lg);
+  padding: 1.75rem;
+  transition: var(--transition-normal);
+}
+
+.cupom-card-admin:hover {
+  border-color: var(--vermelho-claro);
+  box-shadow: var(--sombra-card-hover);
+  transform: translateY(-3px);
+}
+
+/* RESPONSIVIDADE GESTOR */
+@media (max-width: 1024px) {
+  .gestor-container {
+    flex-direction: column;
+  }
+
+  .gestor-sidebar {
+    width: 100%;
+    position: relative;
+    top: 0;
+    height: auto;
+    max-height: none;
+    border-right: none;
+    border-bottom: 2px solid var(--borda);
+    flex-direction: row;
+    overflow-x: auto;
+    padding: 1rem;
+  }
+
+  .sidebar-header {
+    padding-bottom: 0;
+    border-bottom: none;
+    border-right: 2px solid var(--borda);
+    padding-right: 1.5rem;
+    margin-right: 1.5rem;
+    min-width: 200px;
+  }
+
+  .sidebar-nav {
+    flex-direction: row;
+    gap: 0.75rem;
+    overflow-x: auto;
+  }
+
+  .nav-item {
+    white-space: nowrap;
+    min-width: fit-content;
+  }
+
+  .gestor-main {
+    padding: 1.5rem;
+  }
+
+  .section-header h1 {
+    font-size: 1.75rem;
+  }
+
+  .pedidos-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .produtos-admin-grid,
+  .cupons-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .gestor-sidebar {
+    padding: 1rem 0.75rem;
+  }
+
+  .sidebar-header {
+    min-width: 150px;
+    padding-right: 1rem;
+    margin-right: 1rem;
+  }
+
+  .sidebar-header h2 {
+    font-size: 1.3rem;
+  }
+
+  .nav-item {
+    padding: 0.75rem 1rem;
+    font-size: 0.85rem;
+  }
+
+  .nav-icon {
+    font-size: 1rem;
+  }
+
+  .gestor-main {
+    padding: 1.25rem;
+  }
+
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .section-header h1 {
+    font-size: 1.5rem;
+  }
+
+  .header-actions {
+    width: 100%;
+  }
+
+  .search-input {
+    min-width: 100%;
+  }
+
+  .filtros-container {
+    overflow-x: auto;
+    padding-bottom: 0.5rem;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .filtro-btn {
+    white-space: nowrap;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.85rem;
+  }
+
+  .pedido-card-gestor {
+    padding: 1.25rem;
+  }
+
+  .pedido-header-gestor {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+
+  .pedido-id-gestor {
+    font-size: 1.3rem;
+  }
+
+  .pedido-status-badge {
+    font-size: 0.75rem;
+    padding: 0.4rem 0.8rem;
+  }
+
+  .pedido-info-gestor {
+    font-size: 0.85rem;
+  }
+
+  .pedido-total-gestor {
+    font-size: 1.2rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .gestor-sidebar {
+    padding: 0.75rem 0.5rem;
+  }
+
+  .sidebar-header {
+    min-width: 120px;
+    padding-right: 0.75rem;
+    margin-right: 0.75rem;
+  }
+
+  .sidebar-header h2 {
+    font-size: 1.1rem;
+  }
+
+  .nav-item {
+    padding: 0.65rem 0.85rem;
+    font-size: 0.8rem;
+  }
+
+  .gestor-main {
+    padding: 1rem;
+  }
+
+  .section-header h1 {
+    font-size: 1.3rem;
+  }
+
+  .filtro-btn {
+    padding: 0.65rem 1rem;
+    font-size: 0.8rem;
+  }
+
+  .pedido-card-gestor {
+    padding: 1rem;
+  }
+
+  .pedido-id-gestor {
+    font-size: 1.1rem;
+  }
+
+  .pedido-total-gestor {
+    font-size: 1.1rem;
+  }
+
+  .modal-large {
+    padding: 1.5rem;
+  }
+}
+
+/* Touch Devices */
+@media (hover: none) and (pointer: coarse) {
+  .filtro-btn,
+  .pedido-card-gestor,
+  .nav-item,
+  .btn {
+    min-height: 44px;
+    -webkit-user-select: none;
+    -webkit-tap-highlight-color: rgba(220, 38, 38, 0.2);
+  }
+}
+
+/* Scrollbar personalizada */
+.gestor-sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.gestor-sidebar::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+
+.gestor-sidebar::-webkit-scrollbar-thumb {
+  background: var(--gradient-primary);
+  border-radius: 4px;
+}
+
+.gestor-sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--gradient-hover);
+}
