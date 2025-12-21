@@ -104,6 +104,26 @@ document.addEventListener('DOMContentLoaded', async function() {
     renderizarHorarios();
     
     carregarConfiguracoes();
+
+    // Attach fallback click handlers to ensure modals open reliably and to log clicks
+    try {
+        document.querySelectorAll('button[onclick*="abrirModalPagamento"]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                console.log('[GESTOR] fallback click abrirModalPagamento');
+                try { abrirModalPagamento(); } catch (err) { console.error('[GESTOR] abrirModalPagamento error (fallback)', err); }
+                e.preventDefault();
+            });
+        });
+        document.querySelectorAll('button[onclick*="abrirModalDestaque"]').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                console.log('[GESTOR] fallback click abrirModalDestaque');
+                try { abrirModalDestaque(); } catch (err) { console.error('[GESTOR] abrirModalDestaque error (fallback)', err); }
+                e.preventDefault();
+            });
+        });
+    } catch (err) {
+        console.error('[GESTOR] Erro ao anexar fallback handlers:', err);
+    }
     
     // Verificar status da loja periodicamente
     setInterval(async () => {
@@ -1900,8 +1920,9 @@ window.abrirModalUsuario = abrirModalUsuario;
 window.editarUsuarioGestor = editarUsuarioGestor;
 // Destaques (gestor)
 function abrirModalDestaque(destaque = null) {
+    console.log('[GESTOR] abrirModalDestaque init', destaque);
     const modal = document.getElementById('modal-destaque');
-    if (!modal) return;
+    if (!modal) { console.warn('[GESTOR] modal-destaque not found'); return; }
 
     // Allow passing id as parameter
     let destaqueObj = null;
@@ -3279,9 +3300,10 @@ function carregarPagamentos() {
 }
 
 function abrirModalPagamento(id = null) {
+    console.log('[GESTOR] abrirModalPagamento init', id);
     try {
         const modal = document.getElementById('modal-pagamento');
-        if (!modal) return;
+        if (!modal) { console.warn('[GESTOR] modal-pagamento not found'); return; }
 
         // Open immediately so user sees modal even if something else fails
         modal.classList.add('active');
