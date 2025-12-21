@@ -45,6 +45,20 @@ function sanitizeId(value) {
     return isNaN(id) || id <= 0 ? null : id;
 }
 
+// Função utilitária: gerar slug amigável para URLs a partir do nome da loja
+function slugify(str) {
+    if (!str) return '';
+    // Remover acentos
+    const from = 'ÁÀÂÃÄáàâãäÉÈÊËéèêëÍÌÎÏíìîïÓÒÔÕÖóòôõöÚÙÛÜúùûüÇçÑñ';
+    const to   = 'AAAAAaaaaaEEEEeeeeIIIIiiiiOOOOOoooooUUUUuuuuCcNn';
+    let s = String(str).trim();
+    for (let i = 0; i < from.length; i++) {
+        s = s.replace(new RegExp(from.charAt(i), 'g'), to.charAt(i));
+    }
+    s = s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+    return s;
+}
+
 // Exportar funções
 if (typeof window !== 'undefined') {
     window.sanitizeHTML = sanitizeHTML;
@@ -52,4 +66,5 @@ if (typeof window !== 'undefined') {
     window.sanitizeInput = sanitizeInput;
     window.sanitizeNumber = sanitizeNumber;
     window.sanitizeId = sanitizeId;
+    window.slugify = slugify;
 }

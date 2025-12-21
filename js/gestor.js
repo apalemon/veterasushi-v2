@@ -3088,6 +3088,21 @@ function carregarConfiguracoes() {
     if (enderecoEl) enderecoEl.value = config.endereco || '';
     if (taxaEl) taxaEl.value = config.taxaEntrega || 0;
     if (tempoEl) tempoEl.value = config.tempoPreparo || 30;
+
+    // Mostrar URLs públicas se já houver slug
+    const urlsList = document.getElementById('config-urls-list');
+    const urlsWrap = document.getElementById('config-urls');
+    if (urlsList && urlsWrap) {
+        const slug = config.slug || '';
+        if (slug) {
+            const base = window.location.origin + '/' + slug;
+            urlsList.innerHTML = `<div style="display:flex; flex-direction:column; gap:6px;"><div><strong>Cardápio:</strong> <a href="${base}/cardapio" target="_blank">${base}/cardapio</a></div><div><strong>Gestor:</strong> <a href="${base}/gestor" target="_blank">${base}/gestor</a></div></div>`;
+            urlsWrap.style.display = 'block';
+        } else {
+            urlsList.innerHTML = '';
+            urlsWrap.style.display = 'none';
+        }
+    }
 }
 
 // Salvar configurações
@@ -3095,8 +3110,11 @@ const formConfig = document.getElementById('form-config');
 if (formConfig) {
     formConfig.addEventListener('submit', function(e) {
         e.preventDefault();
+        const nomeLoja = document.getElementById('config-nome').value.trim();
+        const slug = (typeof window.slugify === 'function' ? window.slugify(nomeLoja) : nomeLoja.toLowerCase().replace(/[^a-z0-9]+/g,'-')) || '';
         db.atualizarConfiguracoes({
-            nomeEstabelecimento: document.getElementById('config-nome').value,
+            nomeEstabelecimento: nomeLoja,
+            slug: slug,
             chavePix: document.getElementById('config-pix').value,
             telefone: document.getElementById('config-telefone').value,
             endereco: document.getElementById('config-endereco').value,
@@ -3105,6 +3123,15 @@ if (formConfig) {
         });
         alert('Configurações salvas!');
         atualizarStatusBanco();
+
+        // Atualizar UI e mostrar URLs
+        carregarConfiguracoes();
+        const base = slug ? (window.location.origin + '/' + slug) : window.location.origin;
+        const urlsList = document.getElementById('config-urls-list');
+        if (urlsList) {
+            urlsList.innerHTML = `<div style="display:flex; flex-direction:column; gap:6px;"><div><strong>Cardápio:</strong> <a href="${base}/cardapio" target="_blank">${base}/cardapio</a></div><div><strong>Gestor:</strong> <a href="${base}/gestor" target="_blank">${base}/gestor</a></div></div>`;
+            document.getElementById('config-urls').style.display = 'block';
+        }
     });
 }
 
