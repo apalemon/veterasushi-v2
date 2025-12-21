@@ -84,7 +84,7 @@ function renderizarPedidos() {
                     </span>
                 </div>
                 <div class="pedido-total">
-                    Total: R$ ${pedido.total.toFixed(2)}
+                    Total: R$ ${(Number(pedido.total) || 0).toFixed(2)}
                 </div>
             </div>
         `;
@@ -152,10 +152,10 @@ function atualizarDetalhesPedido(pedido) {
                         </div>
                         <div style="flex: 1;">
                             <strong>${nomeSeguro}</strong><br>
-                            <span style="color: var(--texto-escuro);">R$ ${item.preco.toFixed(2)} x ${item.quantidade}</span>
+                            <span style="color: var(--texto-escuro);">R$ ${(Number(item.preco) || 0).toFixed(2)} x ${item.quantidade}</span>
                         </div>
                         <div style="color: var(--vermelho-claro); font-weight: bold;">
-                            R$ ${(item.preco * item.quantidade).toFixed(2)}
+                            R$ ${(Number(item.preco) * Number(item.quantidade) || 0).toFixed(2)}
                         </div>
                     </div>
                 `;
@@ -171,9 +171,9 @@ function atualizarDetalhesPedido(pedido) {
                 <span style="color: ${pedido.statusPagamento === 'pago' ? 'var(--sucesso)' : 'var(--aviso)'};">
                     ${pedido.statusPagamento === 'pago' ? '<i class="fas fa-check-circle"></i> Pago' : '<i class="fas fa-clock"></i> Pendente'}
                 </span><br>
-                <strong>Subtotal:</strong> R$ ${pedido.subtotal.toFixed(2)}<br>
-                ${pedido.desconto > 0 ? `<strong>Desconto:</strong> - R$ ${pedido.desconto.toFixed(2)}<br>` : ''}
-                <strong>Total:</strong> R$ ${pedido.total.toFixed(2)}
+                <strong>Subtotal:</strong> R$ ${(Number(pedido.subtotal) || 0).toFixed(2)}<br>
+                ${pedido.desconto > 0 ? `<strong>Desconto:</strong> - R$ ${(Number(pedido.desconto) || 0).toFixed(2)}<br>` : ''}
+                <strong>Total:</strong> R$ ${(Number(pedido.total) || 0).toFixed(2)}
             </div>
         </div>
 
@@ -288,7 +288,7 @@ function imprimirNota(pedidoId) {
         ITENS:
         ${pedido.itens.map(item => `
         ${item.nome}
-        ${item.quantidade}x R$ ${item.preco.toFixed(2)} = R$ ${(item.preco * item.quantidade).toFixed(2)}
+        ${item.quantidade}x R$ ${(Number(item.preco) || 0).toFixed(2)} = R$ ${(Number(item.preco) * Number(item.quantidade) || 0).toFixed(2)}
         `).join('')}
         
         ====================================

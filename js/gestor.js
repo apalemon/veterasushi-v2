@@ -558,38 +558,46 @@ function renderizarPedidos() {
         return;
     }
 
-    container.innerHTML = pedidos.map(function(pedido) {
-        // Garantir que status existe e tem valor padrão
-        const status = pedido.status || 'pendente';
-        const statusPagamento = pedido.statusPagamento || 'pendente';
-        
-        const statusClass = 'status-' + status;
-        const statusText = formatarStatus(status);
-        const dataFormatada = new Date(pedido.data || pedido.dataCriacao || Date.now()).toLocaleString('pt-BR');
-        const isNovo = !pedidosVistos.has(pedido.id);
-        const classeNovo = isNovo ? 'novo' : '';
-        
-        
-        let html = '<div class="pedido-card-gestor ' + classeNovo + '" onclick="abrirDetalhesPedido(' + pedido.id + ')">';
-        html += '<div class="pedido-header-gestor">';
-        html += '<div class="pedido-id-gestor">#' + pedido.id + '</div>';
-        html += '<div class="pedido-status-badge ' + statusClass + '">' + statusText + '</div>';
-        html += '</div>';
-        // Sanitizar dados para segurança
-        const clienteNomeSeguro = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(pedido.clienteNome || 'Não informado') : String(pedido.clienteNome || 'Não informado').replace(/[<>]/g, '');
-        const clienteTelefoneSeguro = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(pedido.clienteTelefone || 'Não informado') : String(pedido.clienteTelefone || 'Não informado').replace(/[<>]/g, '');
-        
-        html += '<div class="pedido-info-gestor"><strong>Cliente:</strong> ' + clienteNomeSeguro + '</div>';
-        html += '<div class="pedido-info-gestor"><strong>Telefone:</strong> ' + clienteTelefoneSeguro + '</div>';
-        html += '<div class="pedido-info-gestor"><strong>Data:</strong> ' + dataFormatada + '</div>';
-        html += '<div class="pedido-info-gestor"><strong>Pagamento:</strong> ' + formatarFormaPagamento(pedido.formaPagamento) + ' - ';
-        html += '<span style="color: ' + (statusPagamento === 'pago' ? 'var(--sucesso)' : 'var(--aviso)') + ';">';
-        html += (statusPagamento === 'pago' ? '<i class="fas fa-check-circle"></i> Pago' : '<i class="fas fa-clock"></i> Pendente') + '</span></div>';
-        html += '<div class="pedido-total-gestor">Total: R$ ' + pedido.total.toFixed(2) + '</div>';
-        html += '</div>';
-        
-        return html;
-    }).join('');
+    const cards = pedidos.map(function(pedido) {
+        try {
+            // Garantir que status existe e tem valor padrão
+            const status = pedido.status || 'pendente';
+            const statusPagamento = pedido.statusPagamento || 'pendente';
+            
+            const statusClass = 'status-' + status;
+            const statusText = formatarStatus(status);
+            const dataFormatada = new Date(pedido.data || pedido.dataCriacao || Date.now()).toLocaleString('pt-BR');
+            const isNovo = !pedidosVistos.has(pedido.id);
+            const classeNovo = isNovo ? 'novo' : '';
+            
+            
+            let html = '<div class="pedido-card-gestor ' + classeNovo + '" onclick="abrirDetalhesPedido(' + pedido.id + ')">';
+            html += '<div class="pedido-header-gestor">';
+            html += '<div class="pedido-id-gestor">#' + pedido.id + '</div>';
+            html += '<div class="pedido-status-badge ' + statusClass + '">' + statusText + '</div>';
+            html += '</div>';
+            // Sanitizar dados para segurança
+            const clienteNomeSeguro = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(pedido.clienteNome || 'Não informado') : String(pedido.clienteNome || 'Não informado').replace(/[<>]/g, '');
+            const clienteTelefoneSeguro = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(pedido.clienteTelefone || 'Não informado') : String(pedido.clienteTelefone || 'Não informado').replace(/[<>]/g, '');
+            
+            html += '<div class="pedido-info-gestor"><strong>Cliente:</strong> ' + clienteNomeSeguro + '</div>';
+            html += '<div class="pedido-info-gestor"><strong>Telefone:</strong> ' + clienteTelefoneSeguro + '</div>';
+            html += '<div class="pedido-info-gestor"><strong>Data:</strong> ' + dataFormatada + '</div>';
+            html += '<div class="pedido-info-gestor"><strong>Pagamento:</strong> ' + formatarFormaPagamento(pedido.formaPagamento) + ' - ';
+            html += '<span style="color: ' + (statusPagamento === 'pago' ? 'var(--sucesso)' : 'var(--aviso)') + ';">';
+            html += (statusPagamento === 'pago' ? '<i class="fas fa-check-circle"></i> Pago' : '<i class="fas fa-clock"></i> Pendente') + '</span></div>';
+            const totalVal = Number(pedido.total) || 0;
+            html += '<div class="pedido-total-gestor">Total: ' + currencyFmt.format(totalVal) + '</div>';
+            html += '</div>';
+            
+            return html;
+        } catch (err) {
+            console.error('[GESTOR] Erro ao renderizar pedido', pedido && pedido.id, err);
+            return '<div class="pedido-card-gestor erro">Erro ao renderizar pedido #' + (pedido && pedido.id ? pedido.id : '?') + '</div>';
+        }
+    });
+
+    container.innerHTML = cards.join('');
 }
 
 // Abrir detalhes do pedido
@@ -648,9 +656,12 @@ function abrirDetalhesPedido(pedidoId) {
             
             html += '<div style="display: flex; gap: 1rem; padding: 1rem; background: var(--cinza-escuro); border-radius: 8px; margin-bottom: 0.5rem; align-items: center;">';
             html += '<div style="flex-shrink: 0;"><img src="' + imagemSegura + '" alt="' + nomeSeguro + '" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 2px solid var(--borda);" onerror="this.src=\'logo.png\'; this.style.width=\'60px\'; this.style.height=\'60px\';"></div>';
+            const precoItem = Number(item.preco) || 0;
+            const qty = Number(item.quantidade) || 0;
+            const totalItem = precoItem * qty;
             html += '<div style="flex: 1;"><strong style="color: var(--texto-claro);">' + nomeSeguro + '</strong><br>';
-            html += '<span style="color: var(--texto-medio);">R$ ' + item.preco.toFixed(2) + ' x ' + item.quantidade + '</span></div>';
-            html += '<div style="color: var(--vermelho-claro); font-weight: bold; font-size: 1.1rem;">R$ ' + (item.preco * item.quantidade).toFixed(2) + '</div>';
+            html += '<span style="color: var(--texto-medio);">' + currencyFmt.format(precoItem) + ' x ' + qty + '</span></div>';
+            html += '<div style="color: var(--vermelho-claro); font-weight: bold; font-size: 1.1rem;">' + currencyFmt.format(totalItem) + '</div>';
             html += '</div>';
         });
     }
@@ -660,11 +671,14 @@ function abrirDetalhesPedido(pedidoId) {
     html += '<h3 style="color: var(--vermelho-claro); margin-bottom: 1rem;"><i class="fas fa-credit-card"></i> Informações de Pagamento</h3>';
     html += '<p style="color: var(--texto-claro); margin-bottom: 0.5rem;"><strong>Forma:</strong> ' + formatarFormaPagamento(pedido.formaPagamento) + '</p>';
     html += '<p style="color: var(--texto-claro); margin-bottom: 0.5rem;"><strong>Status:</strong> <span style="color: ' + (pedido.statusPagamento === 'pago' ? 'var(--sucesso)' : 'var(--aviso)') + ';">' + (pedido.statusPagamento === 'pago' ? '<i class="fas fa-check-circle"></i> Pago' : '<i class="fas fa-clock"></i> Pendente') + '</span></p>';
-    html += '<p style="color: var(--texto-claro); margin-bottom: 0.5rem;"><strong>Subtotal:</strong> R$ ' + pedido.subtotal.toFixed(2) + '</p>';
-    if (pedido.desconto > 0) {
-        html += '<p style="color: var(--texto-claro); margin-bottom: 0.5rem;"><strong>Desconto:</strong> - R$ ' + pedido.desconto.toFixed(2) + '</p>';
+    const subtotalVal = Number(pedido.subtotal) || 0;
+    html += '<p style="color: var(--texto-claro); margin-bottom: 0.5rem;"><strong>Subtotal:</strong> ' + currencyFmt.format(subtotalVal) + '</p>';
+    const descontoVal = Number(pedido.desconto) || 0;
+    if (descontoVal > 0) {
+        html += '<p style="color: var(--texto-claro); margin-bottom: 0.5rem;"><strong>Desconto:</strong> - ' + currencyFmt.format(descontoVal) + '</p>';
     }
-    html += '<p style="color: var(--vermelho-claro); font-size: 1.3rem; font-weight: bold; margin-top: 1rem;"><strong>Total:</strong> R$ ' + pedido.total.toFixed(2) + '</p>';
+    const totalValDet = Number(pedido.total) || (subtotalVal - descontoVal + (Number(pedido.taxaEntrega) || 0));
+    html += '<p style="color: var(--vermelho-claro); font-size: 1.3rem; font-weight: bold; margin-top: 1rem;"><strong>Total:</strong> ' + currencyFmt.format(totalValDet) + '</p>';
     html += '</div>';
 
     if (pedido.observacoes) {
@@ -736,7 +750,8 @@ function renderizarPedidosOcultos() {
         html += '<div class="pedido-info-gestor"><strong>Pagamento:</strong> ' + formatarFormaPagamento(pedido.formaPagamento) + ' - ';
         html += '<span style="color: ' + (statusPagamento === 'pago' ? 'var(--sucesso)' : 'var(--aviso)') + ';">';
         html += (statusPagamento === 'pago' ? '<i class="fas fa-check-circle"></i> Pago' : '<i class="fas fa-clock"></i> Pendente') + '</span></div>';
-        html += '<div class="pedido-total-gestor">Total: R$ ' + pedido.total.toFixed(2) + '</div>';
+        const totalValCard = Number(pedido.total) || 0;
+        html += '<div class="pedido-total-gestor">Total: ' + currencyFmt.format(totalValCard) + '</div>';
         html += '<div style="margin-top: 1rem; display: flex; gap: 0.5rem;">';
         html += '<button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); mostrarPedido(' + pedido.id + ')">Mostrar</button>';
         html += '</div>';
