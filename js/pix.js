@@ -72,10 +72,10 @@ class PixPayment {
             ${chavePixSegura}
           </p>
           <button 
-            onclick="navigator.clipboard.writeText('${chaveParaClipboard}').then(() => { const msg = document.createElement('div'); msg.textContent='Chave PIX copiada!'; msg.style.cssText='position:fixed;top:20px;right:20px;background:var(--sucesso);color:white;padding:1rem;border-radius:8px;z-index:10000;'; document.body.appendChild(msg); setTimeout(()=>msg.remove(),2000); })"
+            onclick="copyTextSafe('${chaveParaClipboard}').then(() => { const msg = document.createElement('div'); msg.textContent='Chave PIX copiada!'; msg.style.cssText='position:fixed;top:20px;right:20px;background:var(--sucesso);color:white;padding:1rem;border-radius:8px;z-index:10000;'; document.body.appendChild(msg); setTimeout(()=>msg.remove(),2000); }).catch(() => { const msg = document.createElement('div'); msg.textContent='Falha ao copiar'; msg.style.cssText='position:fixed;top:20px;right:20px;background:var(--aviso);color:black;padding:1rem;border-radius:8px;z-index:10000;'; document.body.appendChild(msg); setTimeout(()=>msg.remove(),2000); })"
             style="margin-top: 0.5rem; padding: 0.5rem 1rem; background: var(--vermelho-claro); color: white; border: none; border-radius: 5px; cursor: pointer; transition: background 0.2s;">
             Copiar Chave
-          </button>
+          </button>"
         </div>
 
         <div style="background: var(--aviso); padding: 1rem; border-radius: 8px; margin-top: 1.5rem;">
@@ -120,6 +120,31 @@ class PixPayment {
 
     return { valido: false, mensagem: 'Formato de chave PIX inválido' };
   }
+}
+
+// Função de cópia segura (fallback para navegadores sem navigator.clipboard)
+function copyTextSafe(text) {
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise((resolve, reject) => {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    try {
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      if (ok) resolve();
+      else reject(new Error('execCommand failed'));
+    } catch (err) {
+      document.body.removeChild(ta);
+      reject(err);
+    }
+  });
 }
 
 // Instância global do sistema PIX
