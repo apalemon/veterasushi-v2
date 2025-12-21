@@ -1521,14 +1521,28 @@ document.addEventListener('click', (e) => {
 // SISTEMA DE HORÁRIOS (para checkout)
 // ============================================
 
-// Inicializar horários no banco de dados se não existir
+// Inicializar horários no banco de dados se não existir ou se estiver malformado
 function inicializarHorarios() {
-    if (!db || !db.data) return;
-    if (!db.data.horarios) {
-        // Horário padrão: 18:30 às 23:00 todos os dias
+    if (!db) db = { data: {} };
+    if (!db.data) db.data = {};
+
+    let h = db.data.horarios;
+    // Migrar arrays legados para o primeiro elemento
+    if (Array.isArray(h)) {
+        if (h.length > 0) {
+            db.data.horarios = h[0];
+            h = db.data.horarios;
+        } else {
+            db.data.horarios = null;
+            h = null;
+        }
+    }
+
+    if (!h || typeof h !== 'object' || !h.dias || typeof h.dias !== 'object') {
         db.data.horarios = {
             ativo: true,
             fuso: 'America/Sao_Paulo',
+            statusManual: null,
             dias: {
                 domingo: { aberto: true, abertura: '18:30', fechamento: '23:00' },
                 segunda: { aberto: true, abertura: '18:30', fechamento: '23:00' },
@@ -1540,7 +1554,21 @@ function inicializarHorarios() {
             }
         };
         db.saveData();
+        return;
     }
+
+    const diasPadrao = ['domingo','segunda','terca','quarta','quinta','sexta','sabado'];
+    diasPadrao.forEach(d => {
+        if (!db.data.horarios.dias[d] || typeof db.data.horarios.dias[d] !== 'object') {
+            db.data.horarios.dias[d] = { aberto: true, abertura: '18:30', fechamento: '23:00' };
+        } else {
+            const cd = db.data.horarios.dias[d];
+            if (typeof cd.aberto !== 'boolean') cd.aberto = true;
+            if (!cd.abertura) cd.abertura = '18:30';
+            if (!cd.fechamento) cd.fechamento = '23:00';
+        }
+    });
+    db.saveData();
 }
 
 // Carregar horários do servidor (versão para main.js)

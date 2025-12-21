@@ -3696,9 +3696,23 @@ async function carregarHorariosDoServidor() {
     try {
         const response = await fetch(window.location.origin + '/api/horarios');
         if (response.ok) {
-            const horarios = await response.json();
+            let horarios = await response.json();
+            // aceitar array como resposta (legacy) — usar o primeiro elemento
+            if (Array.isArray(horarios)) horarios = horarios.length > 0 ? horarios[0] : null;
             if (horarios) {
                 if (!db.data) db.data = {};
+                // Garantir estrutura mínima
+                if (!horarios.dias || typeof horarios.dias !== 'object') {
+                    horarios.dias = {
+                        domingo: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                        segunda: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                        terca: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                        quarta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                        quinta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                        sexta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                        sabado: { aberto: true, abertura: '18:30', fechamento: '23:00' }
+                    };
+                }
                 db.data.horarios = horarios;
                 db.saveData();
                 console.log('[HORARIOS] ✅ Horários carregados do servidor');
@@ -3723,9 +3737,23 @@ async function carregarHorariosDoServidor() {
 
 // Inicializar horários no banco de dados se não existir
 function inicializarHorarios() {
+    if (!db) db = { data: {} };
     if (!db.data) db.data = {};
-    if (!db.data.horarios) {
-        // Horário padrão: 18:30 às 23:00 todos os dias
+
+    let h = db.data.horarios;
+    // Se for um array (legacy), migrar para o primeiro elemento
+    if (Array.isArray(h)) {
+        if (h.length > 0) {
+            db.data.horarios = h[0];
+            h = db.data.horarios;
+        } else {
+            db.data.horarios = null;
+            h = null;
+        }
+    }
+
+    // Se não existir ou estiver malformado (sem `dias`), re-inicializar para padrão
+    if (!h || typeof h !== 'object' || !h.dias || typeof h.dias !== 'object') {
         db.data.horarios = {
             ativo: true,
             fuso: 'America/Sao_Paulo',
@@ -3741,7 +3769,23 @@ function inicializarHorarios() {
             }
         };
         db.saveData();
+        return;
     }
+
+    // Se dias está presente, garantir que cada dia tenha as chaves esperadas
+    const diasPadrao = ['domingo','segunda','terca','quarta','quinta','sexta','sabado'];
+    diasPadrao.forEach(d => {
+        if (!db.data.horarios.dias[d] || typeof db.data.horarios.dias[d] !== 'object') {
+            db.data.horarios.dias[d] = { aberto: true, abertura: '18:30', fechamento: '23:00' };
+        } else {
+            // garantir chaves individuais
+            const cd = db.data.horarios.dias[d];
+            if (typeof cd.aberto !== 'boolean') cd.aberto = true;
+            if (!cd.abertura) cd.abertura = '18:30';
+            if (!cd.fechamento) cd.fechamento = '23:00';
+        }
+    });
+    db.saveData();
 }
 
 // Obter configuração de horários
@@ -3776,7 +3820,7 @@ function renderizarHorarios() {
     
     // Renderizar campos para cada dia
     container.innerHTML = dias.map(dia => {
-        const config = horarios.dias[dia] || { aberto: true, abertura: '18:30', fechamento: '23:00' };
+        const config = horarios?.dias?.[dia] ?? { aberto: true, abertura: '18:30', fechamento: '23:00' };
         return `
             <div style="display: grid; grid-template-columns: 200px 1fr 1fr 1fr; gap: 15px; align-items: center; padding: 15px; background: var(--bg-secondary); border-radius: 8px;">
                 <div style="font-weight: 600; color: var(--text-primary);">${getNomeDia(dia)}</div>
