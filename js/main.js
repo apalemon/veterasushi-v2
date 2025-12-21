@@ -1963,6 +1963,7 @@ function aplicarMascaraCEP(input) {
 }
 
 // --- Overlay de carregamento e fallback de ícones
+const _siteLoadingOverlayShownAt = Date.now();
 function hideSiteLoadingOverlay() {
     const overlay = document.getElementById('site-loading-overlay');
     if (overlay) {
@@ -1970,7 +1971,11 @@ function hideSiteLoadingOverlay() {
         overlay.style.display = 'none';
     }
 }
-window.addEventListener('load', hideSiteLoadingOverlay);
+window.addEventListener('load', function() {
+    const elapsed = Date.now() - _siteLoadingOverlayShownAt;
+    const remaining = Math.max(2000 - elapsed, 0);
+    setTimeout(hideSiteLoadingOverlay, remaining);
+});
 setTimeout(hideSiteLoadingOverlay, 8000);
 
 function applyIconFallbacks() {

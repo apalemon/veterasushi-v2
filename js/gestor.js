@@ -3273,6 +3273,7 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 // --- Overlay de carregamento e fallback de ícones (gestor)
+const _siteLoadingOverlayShownAt_Gestor = Date.now();
 function hideSiteLoadingOverlayGestor() {
     const overlay = document.getElementById('site-loading-overlay');
     if (overlay) {
@@ -3280,7 +3281,11 @@ function hideSiteLoadingOverlayGestor() {
         overlay.style.display = 'none';
     }
 }
-window.addEventListener('load', hideSiteLoadingOverlayGestor);
+window.addEventListener('load', function() {
+    const elapsed = Date.now() - _siteLoadingOverlayShownAt_Gestor;
+    const remaining = Math.max(2000 - elapsed, 0);
+    setTimeout(hideSiteLoadingOverlayGestor, remaining);
+});
 setTimeout(hideSiteLoadingOverlayGestor, 8000);
 
 function applyIconFallbacksGestor() {
