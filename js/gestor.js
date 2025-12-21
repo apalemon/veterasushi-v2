@@ -34,6 +34,21 @@ document.addEventListener('DOMContentLoaded', async function() {
     } catch (e) {
         // Erro ao carregar cupons do servidor
     }
+
+    // IMPORTANTE: Carregar destaques do servidor
+    try {
+        const resp = await fetch(window.location.origin + '/api/destaques');
+        if (resp.ok) {
+            const dados = await resp.json();
+            if (Array.isArray(dados)) {
+                if (!db.data) db.data = {};
+                db.data.destaques = dados;
+                db.saveData();
+            }
+        }
+    } catch (e) {
+        // Ignorar erro de destaques
+    }
     
     // IMPORTANTE: Carregar pedidos do servidor ANTES de tudo
     // Aguardar carregamento completo antes de renderizar
@@ -78,6 +93,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     renderizarPedidos();
     renderizarPedidosOcultos();
     renderizarProdutos();
+    renderizarDestaques();
     renderizarCupons();
     renderizarCategorias();
     renderizarUsuarios();
@@ -1877,6 +1893,129 @@ window.abrirModalCategoria = abrirModalCategoria;
 window.excluirCategoria = excluirCategoria;
 window.abrirModalUsuario = abrirModalUsuario;
 window.editarUsuarioGestor = editarUsuarioGestor;
+// Destaques (gestor)
+function abrirModalDestaque(destaque = null) {
+    const nome = destaque ? (destaque.nome || '') : '';
+    const produtosSelecionados = destaque ? (destaque.produtos || []) : [];
+
+    const inputNome = prompt('Nome do destaque (ex: Combos natalinos):', nome);
+    if (inputNome === null) return;
+
+    // Selecionar produtos por IDs separados por vírgula
+    const produtosStr = prompt('IDs dos produtos separados por vírgula (ex: 1,2,3):', produtosSelecionados.join(','));
+    if (produtosStr === null) return;
+
+    const listaIds = produtosStr.split(',').map(s => parseInt(s.trim())).filter(Boolean);
+
+    if (!db.data.destaques) db.data.destaques = [];
+    const novo = { id: Date.now(), nome: inputNome.trim(), produtos: listaIds, ativo: true };
+    db.data.destaques.push(novo);
+    db.saveData();
+
+    // Salvar no servidor
+    fetch(window.location.origin + '/api/destaques', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(db.data.destaques)
+    }).catch(e => console.warn('[DESTAQUES] Erro ao salvar no servidor:', e));
+
+    renderizarDestaques();
+}
+
+function renderizarDestaques() {
+    const container = document.getElementById('destaques-list');
+    if (!container) return;
+
+    const destaques = db.data.destaques || [];
+    if (destaques.length === 0) {
+        container.innerHTML = '<p style="color:var(--texto-medio); padding:12px;">Nenhum destaque cadastrado.</p>';
+        return;
+    }
+
+    container.innerHTML = destaques.map(function(d) {
+        const nomes = (d.produtos || []).map(id => (db.getProduto(id) || {}).nome || ('#' + id)).join(', ');
+        return '<div style="display:flex; justify-content:space-between; align-items:center; padding: 12px; background: var(--bg-primary); border-radius:8px; margin-bottom:8px;">' +
+            '<div style="flex:1;"><strong style="color:var(--texto-claro);">' + (d.nome || '') + '</strong><div style="color:var(--texto-medio); font-size:0.9rem;">' + nomes + '</div></div>' +
+            '<div style="display:flex; gap:8px;">' +
+            '<button class="btn" onclick="toggleAtivoDestaque(' + d.id + ')">' + (d.ativo ? 'Desativar' : 'Ativar') + '</button>' +
+            '<button class="btn btn-secondary" onclick="excluirDestaque(' + d.id + ')">Excluir</button>' +
+            '</div></div>';
+    }).join('');
+}
+
+function toggleAtivoDestaque(id) {
+    if (!db.data.destaques) return;
+    const idx = db.data.destaques.findIndex(d => d.id === id);
+    if (idx === -1) return;
+    db.data.destaques[idx].ativo = !db.data.destaques[idx].ativo;
+    db.saveData();
+    fetch(window.location.origin + '/api/destaques', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(db.data.destaques) }).catch(()=>{});
+    renderizarDestaques();
+}
+
+function excluirDestaque(id) {
+    if (!confirm('Deseja realmente excluir este destaque?')) return;
+    if (!db.data.destaques) return;
+    db.data.destaques = db.data.destaques.filter(d => d.id !== id);
+    db.saveData();
+    fetch(window.location.origin + '/api/destaques', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(db.data.destaques) }).catch(()=>{});
+    renderizarDestaques();
+}
+
+// Remover foto de produto (apenas limpa referência e salva no servidor)
+function removerFotoProduto(produtoId = null) {
+    // Se chamado sem id, tentar ler do modal
+    let id = produtoId;
+    if (!id) {
+        const idField = document.getElementById('produto-id');
+        if (idField && idField.value) id = parseInt(idField.value);
+    }
+    if (!id) return alert('ID do produto não identificado. Abra o produto e tente novamente.');
+
+    const produto = db.getProduto(id);
+    if (!produto) return alert('Produto não encontrado.');
+
+    if (!confirm('Remover foto deste produto? Esta ação apenas limpa a referência da imagem.')) return;
+    produto.imagem = '';
+    db.saveData();
+
+    // Salvar no servidor (substituir produtos)
+    fetch(window.location.origin + '/api/produtos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(db.data.produtos) }).catch(e => console.warn('[PRODUTOS] Erro ao salvar:', e));
+
+    // Atualizar preview e botões
+    const preview = document.getElementById('produto-imagem-preview');
+    if (preview) {
+        preview.innerHTML = '<div class="image-preview-placeholder">Foto</div>';
+    }
+    const removerBtn = document.getElementById('produto-remover-foto');
+    if (removerBtn) removerBtn.style.display = 'none';
+    renderizarProdutos();
+}
+
+window.abrirModalDestaque = abrirModalDestaque;
+window.renderizarDestaques = renderizarDestaques;
+window.toggleAtivoDestaque = toggleAtivoDestaque;
+window.excluirDestaque = excluirDestaque;
+window.removerFotoProduto = removerFotoProduto;
+
+// Preview de imagem no modal do gestor
+window.previewImagemProdutoGestor = function(event) {
+    try {
+        const input = event.target;
+        if (!input || !input.files || input.files.length === 0) return;
+        const file = input.files[0];
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const preview = document.getElementById('produto-imagem-preview');
+            if (preview) {
+                preview.innerHTML = '<img src="' + e.target.result + '" style="width:100%; height:100%; object-fit:cover; border-radius:8px;">';
+            }
+            const removerBtn = document.getElementById('produto-remover-foto');
+            if (removerBtn) removerBtn.style.display = 'inline-block';
+        };
+        reader.readAsDataURL(file);
+    } catch (err) {
+        console.warn('Erro ao mostrar preview da imagem:', err);
+    }
+};
 
 // ============================================
 // NOVA VENDA (igual ao PDV)

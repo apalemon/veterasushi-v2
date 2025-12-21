@@ -164,6 +164,13 @@ async function inicializarCardapio() {
         } catch (e) {
             console.error('Erro ao renderizar produtos:', e);
         }
+
+        try {
+            // Carregar destaques (Combos natalinos)
+            await fetchDestaques();
+        } catch (e) {
+            console.error('[DESTAQUES] Erro ao carregar destaques:', e);
+        }
         
         try {
             if (typeof carrinho !== 'undefined') {
@@ -1740,6 +1747,65 @@ function validarCEP(cep) {
     if (numeros === '12345678') return false; // Sequencial
     
     return formatoCompleto || formatoSimples;
+}
+
+// ==============================
+// DESTAQUES (Combos natalinos)
+// ==============================
+
+async function fetchDestaques() {
+    try {
+        const resp = await fetch(window.location.origin + '/api/destaques');
+        if (!resp.ok) return renderizarDestaques([]);
+        const dados = await resp.json();
+        // dados é um array de destaques salvos no servidor
+        renderizarDestaques(dados || []);
+    } catch (err) {
+        console.error('[DESTAQUES] ❌', err);
+        renderizarDestaques([]);
+    }
+}
+
+function renderizarDestaques(destaques) {
+    const container = document.getElementById('destaque-top');
+    if (!container) return;
+
+    // Encontrar destaque ativo, preferir o primeiro ativo
+    const ativo = (destaques || []).find(d => d.ativo) || (destaques && destaques[0]);
+    if (!ativo) {
+        container.style.display = 'none';
+        return;
+    }
+
+    // Montar HTML bonito e simples
+    const produtos = (ativo.produtos || []).map(id => db.getProduto(parseInt(id))).filter(Boolean);
+
+    let html = '<div style="background: linear-gradient(135deg,#fff7f7, #fff); border-radius: 14px; padding: 18px; display: flex; gap: 18px; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.06);">';
+    html += '<div style="flex: 0 0 260px;">';
+    html += '<h2 style="margin:0 0 8px 0; color: #b91c1c; font-size: 1.6rem;">' + (ativo.nome || 'Combos natalinos') + '</h2>';
+    html += '<p style="margin:0; color:var(--texto-medio);">Aproveite nossos combos especiais de Natal — por tempo limitado.</p>';
+    html += '</div>';
+    html += '<div style="display:flex; gap: 12px; overflow:auto; padding-bottom:4px;">';
+
+    if (produtos.length === 0) {
+        html += '<div style="color:var(--texto-medio); padding: 12px;">Nenhum produto no destaque.</div>';
+    } else {
+        produtos.forEach(p => {
+            const img = p.imagem ? (p.imagem.startsWith('http') || p.imagem.startsWith('/') ? p.imagem : '/Fotos/' + p.imagem) : 'logo.png';
+            html += '<div style="min-width:180px; background: #fff; border-radius:10px; padding:10px; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,0.06);">';
+            html += '<img src="' + img + '" style="width:100%; height:110px; object-fit:cover; border-radius:8px; margin-bottom:8px;" onerror="this.src=\'logo.png\'">';
+            html += '<div style="font-weight:700; color:var(--texto-claro); margin-bottom:6px;">' + (p.nome || '') + '</div>';
+            html += '<div style="color:var(--texto-medio); margin-bottom:8px;">R$ ' + (parseFloat(p.preco || 0).toFixed(2)) + '</div>';
+            html += '<button class="btn btn-primary" onclick="adicionarAoCarrinho(' + p.id + ')">Comprar</button>';
+            html += '</div>';
+        });
+    }
+
+    html += '</div>';
+    html += '</div>';
+
+    container.innerHTML = html;
+    container.style.display = 'block';
 }
 
 // Verificar se CEP existe via API ViaCEP
