@@ -1912,7 +1912,9 @@ function abrirModalDestaque(destaque = null) {
 
     const listaIds = produtosStr.split(',').map(s => parseInt(s.trim())).filter(Boolean);
 
-    if (!db.data.destaques) db.data.destaques = [];
+    if (!Array.isArray(db.data.destaques)) {
+        db.data.destaques = (db.data.destaques && typeof db.data.destaques === 'object') ? Object.values(db.data.destaques) : [];
+    }
     const novo = { id: Date.now(), nome: inputNome.trim(), produtos: listaIds, ativo: true };
     db.data.destaques.push(novo);
     db.saveData();
@@ -1929,7 +1931,8 @@ function renderizarDestaques() {
     const container = document.getElementById('destaques-list');
     if (!container) return;
 
-    const destaques = db.data.destaques || [];
+    const raw = db.data.destaques;
+    const destaques = Array.isArray(raw) ? raw : (raw && typeof raw === 'object' ? (Array.isArray(raw.destaques) ? raw.destaques : (raw.produtos ? [raw] : Object.values(raw))) : []);
     if (destaques.length === 0) {
         container.innerHTML = '<p style="color:var(--texto-medio); padding:12px;">Nenhum destaque cadastrado.</p>';
         return;
@@ -1948,6 +1951,7 @@ function renderizarDestaques() {
 
 function toggleAtivoDestaque(id) {
     if (!db.data.destaques) return;
+    if (!Array.isArray(db.data.destaques)) db.data.destaques = (Array.isArray(db.data.destaques.destaques) ? db.data.destaques.destaques : Object.values(db.data.destaques));
     const idx = db.data.destaques.findIndex(d => d.id === id);
     if (idx === -1) return;
     db.data.destaques[idx].ativo = !db.data.destaques[idx].ativo;
@@ -1959,6 +1963,7 @@ function toggleAtivoDestaque(id) {
 function excluirDestaque(id) {
     if (!confirm('Deseja realmente excluir este destaque?')) return;
     if (!db.data.destaques) return;
+    if (!Array.isArray(db.data.destaques)) db.data.destaques = (Array.isArray(db.data.destaques.destaques) ? db.data.destaques.destaques : Object.values(db.data.destaques));
     db.data.destaques = db.data.destaques.filter(d => d.id !== id);
     db.saveData();
     fetch(window.location.origin + '/api/destaques', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(db.data.destaques) }).catch(()=>{});

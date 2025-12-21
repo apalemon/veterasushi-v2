@@ -301,7 +301,8 @@ function renderizarProdutos() {
     // Determinar ids de produtos em destaque (do destaque ativo)
     let destaqueIds = [];
     try {
-        const destaques = db.data?.destaques || [];
+        const destaquesRaw = db.data?.destaques;
+        const destaques = Array.isArray(destaquesRaw) ? destaquesRaw : (destaquesRaw && typeof destaquesRaw === 'object' ? (Array.isArray(destaquesRaw.destaques) ? destaquesRaw.destaques : (destaquesRaw.produtos ? [destaquesRaw] : Object.values(destaquesRaw))) : []);
         const ativo = (destaques || []).find(d => d.ativo) || (destaques && destaques[0]);
         if (ativo && Array.isArray(ativo.produtos)) {
             destaqueIds = ativo.produtos.map(id => parseInt(id));
@@ -1913,15 +1914,30 @@ async function fetchDestaques() {
             return renderizarDestaques([]);
         }
         const dados = await resp.json();
+        // Normalizar resposta para garantir que `destaques` seja um array
+        function normalizeDestaquesPayload(d) {
+            if (Array.isArray(d)) return d;
+            if (!d) return [];
+            if (typeof d === 'object') {
+                if (Array.isArray(d.destaques)) return d.destaques;
+                if (Array.isArray(d.docs)) return d.docs;
+                if (d.success && typeof d.total === 'number') return [];
+                if (d.produtos) return [d];
+                const vals = Object.values(d).filter(v => v && (v.produtos || v.nome || v.id));
+                if (vals.length > 0) return vals;
+            }
+            return [];
+        }
+        const destaquesNorm = normalizeDestaquesPayload(dados);
         // Persistir destaques no db para uso pelo renderizador de produtos
         db.data = db.data || {};
-        db.data.destaques = dados || [];
+        db.data.destaques = destaquesNorm;
         db.saveData();
         // Aplicar ordem para produtos em destaque (persistir somente se necessário)
         try { aplicarOrdemDestaque(); } catch(e) { console.warn('[DESTAQUE] Erro ao aplicar ordem:', e); }
         // Atualizar produtos para refletir badges
         try { renderizarProdutos(); } catch(e) {}
-        return renderizarDestaques(dados || []);
+        return renderizarDestaques(destaquesNorm);
     } catch (err) {
         console.error('[DESTAQUES] ❌', err);
         db.data = db.data || {};
@@ -1945,7 +1961,8 @@ function renderizarDestaques(destaques) {
 function aplicarOrdemDestaque() {
     try {
         if (!db || !db.data) return;
-        const destaques = db.data.destaques || [];
+        const destaquesRaw = db.data.destaques;
+        const destaques = Array.isArray(destaquesRaw) ? destaquesRaw : (destaquesRaw && typeof destaquesRaw === 'object' ? (Array.isArray(destaquesRaw.destaques) ? destaquesRaw.destaques : (destaquesRaw.produtos ? [destaquesRaw] : Object.values(destaquesRaw))) : []);
         const ativo = (destaques || []).find(d => d.ativo) || (destaques && destaques[0]);
         if (!ativo || !Array.isArray(ativo.produtos) || ativo.produtos.length === 0) return;
 
