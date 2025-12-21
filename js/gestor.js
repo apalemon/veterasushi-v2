@@ -3288,7 +3288,27 @@ window.addEventListener('load', function() {
 });
 setTimeout(hideSiteLoadingOverlayGestor, 8000);
 
+function isFontAwesomeAvailableGestor() {
+    try {
+        const test = document.createElement('i');
+        test.className = 'fas fa-question-circle';
+        test.style.display = 'none';
+        document.body.appendChild(test);
+        const computed = window.getComputedStyle ? window.getComputedStyle(test) : null;
+        const fontFamily = computed ? (computed.fontFamily || '') : '';
+        test.remove();
+        return /Font Awesome|FontAwesome|Font Awesome 6 Free/i.test(fontFamily);
+    } catch (e) {
+        return false;
+    }
+}
+
 function applyIconFallbacksGestor() {
+    if (isFontAwesomeAvailableGestor()) {
+        console.info('[ICON FALLBACK - GESTOR] Font Awesome detectado — fallback ignorado');
+        return;
+    }
+
     document.querySelectorAll('i[class*="fa-"]').forEach(el => {
         const classes = Array.from(el.classList);
         const nameClass = classes.find(c => c.startsWith('fa-') && !['fas','far','fal','fab','fad'].includes(c));
@@ -3305,16 +3325,15 @@ function applyIconFallbacksGestor() {
             'plus':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
             'star':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 .587l3.668 7.431L23 9.753l-5.5 5.356L18.333 24 12 20.201 5.667 24l1.833-8.891L1 9.753l7.332-1.735L12 .587z"/></svg>',
             'ticket-alt':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2" ry="2"/><path d="M7 12h10" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-            'clipboard-list':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M9 2h6v2H9z"/><rect x="6" y="6" width="12" height="16" rx="2" ry="2"/><path d="M9 11h6M9 15h6" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
-            'eye':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3" fill="#fff"/></svg>',
-            'info-circle':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01M11 12h2v4h-2z" fill="#fff"/></svg>'
+            'clipboard-list':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M9 2h6v2H9z"/><rect x="6" y="6" width="12" height="16" rx="2" ry="2"/><path d="M9 11h6M9 15h6" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'​
         };
-        const svg = mapSvg[name];
-        if (svg) {
-            el.innerHTML = svg;
-            el.style.fontStyle = 'normal';
-            el.setAttribute('aria-hidden', 'true');
+        let svg = mapSvg[name];
+        if (!svg) {
+            svg = '<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2" ry="2"/></svg>';
         }
+        el.innerHTML = svg;
+        el.style.fontStyle = 'normal';
+        el.setAttribute('aria-hidden', 'true');
     });
 }
 
