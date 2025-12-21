@@ -1804,19 +1804,6 @@ function renderizarDestaques(destaques) {
     // Não mostramos mais o banner separado — destaques serão exibidos inline com badge "DESTAQUE"
     container.style.display = 'none';
     return;
-} 
-            html += '<div style="font-weight:700; color:var(--texto-claro); margin-bottom:6px;">' + (p.nome || '') + '</div>';
-            html += '<div style="color:var(--texto-medio); margin-bottom:8px;">R$ ' + (parseFloat(p.preco || 0).toFixed(2)) + '</div>';
-            html += '<button class="btn btn-primary" onclick="adicionarAoCarrinho(' + p.id + ')">Comprar</button>';
-            html += '</div>';
-        });
-    }
-
-    html += '</div>';
-    html += '</div>';
-
-    container.innerHTML = html;
-    container.style.display = 'block';
 }
 
 // Verificar se CEP existe via API ViaCEP
