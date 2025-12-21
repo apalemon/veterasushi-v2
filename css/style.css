@@ -215,6 +215,21 @@ header {
   padding: 3rem 2rem;
 }
 
+/* Notificações in-app (pequenas toasts no canto superior direito) */
+#notificacoes-in-app-container {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  pointer-events: none; /* permitir clicks através de áreas vazias */
+}
+
+.notificacao-in-app {
+  pointer-events: auto;
+  backdrop-filter: blur(6px);
+}
+
+
 /* ============================================
    CATEGORIAS MODERNAS
    ============================================ */
