@@ -298,6 +298,18 @@ function renderizarProdutos() {
         ? db.getProdutos() 
         : db.getProdutos(categoriaSelecionada);
 
+    // Determinar ids de produtos em destaque (do destaque ativo)
+    let destaqueIds = [];
+    try {
+        const destaques = db.data?.destaques || [];
+        const ativo = (destaques || []).find(d => d.ativo) || (destaques && destaques[0]);
+        if (ativo && Array.isArray(ativo.produtos)) {
+            destaqueIds = ativo.produtos.map(id => parseInt(id));
+        }
+    } catch (e) {
+        destaqueIds = [];
+    }
+
 
     // Se não houver produtos, mostrar mensagem apropriada
     if (produtos.length === 0) {
@@ -357,7 +369,10 @@ function renderizarProdutos() {
             ) +
             '</div>' +
             '<div class="produto-conteudo">' +
-            '<h3 class="produto-nome">' + nomeSeguro + '</h3>' +
+            '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">' +
+            '<h3 class="produto-nome" style="margin:0;">' + nomeSeguro + '</h3>' +
+            (destaqueIds.includes(produto.id) ? '<span class="produto-badge destaque">DESTAQUE</span>' : '') +
+            '</div>' +
             '<p class="produto-descricao">' + descricaoSegura + '</p>' +
             descontoInfo +
             '<div class="produto-controles">' +
@@ -1756,44 +1771,40 @@ function validarCEP(cep) {
 async function fetchDestaques() {
     try {
         const resp = await fetch(window.location.origin + '/api/destaques');
-        if (!resp.ok) return renderizarDestaques([]);
+        if (!resp.ok) {
+            db.data = db.data || {};
+            db.data.destaques = [];
+            db.saveData();
+            // Garantir que a renderização dos produtos seja atualizada caso tenha mudado
+            try { renderizarProdutos(); } catch(e) {}
+            return renderizarDestaques([]);
+        }
         const dados = await resp.json();
-        // dados é um array de destaques salvos no servidor
-        renderizarDestaques(dados || []);
+        // Persistir destaques no db para uso pelo renderizador de produtos
+        db.data = db.data || {};
+        db.data.destaques = dados || [];
+        db.saveData();
+        // Atualizar produtos para refletir badges
+        try { renderizarProdutos(); } catch(e) {}
+        return renderizarDestaques(dados || []);
     } catch (err) {
         console.error('[DESTAQUES] ❌', err);
-        renderizarDestaques([]);
+        db.data = db.data || {};
+        db.data.destaques = [];
+        db.saveData();
+        try { renderizarProdutos(); } catch(e) {}
+        return renderizarDestaques([]);
     }
-}
+} 
 
 function renderizarDestaques(destaques) {
     const container = document.getElementById('destaque-top');
     if (!container) return;
 
-    // Encontrar destaque ativo, preferir o primeiro ativo
-    const ativo = (destaques || []).find(d => d.ativo) || (destaques && destaques[0]);
-    if (!ativo) {
-        container.style.display = 'none';
-        return;
-    }
-
-    // Montar HTML bonito e simples
-    const produtos = (ativo.produtos || []).map(id => db.getProduto(parseInt(id))).filter(Boolean);
-
-    let html = '<div style="background: linear-gradient(135deg,#fff7f7, #fff); border-radius: 14px; padding: 18px; display: flex; gap: 18px; align-items: center; box-shadow: 0 10px 30px rgba(0,0,0,0.06);">';
-    html += '<div style="flex: 0 0 260px;">';
-    html += '<h2 style="margin:0 0 8px 0; color: #b91c1c; font-size: 1.6rem;">' + (ativo.nome || 'Combos natalinos') + '</h2>';
-    html += '<p style="margin:0; color:var(--texto-medio);">Aproveite nossos combos especiais de Natal — por tempo limitado.</p>';
-    html += '</div>';
-    html += '<div style="display:flex; gap: 12px; overflow:auto; padding-bottom:4px;">';
-
-    if (produtos.length === 0) {
-        html += '<div style="color:var(--texto-medio); padding: 12px;">Nenhum produto no destaque.</div>';
-    } else {
-        produtos.forEach(p => {
-            const img = p.imagem ? (p.imagem.startsWith('http') || p.imagem.startsWith('/') ? p.imagem : '/Fotos/' + p.imagem) : 'logo.png';
-            html += '<div style="min-width:180px; background: #fff; border-radius:10px; padding:10px; text-align:center; box-shadow:0 6px 18px rgba(0,0,0,0.06);">';
-            html += '<img src="' + img + '" style="width:100%; height:110px; object-fit:cover; border-radius:8px; margin-bottom:8px;" onerror="this.src=\'logo.png\'">';
+    // Não mostramos mais o banner separado — destaques serão exibidos inline com badge "DESTAQUE"
+    container.style.display = 'none';
+    return;
+} 
             html += '<div style="font-weight:700; color:var(--texto-claro); margin-bottom:6px;">' + (p.nome || '') + '</div>';
             html += '<div style="color:var(--texto-medio); margin-bottom:8px;">R$ ' + (parseFloat(p.preco || 0).toFixed(2)) + '</div>';
             html += '<button class="btn btn-primary" onclick="adicionarAoCarrinho(' + p.id + ')">Comprar</button>';
