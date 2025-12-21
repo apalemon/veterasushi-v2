@@ -12,11 +12,50 @@ module.exports = async (req, res) => {
     if (req.method === 'GET') {
         try {
             const coll = await getCollection('horarios');
-            const docs = await coll.find({}).toArray();
-            return res.status(200).json(docs);
+            // Prefer a single document if present (support both legacy array and single-doc storage)
+            let doc = await coll.findOne({ _id: 'main' });
+            if (!doc) {
+                const docs = await coll.find({}).toArray();
+                if (Array.isArray(docs) && docs.length > 0) doc = docs[0];
+            }
+
+            if (!doc) {
+                // Default schedule structure
+                doc = {
+                    ativo: true,
+                    fuso: 'America/Sao_Paulo',
+                    dias: {
+                        domingo: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                        segunda: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                        terca: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                        quarta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                        quinta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                        sexta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                        sabado: { aberto: true, abertura: '18:30', fechamento: '23:00' }
+                    }
+                };
+            }
+
+            // Remove internal _id before returning
+            if (doc && doc._id) delete doc._id;
+
+            console.log('[HORARIOS] ✅ Horário enviado ao cliente');
+            return res.status(200).json(doc);
         } catch (err) {
             console.error('[HORARIOS] ❌', err.message);
-            return res.status(200).json([]);
+            return res.status(200).json({
+                ativo: true,
+                fuso: 'America/Sao_Paulo',
+                dias: {
+                    domingo: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                    segunda: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                    terca: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                    quarta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                    quinta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                    sexta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                    sabado: { aberto: true, abertura: '18:30', fechamento: '23:00' }
+                }
+            });
         }
     }
 

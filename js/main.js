@@ -1548,11 +1548,28 @@ async function carregarHorariosDoServidorMain() {
     try {
         const response = await fetch(window.location.origin + '/api/horarios');
         if (response.ok) {
-            const horarios = await response.json();
+            let horarios = await response.json();
+            // Se o servidor retornar uma lista, usar o primeiro elemento
+            if (Array.isArray(horarios)) {
+                horarios = horarios.length > 0 ? horarios[0] : null;
+            }
             if (horarios) {
                 if (!db || !db.data) return false;
+                // Garantir que a estrutura mínima exista
+                if (!horarios.dias || typeof horarios.dias !== 'object') {
+                    horarios.dias = {
+                        domingo: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                        segunda: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                        terca: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                        quarta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                        quinta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                        sexta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
+                        sabado: { aberto: true, abertura: '18:30', fechamento: '23:00' }
+                    };
+                }
                 db.data.horarios = horarios;
                 db.saveData();
+                console.log('[HORARIOS] ✅ Horários carregados do servidor');
                 return true;
             }
         } else if (response.status === 503) {
