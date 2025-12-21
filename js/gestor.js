@@ -3294,13 +3294,26 @@ function applyIconFallbacksGestor() {
         const nameClass = classes.find(c => c.startsWith('fa-') && !['fas','far','fal','fab','fad'].includes(c));
         if (!nameClass) return;
         const name = nameClass.replace('fa-', '');
-        const map = {
-            'fish':'🐟','shopping-cart':'🛒','user':'👤','times':'✖️','image':'🖼️','photo':'🖼️','camera':'🖼️','plus':'➕','star':'⭐','ticket-alt':'🎟️','clipboard-list':'📋','eye':'👁️','info-circle':'ℹ️'
+        const mapSvg = {
+            'fish':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8S2 12 2 12z"/></svg>',
+            'shopping-cart':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M7 4h-2l-1 2v2h2l3.6 7.59L9.25 18A2 2 0 0 0 11 20h8v-2h-7.42a1 1 0 0 1-.93-.63L8.1 8H19V6H7z"/></svg>',
+            'user':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 12a5 5 0 1 0 0-10 5 5 0 0 0 0 10zm0 2c-5 0-9 3-9 6v2h18v-2c0-3-4-6-9-6z"/></svg>',
+            'times':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            'image':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="3" y="3" width="18" height="14" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5" fill="#fff"/><path d="M21 21l-6-6-4 4-3-3-4 4" stroke="#fff" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            'photo':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2" ry="2"/><path d="M8 9l3 3 5-5" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            'camera':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M4 7h3l2-3h6l2 3h3v12H4z"/><circle cx="12" cy="13" r="3" fill="#fff"/></svg>',
+            'plus':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            'star':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M12 .587l3.668 7.431L23 9.753l-5.5 5.356L18.333 24 12 20.201 5.667 24l1.833-8.891L1 9.753l7.332-1.735L12 .587z"/></svg>',
+            'ticket-alt':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><rect x="2" y="6" width="20" height="12" rx="2" ry="2"/><path d="M7 12h10" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            'clipboard-list':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M9 2h6v2H9z"/><rect x="6" y="6" width="12" height="16" rx="2" ry="2"/><path d="M9 11h6M9 15h6" stroke="#fff" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+            'eye':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z"/><circle cx="12" cy="12" r="3" fill="#fff"/></svg>',
+            'info-circle':'<svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><circle cx="12" cy="12" r="10"/><path d="M12 8h.01M11 12h2v4h-2z" fill="#fff"/></svg>'
         };
-        const emoji = map[name] || '';
-        if (emoji) {
-            el.textContent = emoji;
+        const svg = mapSvg[name];
+        if (svg) {
+            el.innerHTML = svg;
             el.style.fontStyle = 'normal';
+            el.setAttribute('aria-hidden', 'true');
         }
     });
 }
