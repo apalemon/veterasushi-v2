@@ -8,6 +8,35 @@
     <link rel="shortcut icon" type="image/png" href="logo.png">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script>
+        // Fallback automático: se o Font Awesome não carregar, injeta CDN alternativo
+        (function() {
+            try {
+                const test = document.createElement('i');
+                test.className = 'fas fa-question-circle';
+                test.style.display = 'none';
+                document.head.appendChild(test);
+
+                const computed = window.getComputedStyle ? window.getComputedStyle(test) : null;
+                const fontFamily = computed ? computed.fontFamily || '' : '';
+
+                // Se a fonte não indicar Font Awesome, injetar fallback
+                if (!/Font Awesome|FontAwesome|Font Awesome 6 Free/i.test(fontFamily)) {
+                    const link = document.createElement('link');
+                    link.rel = 'stylesheet';
+                    link.href = 'https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css';
+                    link.onload = function() { console.info('[FALLBACK] Font Awesome carregado via jsDelivr'); };
+                    link.onerror = function() { console.warn('[FALLBACK] Não foi possível carregar Font Awesome via fallback'); };
+                    document.head.appendChild(link);
+                }
+
+                test.remove();
+            } catch (e) {
+                // Não bloquear a página por causa do fallback
+                console.warn('[FALLBACK] Erro no fallback Font Awesome:', e);
+            }
+        })();
+    </script>
     <!-- Security functions -->
     <script src="js/security.js"></script>
 </head>
