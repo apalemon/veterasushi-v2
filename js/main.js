@@ -911,7 +911,6 @@ function validarCPF(cpf) {
     const dv2 = calc(10);
     return dv1 === parseInt(nums.charAt(9)) && dv2 === parseInt(nums.charAt(10));
 }
-}
 
 // Calcular taxa de entrega no checkout
 async function calcularTaxaEntregaCheckout() {
