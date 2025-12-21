@@ -1423,6 +1423,8 @@ function renderizarProdutos() {
         html += '<span style="color: var(--texto-medio); font-size: 0.9rem;">' + produto.categoria + '</span>';
         html += '</div>';
         html += '<div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">';
+        html += '<button class="btn btn-small" onclick="moverProdutoUp(' + produto.id + ')" title="Mover para cima" style="padding:6px 10px;">↑</button>';
+        html += '<button class="btn btn-small" onclick="moverProdutoDown(' + produto.id + ')" title="Mover para baixo" style="padding:6px 10px;">↓</button>';
         html += '<button class="btn btn-primary btn-small" onclick="editarProdutoGestor(' + produto.id + ')" style="flex: 1; min-width: 100px;">Editar</button>';
         html += '<button class="btn" onclick="abrirModalProduto(' + produto.id + '); setTimeout(function(){ document.getElementById(\'produto-imagem-input\').click(); }, 300);" style="background: var(--cinza-medio); color: #fff; border: 1px solid var(--borda); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;" title="Adicionar/Editar Foto">Foto</button>';
         html += '<button class="btn btn-secondary btn-small" onclick="excluirProdutoGestor(' + produto.id + ')" style="flex: 1; min-width: 100px;">Excluir</button>';
@@ -1431,6 +1433,52 @@ function renderizarProdutos() {
         
         return html;
     }).join('');
+}
+
+// Mover produto para cima (ordem) e persistir
+function moverProdutoUp(produtoId) {
+    const todos = db.data?.produtos || [];
+    const idx = todos.findIndex(p => p.id === produtoId);
+    if (idx > 0) {
+        const aux = todos[idx - 1];
+        todos[idx - 1] = todos[idx];
+        todos[idx] = aux;
+        // atualizar ordem baseada na posição dentro do array completo
+        todos.forEach((p, i) => p.ordem = i);
+        db.data.produtos = todos;
+        db.saveData();
+        // Persistir no servidor (enviar array completo)
+        fetch(window.location.origin + '/api/produtos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(todos)
+        }).then(resp => {
+            if (!resp.ok) console.warn('Não foi possível atualizar ordem no servidor');
+        }).catch(e => console.warn('Erro ao atualizar ordem:', e));
+        renderizarProdutos();
+    }
+}
+
+// Mover produto para baixo (ordem) e persistir
+function moverProdutoDown(produtoId) {
+    const todos = db.data?.produtos || [];
+    const idx = todos.findIndex(p => p.id === produtoId);
+    if (idx !== -1 && idx < todos.length - 1) {
+        const aux = todos[idx + 1];
+        todos[idx + 1] = todos[idx];
+        todos[idx] = aux;
+        todos.forEach((p, i) => p.ordem = i);
+        db.data.produtos = todos;
+        db.saveData();
+        fetch(window.location.origin + '/api/produtos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(todos)
+        }).then(resp => {
+            if (!resp.ok) console.warn('Não foi possível atualizar ordem no servidor');
+        }).catch(e => console.warn('Erro ao atualizar ordem:', e));
+        renderizarProdutos();
+    }
 }
 
 // Renderizar cupons
@@ -1682,83 +1730,6 @@ window.atualizarCampoDesconto = function() {
     }
 };
 
-// Salvar produto
-document.getElementById('form-produto')?.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const id = document.getElementById('produto-id').value;
-    const nome = document.getElementById('produto-nome').value;
-    const descricao = document.getElementById('produto-descricao').value;
-    const preco = parseFloat(document.getElementById('produto-preco').value);
-    const categoria = document.getElementById('produto-categoria').value;
-    const ativo = document.getElementById('produto-ativo').checked;
-    
-    // Obter dados de desconto
-    const descontoAtivo = document.getElementById('produto-desconto-ativo').checked;
-    const descontoTipo = document.getElementById('produto-desconto-tipo').value;
-    const descontoValor = parseFloat(document.getElementById('produto-desconto-valor').value) || 0;
-    
-    let desconto = null;
-    if (descontoAtivo && descontoValor > 0) {
-        desconto = {
-            ativo: true,
-            tipo: descontoTipo,
-            valor: descontoValor
-        };
-    }
-
-    if (!db.data.produtos) db.data.produtos = [];
-
-    if (id) {
-        const index = db.data.produtos.findIndex(function(p) { return p.id === parseInt(id); });
-        if (index !== -1) {
-            const produtoAtual = db.data.produtos[index];
-            db.data.produtos[index] = {
-                id: produtoAtual.id,
-                nome: nome,
-                descricao: descricao,
-                preco: preco,
-                categoria: categoria,
-                ativo: ativo,
-                imagem: produtoAtual.imagem || '',
-                desconto: desconto
-            };
-        }
-    } else {
-        const ids = db.data.produtos.map(function(p) { return p.id || 0; });
-        const novoId = ids.length > 0 ? Math.max.apply(null, ids) + 1 : 1;
-        db.data.produtos.push({ 
-            id: novoId, 
-            nome: nome, 
-            descricao: descricao, 
-            preco: preco, 
-            categoria: categoria, 
-            ativo: ativo, 
-            imagem: '',
-            desconto: desconto
-        });
-    }
-
-    db.saveData();
-    
-    // Salvar no servidor (MongoDB)
-    try {
-        const produtosParaSalvar = db.data.produtos;
-        const response = await fetch(window.location.origin + '/api/produtos', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(produtosParaSalvar)
-        });
-        
-        if (response.ok) {
-            console.log('[PRODUTOS] ✅ Produto salvo no servidor');
-        }
-    } catch (e) {
-        console.warn('[PRODUTOS] ⚠️ Erro ao salvar no servidor:', e);
-    }
-    
-    renderizarProdutos();
-    fecharModal('modal-produto');
-});
 
 // Renderizar categorias
 function renderizarCategorias() {

@@ -842,6 +842,8 @@
         // Salvar produto no gestor
         document.getElementById('form-produto')?.addEventListener('submit', async (e) => {
             e.preventDefault();
+            const submitBtn = e.target.querySelector('button[type="submit"]');
+            if (submitBtn) submitBtn.disabled = true;
             
             const id = document.getElementById('produto-id').value;
             const nome = document.getElementById('produto-nome').value;
@@ -903,7 +905,9 @@
                         categoria: categoria,
                         ativo: ativo,
                         imagem: imagemUrl,
-                        dataCadastro: produtoAtual.dataCadastro || new Date().toISOString()
+                        desconto: produtoAtual.desconto || null,
+                        dataCadastro: produtoAtual.dataCadastro || new Date().toISOString(),
+                        ordem: typeof produtoAtual.ordem === 'number' ? produtoAtual.ordem : index
                     };
                 }
             } else {
@@ -921,6 +925,8 @@
                     };
                 }
                 
+                // Atribuir ordem como último índice atual
+                const novaOrdem = Array.isArray(db.data.produtos) ? db.data.produtos.length : 0;
                 db.data.produtos.push({
                     id: produtoId,
                     nome: nome,
@@ -929,7 +935,8 @@
                     categoria: categoria,
                     ativo: ativo,
                     imagem: imagemUrl,
-                    desconto: desconto
+                    desconto: desconto,
+                    ordem: novaOrdem
                 });
             }
 
@@ -962,6 +969,7 @@
             if (preview) {
                 preview.innerHTML = '<div class="image-preview-placeholder">Foto</div>';
             }
+            if (submitBtn) submitBtn.disabled = false;
         });
 
         // Definir função abrirModalProduto

@@ -213,7 +213,13 @@ class Database {
 
   getProdutos(categoria = null) {
     if (!this.data || !this.data.produtos) return [];
-    let produtos = this.data.produtos.filter(p => p.ativo !== false);
+    // Retornar cópia e ordenar por campo `ordem` quando disponível
+    let produtos = [...this.data.produtos].filter(p => p.ativo !== false);
+    produtos.sort((a, b) => {
+      const ao = (typeof a.ordem === 'number') ? a.ordem : 0;
+      const bo = (typeof b.ordem === 'number') ? b.ordem : 0;
+      return ao - bo;
+    });
     if (categoria) {
       produtos = produtos.filter(p => p.categoria === categoria);
     }
