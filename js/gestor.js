@@ -3272,6 +3272,37 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 });
 
+// --- Overlay de carregamento e fallback de ícones (gestor)
+function hideSiteLoadingOverlayGestor() {
+    const overlay = document.getElementById('site-loading-overlay');
+    if (overlay) {
+        overlay.setAttribute('aria-hidden', 'true');
+        overlay.style.display = 'none';
+    }
+}
+window.addEventListener('load', hideSiteLoadingOverlayGestor);
+setTimeout(hideSiteLoadingOverlayGestor, 8000);
+
+function applyIconFallbacksGestor() {
+    document.querySelectorAll('i[class*="fa-"]').forEach(el => {
+        const classes = Array.from(el.classList);
+        const nameClass = classes.find(c => c.startsWith('fa-') && !['fas','far','fal','fab','fad'].includes(c));
+        if (!nameClass) return;
+        const name = nameClass.replace('fa-', '');
+        const map = {
+            'fish':'🐟','shopping-cart':'🛒','user':'👤','times':'✖️','image':'🖼️','photo':'🖼️','camera':'🖼️','plus':'➕','star':'⭐','ticket-alt':'🎟️','clipboard-list':'📋','eye':'👁️','info-circle':'ℹ️'
+        };
+        const emoji = map[name] || '';
+        if (emoji) {
+            el.textContent = emoji;
+            el.style.fontStyle = 'normal';
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', applyIconFallbacksGestor);
+setTimeout(applyIconFallbacksGestor, 2000);
+
 // Salvar condicional
 window.salvarCondicional = function(event) {
     event.preventDefault();

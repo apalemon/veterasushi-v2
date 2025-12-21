@@ -364,8 +364,8 @@ function renderizarProdutos() {
             '<div class="produto-imagem-container">' +
             (produto.imagem ? 
                 '<img src="' + imagemUrl + '" alt="' + nomeSeguro + '" class="produto-imagem" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">' +
-                '<div class="produto-imagem-placeholder" style="display: none;">Foto</div>' :
-                '<div class="produto-imagem-placeholder">Foto</div>'
+                '<div class="produto-imagem-placeholder" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5zm6-2h-1.2l-.8-1.2A1 1 0 0 0 15.9 5H8.1a1 1 0 0 0-.9.3L6.4 6.5H5a2 2 0 0 0-2 2V18a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5a2 2 0 0 0-2-2z"/></svg><span class="placeholder-text">Foto</span></div>' :
+                '<div class="produto-imagem-placeholder"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5zm6-2h-1.2l-.8-1.2A1 1 0 0 0 15.9 5H8.1a1 1 0 0 0-.9.3L6.4 6.5H5a2 2 0 0 0-2 2V18a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5a2 2 0 0 0-2-2z"/></svg><span class="placeholder-text">Foto</span></div>'
             ) +
             '</div>' +
             '<div class="produto-conteudo">' +
@@ -1961,5 +1961,36 @@ function aplicarMascaraCEP(input) {
         e.target.value = valor;
     });
 }
+
+// --- Overlay de carregamento e fallback de ícones
+function hideSiteLoadingOverlay() {
+    const overlay = document.getElementById('site-loading-overlay');
+    if (overlay) {
+        overlay.setAttribute('aria-hidden', 'true');
+        overlay.style.display = 'none';
+    }
+}
+window.addEventListener('load', hideSiteLoadingOverlay);
+setTimeout(hideSiteLoadingOverlay, 8000);
+
+function applyIconFallbacks() {
+    document.querySelectorAll('i[class*="fa-"]').forEach(el => {
+        const classes = Array.from(el.classList);
+        const nameClass = classes.find(c => c.startsWith('fa-') && !['fas','far','fal','fab','fad'].includes(c));
+        if (!nameClass) return;
+        const name = nameClass.replace('fa-', '');
+        const map = {
+            'fish':'🐟','shopping-cart':'🛒','user':'👤','times':'✖️','image':'🖼️','photo':'🖼️','camera':'🖼️','plus':'➕','star':'⭐','ticket-alt':'🎟️','clipboard-list':'📋','eye':'👁️','info-circle':'ℹ️'
+        };
+        const emoji = map[name] || '';
+        if (emoji) {
+            el.textContent = emoji;
+            el.style.fontStyle = 'normal';
+        }
+    });
+}
+
+document.addEventListener('DOMContentLoaded', applyIconFallbacks);
+setTimeout(applyIconFallbacks, 2000);
 
 
