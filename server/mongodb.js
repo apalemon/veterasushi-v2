@@ -1,0 +1,58 @@
+// Helper para conexão MongoDB (moved out of /api to allow single serverless function)
+const { MongoClient } = require('mongodb');
+
+const DB_NAME = process.env.MONGODB_DB_NAME || 'vetera';
+let client = null;
+let db = null;
+
+async function connectDB() {
+    try {
+        if (client && client.topology && client.topology.isConnected()) {
+            return client.db(DB_NAME);
+        }
+
+        const uri = process.env.MONGODB_URI;
+        if (!uri) {
+            const errorMsg = 'MONGODB_URI não está definida nas variáveis de ambiente.';
+            console.error('[MONGODB] ❌', errorMsg);
+            throw new Error(errorMsg);
+        }
+
+        client = new MongoClient(uri, {
+            serverApi: {
+                version: '1',
+                strict: true,
+                deprecationErrors: true,
+            }
+        });
+
+        await client.connect();
+        db = client.db(DB_NAME);
+        console.log('[MONGODB] ✅ Conectado');
+        return db;
+    } catch (error) {
+        console.error('[MONGODB] ❌ Erro ao conectar:', error.message);
+        throw error;
+    }
+}
+
+async function getDB() {
+    if (!db) await connectDB();
+    return db;
+}
+
+async function closeConnection() {
+    if (client) {
+        await client.close();
+        client = null;
+        db = null;
+        console.log('[MONGODB] 🔌 Conexão fechada');
+    }
+}
+
+async function getCollection(collectionName) {
+    const database = await getDB();
+    return database.collection(collectionName);
+}
+
+module.exports = { connectDB, getDB, getCollection, closeConnection, DB_NAME };
