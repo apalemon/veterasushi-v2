@@ -1784,6 +1784,8 @@ async function fetchDestaques() {
         db.data = db.data || {};
         db.data.destaques = dados || [];
         db.saveData();
+        // Aplicar ordem para produtos em destaque (persistir somente se necessário)
+        try { aplicarOrdemDestaque(); } catch(e) { console.warn('[DESTAQUE] Erro ao aplicar ordem:', e); }
         // Atualizar produtos para refletir badges
         try { renderizarProdutos(); } catch(e) {}
         return renderizarDestaques(dados || []);
@@ -1804,6 +1806,59 @@ function renderizarDestaques(destaques) {
     // Não mostramos mais o banner separado — destaques serão exibidos inline com badge "DESTAQUE"
     container.style.display = 'none';
     return;
+}
+
+// Aplicar ordem dos produtos com destaque ativo (coloca-os no topo como ordens 0..n-1) e persiste se necessário
+function aplicarOrdemDestaque() {
+    try {
+        if (!db || !db.data) return;
+        const destaques = db.data.destaques || [];
+        const ativo = (destaques || []).find(d => d.ativo) || (destaques && destaques[0]);
+        if (!ativo || !Array.isArray(ativo.produtos) || ativo.produtos.length === 0) return;
+
+        const produtos = Array.isArray(db.data.produtos) ? db.data.produtos.slice() : [];
+        // Mapar produtos destacados na ordem definida no destaque
+        const destaqueIds = ativo.produtos.map(id => parseInt(id)).filter(id => !isNaN(id));
+        const featured = destaqueIds.map(id => produtos.find(p => p.id === id)).filter(Boolean);
+        if (featured.length === 0) return;
+
+        const featuredSet = new Set(featured.map(p => p.id));
+        const others = produtos.filter(p => !featuredSet.has(p.id)).sort((a, b) => {
+            const ao = (typeof a.ordem === 'number') ? a.ordem : 0;
+            const bo = (typeof b.ordem === 'number') ? b.ordem : 0;
+            return ao - bo;
+        });
+
+        const novoArray = featured.concat(others);
+
+        // Verificar se ordens precisam ser atualizadas
+        let precisaAtualizar = false;
+        for (let i = 0; i < novoArray.length; i++) {
+            if (novoArray[i].ordem !== i) {
+                precisaAtualizar = true;
+                novoArray[i].ordem = i;
+            }
+        }
+
+        if (!precisaAtualizar) return; // nada a fazer
+
+        // Aplicar atualização local e salvar
+        db.data.produtos = novoArray;
+        db.saveData();
+
+        // Persistir no servidor (substitui coleção)
+        fetch(window.location.origin + '/api/produtos', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(db.data.produtos || [])
+        }).then(resp => {
+            if (!resp.ok) console.warn('[DESTAQUE] Não foi possível atualizar ordem no servidor');
+            else console.log('[DESTAQUE] Ordem dos produtos atualizada no servidor');
+        }).catch(e => console.warn('[DESTAQUE] Erro ao persistir ordem:', e));
+
+    } catch (err) {
+        console.warn('[DESTAQUE] aplicarOrdemDestaque falhou:', err);
+    }
 }
 
 // Verificar se CEP existe via API ViaCEP
