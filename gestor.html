@@ -47,7 +47,7 @@
             
             <nav class="sidebar-nav">
                 <a href="#" class="nav-item" onclick="mostrarSecao('nova-venda'); return false;">
-                    <span>Nova Venda</span>
+                    <span>Nova venda</span>
                 </a>
                 <a href="#" class="nav-item active" onclick="mostrarSecao('pedidos'); return false;">
                     <span>Pedidos</span>
@@ -62,28 +62,28 @@
                     <span>Produtos</span>
                 </a>
                 <a href="#" class="nav-item" onclick="mostrarSecao('destaque'); return false;">
-                    <span>DESTAQUE</span>
+                    <span>Destaques</span>
                 </a>
                 <a href="#" class="nav-item" onclick="mostrarSecao('cupons'); return false;">
                     <span>Cupons</span>
                 </a>
                 <a href="#" class="nav-item" onclick="mostrarSecao('condicionais'); return false;">
-                    <span>Condicionais</span>
+                    <span>Condições (BETA)</span>
                 </a>
                 <a href="#" class="nav-item" onclick="mostrarSecao('horarios'); return false;">
                     <span>Horários</span>
                 </a>
                 <a href="#" class="nav-item" onclick="mostrarSecao('configuracoes'); return false;">
-                    <span>Configurações</span>
+                    <span>Configs.</span>
+                </a>
+                <a href="#" class="nav-item" onclick="mostrarSecao('pagamentos'); return false;">
+                    <span>Pagamentos</span>
                 </a>
                 <a href="#" class="nav-item" onclick="mostrarSecao('categorias'); return false;">
                     <span>Categorias</span>
                 </a>
                 <a href="#" class="nav-item" onclick="mostrarSecao('usuarios'); return false;">
                     <span>Usuários</span>
-                </a>
-                <a href="#" class="nav-item" onclick="fazerBackup(); return false;" style="background: var(--sucesso); color: #fff; margin-top: 10px;">
-                    <span>Fazer Backup</span>
                 </a>
             </nav>
         </aside>
@@ -369,7 +369,7 @@
             <!-- SEÇÃO CONDICIONAIS -->
             <section id="sec-condicionais" class="gestor-section">
                 <div class="section-header">
-                    <h1><i class="fas fa-sliders-h"></i> Regras Condicionais</h1>
+                    <h1><i class="fas fa-sliders-h"></i> Regras Condicionais (BETA)</h1>
                     <button class="btn btn-primary" onclick="abrirModalCondicional()">
                         <i class="fas fa-plus"></i> Nova Regra
                     </button>
@@ -504,6 +504,25 @@
                     </form>
                 </div>
             </section>
+
+            <!-- SEÇÃO PAGAMENTOS -->
+            <section id="sec-pagamentos" class="gestor-section">
+                <div class="section-header">
+                    <h1>Pagamentos</h1>
+                </div>
+                <div class="config-container">
+                    <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 1rem;">
+                        <div>
+                            <p style="margin:0; color: var(--texto-medio);">Cadastre e configure os métodos de pagamento que aparecerão no checkout.</p>
+                        </div>
+                        <div>
+                            <button class="btn btn-primary" onclick="abrirModalPagamento()">Adicionar Método</button>
+                        </div>
+                    </div>
+                    <div id="pagamentos-lista"></div>
+                </div>
+            </section>
+
         </main>
     </div>
 
@@ -731,6 +750,48 @@
                     <label class="form-label">Nome da Regra *</label>
                     <input type="text" class="form-input" id="condicional-nome" required placeholder="Ex: Desconto PIX 5%">
                 </div>
+
+    <!-- MODAL PAGAMENTO -->
+    <div class="modal-overlay" id="modal-pagamento">
+        <div class="modal" style="max-width:600px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-pagamento-titulo">Adicionar Método de Pagamento</h2>
+                <button class="modal-close" onclick="fecharModal('modal-pagamento')"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="form-pagamento">
+                <input type="hidden" id="pagamento-id">
+                <div class="form-group">
+                    <label class="form-label">Nome do Método *</label>
+                    <input type="text" class="form-input" id="pagamento-nome" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Chave/ID (ex: pix_manual, pagamento_na_entrega)</label>
+                    <input type="text" class="form-input" id="pagamento-key" placeholder="pix_manual" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Tipo</label>
+                    <select class="form-select" id="pagamento-tipo">
+                        <option value="pix_manual">PIX manual (aprovação manual)</option>
+                        <option value="pagamento_na_entrega">Pagamento na entrega (mostrar opções)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Descrição</label>
+                    <input type="text" class="form-input" id="pagamento-descricao">
+                </div>
+                <div class="form-group" id="pagamento-opcoes-entrega" style="display:none;">
+                    <label class="form-label">Opções aceitas na entrega</label>
+                    <label><input type="checkbox" id="aceita_pix"> PIX</label> &nbsp;
+                    <label><input type="checkbox" id="aceita_debito"> Cartão Débito</label> &nbsp;
+                    <label><input type="checkbox" id="aceita_credito"> Cartão Crédito</label>
+                </div>
+                <div style="display:flex; gap:8px; margin-top:12px;">
+                    <button type="submit" class="btn btn-primary">Salvar</button>
+                    <button type="button" class="btn btn-secondary" onclick="fecharModal('modal-pagamento')">Cancelar</button>
+                </div>
+            </form>
+        </div>
+    </div>
                 
                 <div class="form-group">
                     <label class="form-label">Prioridade *</label>

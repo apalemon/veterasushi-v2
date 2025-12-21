@@ -357,12 +357,22 @@ function formatarStatus(status) {
 
 // Formatar forma de pagamento
 function formatarFormaPagamento(forma) {
+    if (!forma) return '';
+    const parts = String(forma).split(':');
+    const base = parts[0];
+    const detalhe = parts[1] || null;
     const formasMap = {
         'pix': 'PIX',
+        'pix_manual': 'PIX (manual)',
         'dinheiro': 'Dinheiro',
-        'cartao': 'Cartão'
+        'cartao': 'Cartão',
+        'pagamento_na_entrega': 'Pagamento na entrega'
     };
-    return formasMap[forma] || forma;
+    let label = formasMap[base] || base;
+    if (detalhe) {
+        label += ` (${detalhe.toUpperCase()})`;
+    }
+    return label;
 }
 
 

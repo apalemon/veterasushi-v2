@@ -839,9 +839,78 @@ function renderizarCheckoutModal() {
             mensagemEl.innerHTML = `<span style="color: var(--sucesso);"><i class="fas fa-check-circle"></i> Cupom "${cupomAplicado.codigo}" aplicado!</span>`;
         }
     }
+
+    // Renderizar formas de pagamento dinamicamente
+    renderizarFormasPagamentoCheckout();
     
     // Atualizar totais
     atualizarTotaisCheckout();
+
+}
+
+// Renderizar formas de pagamento no checkout de acordo com configurações
+function renderizarFormasPagamentoCheckout() {
+    const container = document.getElementById('checkout-formas-list');
+    if (!container) return;
+    const config = db.getConfiguracoes() || {};
+    const pagamentos = Array.isArray(config.pagamentos) && config.pagamentos.length ? config.pagamentos : [{ key: 'pix', nome: 'PIX', tipo: 'pix' }];
+
+    let html = '';
+    pagamentos.forEach(p => {
+        const id = 'checkout-pag-' + (p.key || p.id || Math.random().toString(36).slice(2,8));
+        html += `<label style="display:flex; align-items:center; gap:12px; padding:12px; background: rgba(255,255,255,0.03); border-radius:8px; cursor:pointer; margin-bottom:8px;">
+            <input type="radio" name="checkout-pagamento" value="${p.key}" style="width:18px; height:18px;" ${p === pagamentos[0] ? 'checked' : ''} onchange="onChangeFormaPagamento('${p.key}')">
+            <span style="color:#fff; font-weight:500;">${escapeHTML(p.nome || p.key)}</span>
+        </label>`;
+        if (p.tipo === 'pagamento_na_entrega') {
+            const optId = 'pagamento-entrega-opcoes-' + (p.key || p.id || Math.random().toString(36).slice(2,6));
+            const opcoes = p.opcoesEntrega || [];
+            let sub = `<div id="${optId}" class="pagamento-entrega-opcoes" style="display:none; margin-left:28px; margin-bottom:8px;">`;
+            opcoes.forEach(o => {
+                sub += `<label style="display:inline-flex; align-items:center; gap:8px; margin-right:12px;"><input type="radio" name="checkout-pagamento-entrega" value="${o}"> ${escapeHTML(o)}</label>`;
+            });
+            sub += '</div>';
+            html += sub;
+        }
+    });
+
+    container.innerHTML = html;
+    // Garantir que blocos condizentes apareçam se o primeiro método for tipo pagamento_na_entrega
+    const selecionado = document.querySelector('input[name="checkout-pagamento"]:checked');
+    if (selecionado) onChangeFormaPagamento(selecionado.value);
+}
+
+function onChangeFormaPagamento(key) {
+    // Mostrar/ocultar blocos de opções de entrega
+    document.querySelectorAll('.pagamento-entrega-opcoes').forEach(el => el.style.display = 'none');
+    const p = (db.getConfiguracoes().pagamentos || []).find(pp => pp.key === key);
+    if (p && p.tipo === 'pagamento_na_entrega') {
+        // mostrar o primeiro matching block
+        const block = document.querySelector('[id^="pagamento-entrega-opcoes-"]');
+        if (block) block.style.display = 'block';
+    }
+}
+
+// Validar CPF (algoritmo brasileiro)
+function validarCPF(cpf) {
+    if (!cpf) return false;
+    const nums = String(cpf).replace(/\D/g, '');
+    if (nums.length !== 11) return false;
+    if (/^(\d)\1+$/.test(nums)) return false;
+
+    const calc = (t) => {
+        let s = 0;
+        for (let i = 0; i < t; i++) {
+            s += parseInt(nums.charAt(i)) * (t + 1 - i);
+        }
+        const r = s % 11;
+        return r < 2 ? 0 : 11 - r;
+    };
+
+    const dv1 = calc(9);
+    const dv2 = calc(10);
+    return dv1 === parseInt(nums.charAt(9)) && dv2 === parseInt(nums.charAt(10));
+}
 }
 
 // Calcular taxa de entrega no checkout
@@ -1059,6 +1128,12 @@ async function processarPedidoCheckout() {
     // Calcular totais
     await atualizarTotaisCheckout();
     
+    const cpf = document.getElementById('checkout-cpf')?.value.trim();
+    if (!cpf || !validarCPF(cpf)) {
+        mostrarErroCheckout('checkout-cpf', 'CPF inválido. Verifique e tente novamente.');
+        return;
+    }
+
     const subtotal = itens.reduce((sum, item) => sum + (parseFloat(item.preco) * parseInt(item.quantidade)), 0);
     let desconto = 0;
     if (cupomAplicado) {
@@ -1142,6 +1217,17 @@ async function processarPedidoCheckout() {
     
     const total = subtotal - desconto - descontoCondicional + taxaEntrega;
     
+    // Se forma de pagamento é pagamento na entrega, validar método escolhido
+    let formaPagamentoDetalhe = null;
+    if (formaPagamento === 'pagamento_na_entrega') {
+        const detalhe = document.querySelector('input[name="checkout-pagamento-entrega"]:checked');
+        if (!detalhe) {
+            alert('Selecione a forma de pagamento que será utilizada na entrega (PIX, Cartão Débito, Cartão Crédito).');
+            return;
+        }
+        formaPagamentoDetalhe = detalhe.value;
+    }
+
     // Preparar itens
     const itensParaPedido = itens.map(item => ({
         produtoId: item.produtoId,
@@ -1165,9 +1251,11 @@ async function processarPedidoCheckout() {
     
     let pedido;
     try {
+        const formaPagamentoFinal = formaPagamentoDetalhe ? `${formaPagamento}:${formaPagamentoDetalhe}` : formaPagamento;
         pedido = db.criarPedido({
             clienteId: clienteId,
             clienteNome: nome,
+            clienteCPF: cpf,
             clienteTelefone: telefone,
             clienteEndereco: enderecoCompleto,
             itens: itensParaPedido,
@@ -1175,7 +1263,8 @@ async function processarPedidoCheckout() {
             desconto: desconto + descontoCondicional,
             taxaEntrega: taxaEntrega,
             total: total,
-            formaPagamento: formaPagamento,
+            formaPagamento: formaPagamentoFinal,
+            formaPagamentoDetalhe: formaPagamentoDetalhe,
             observacoes: observacoes,
             cupom: cupomAplicado ? cupomAplicado.codigo : null
         });

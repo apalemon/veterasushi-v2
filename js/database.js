@@ -144,6 +144,20 @@ class Database {
           cupons: cuponsDoArquivo,
           configuracoes: dataFromFile.configuracoes || this.data.configuracoes || {}
         };
+
+        // Tentar mesclar configurações persistidas no servidor (/api/configuracoes)
+        (async () => {
+          try {
+            const resp = await fetch(window.location.origin + '/api/configuracoes');
+            if (resp.ok) {
+              const cfg = await resp.json();
+              this.data.configuracoes = { ...(this.data.configuracoes || {}), ...(cfg || {}) };
+              this.saveData();
+            }
+          } catch (e) {
+            // Ignorar falhas ao mesclar configurações do servidor
+          }
+        })();
         
         // Garantir que categorias existem
         if (!this.data.categorias || this.data.categorias.length === 0) {
@@ -567,6 +581,21 @@ class Database {
     if (!this.data.configuracoes) this.data.configuracoes = {};
     this.data.configuracoes = { ...this.data.configuracoes, ...config };
     this.saveData();
+
+    // Tentar persistir no servidor (não bloquear se falhar)
+    (async () => {
+      try {
+        await fetch(window.location.origin + '/api/configuracoes', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(this.data.configuracoes)
+        });
+      } catch (e) {
+        // Silencioso — servidor pode não estar disponível
+        console.warn('[DATABASE] Não foi possível sincronizar configurações com o servidor.', e);
+      }
+    })();
+
     return this.data.configuracoes;
   }
 

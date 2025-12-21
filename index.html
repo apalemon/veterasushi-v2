@@ -285,6 +285,11 @@
                 </div>
 
                 <div class="form-group">
+                    <label class="form-label">CPF *</label>
+                    <input type="text" class="form-input" id="checkout-cpf" placeholder="000.000.000-00" required maxlength="14">
+                </div>
+
+                <div class="form-group">
                     <label class="form-label"><i class="fas fa-map-marker-alt"></i> Endereço *</label>
                     <input type="text" class="form-input" id="checkout-endereco" placeholder="Rua, número, complemento" required onblur="calcularTaxaEntregaCheckout()">
                 </div>
@@ -318,13 +323,9 @@
             </div>
 
             <!-- FORMA DE PAGAMENTO -->
-            <div style="background: rgba(0, 0, 0, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 1.5rem;">
+            <div id="checkout-formas-container" style="background: rgba(0, 0, 0, 0.3); border-radius: 12px; padding: 20px; margin-bottom: 1.5rem;">
                 <h3 style="color: #fff; margin: 0 0 15px 0; font-size: 18px; display: flex; align-items: center; gap: 0.75rem;"><i class="fas fa-credit-card" style="color: var(--vermelho-claro);"></i> Forma de Pagamento</h3>
-                
-                <label style="display: flex; align-items: center; gap: 12px; padding: 15px; background: rgba(255, 255, 255, 0.05); border-radius: 10px; cursor: pointer;">
-                    <input type="radio" name="checkout-pagamento" value="pix" checked style="width: 18px; height: 18px;">
-                    <span style="color: #fff; font-weight: 500;">PIX</span>
-                </label>
+                <div id="checkout-formas-list"></div>
             </div>
 
             <!-- BOTÃO FINALIZAR -->
