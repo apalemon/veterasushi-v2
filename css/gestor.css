@@ -85,7 +85,7 @@
 .nav-item {
   display: flex;
   align-items: center;
-  gap: 1rem;
+  gap: 0;
   padding: 1rem 1.25rem;
   color: var(--text-primary);
   text-decoration: none;
@@ -110,11 +110,7 @@
   box-shadow: 0 4px 15px var(--sombra-vermelha);
 }
 
-.nav-icon {
-  font-size: 1.2rem;
-  width: 24px;
-  text-align: center;
-}
+
 
 /* CONTEÚDO PRINCIPAL */
 .gestor-main {
@@ -556,9 +552,7 @@
     font-size: 0.85rem;
   }
 
-  .nav-icon {
-    font-size: 1rem;
-  }
+
 
   .gestor-main {
     padding: 1.25rem;
