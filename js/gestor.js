@@ -2647,11 +2647,18 @@ async function renderizarDetalhes() {
         let pedidos = [];
         
         if (response.ok) {
-            pedidos = await response.json();
-            
-            // Atualizar db.data.pedidos com os pedidos do servidor
+            const raw = await response.json();
+            // Aceitar tanto um array direto quanto um objeto { pedidos: [...] }
+            if (Array.isArray(raw)) {
+                pedidos = raw;
+            } else if (raw && Array.isArray(raw.pedidos)) {
+                pedidos = raw.pedidos;
+            } else {
+                pedidos = [];
+            }
+            // Atualizar db.data.pedidos com os pedidos do servidor (normalizar)
             if (!db.data) db.data = {};
-            db.data.pedidos = pedidos;
+            db.data.pedidos = Array.isArray(pedidos) ? pedidos : [];
             db.saveData();
         } else {
             // Fallback: usar pedidos do db

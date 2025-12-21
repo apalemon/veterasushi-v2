@@ -267,8 +267,24 @@ class Database {
   // ============================================
 
   getPedidos(status = null) {
-    if (!this.data || !this.data.pedidos) return [];
-    let pedidos = [...this.data.pedidos];
+    if (!this.data) return [];
+    let pedidosArr = this.data.pedidos;
+    // Normalizar casos onde pedidos não é um array (p.ex. objeto por erro)
+    if (!Array.isArray(pedidosArr)) {
+      if (!pedidosArr) {
+        pedidosArr = [];
+      } else if (typeof pedidosArr === 'object') {
+        // Converter objeto para array de valores
+        pedidosArr = Object.values(pedidosArr);
+      } else {
+        pedidosArr = [];
+      }
+      // Persistir estrutura normalizada
+      this.data.pedidos = pedidosArr;
+      this.saveData();
+    }
+
+    let pedidos = [...pedidosArr];
     if (status) {
       pedidos = pedidos.filter(p => p.status === status);
     }
