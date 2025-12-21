@@ -1900,32 +1900,111 @@ window.abrirModalUsuario = abrirModalUsuario;
 window.editarUsuarioGestor = editarUsuarioGestor;
 // Destaques (gestor)
 function abrirModalDestaque(destaque = null) {
-    const nome = destaque ? (destaque.nome || '') : '';
-    const produtosSelecionados = destaque ? (destaque.produtos || []) : [];
+    const modal = document.getElementById('modal-destaque');
+    if (!modal) return;
 
-    const inputNome = prompt('Nome do destaque (ex: Combos natalinos):', nome);
-    if (inputNome === null) return;
-
-    // Selecionar produtos por IDs separados por vírgula
-    const produtosStr = prompt('IDs dos produtos separados por vírgula (ex: 1,2,3):', produtosSelecionados.join(','));
-    if (produtosStr === null) return;
-
-    const listaIds = produtosStr.split(',').map(s => parseInt(s.trim())).filter(Boolean);
-
-    if (!Array.isArray(db.data.destaques)) {
-        db.data.destaques = (db.data.destaques && typeof db.data.destaques === 'object') ? Object.values(db.data.destaques) : [];
+    // Allow passing id as parameter
+    let destaqueObj = null;
+    if (destaque && (typeof destaque === 'string' || typeof destaque === 'number')) {
+        const arr = Array.isArray(db.data.destaques) ? db.data.destaques : (db.data.destaques && typeof db.data.destaques === 'object' ? Object.values(db.data.destaques) : []);
+        destaqueObj = arr.find(d => String(d.id) === String(destaque)) || null;
+    } else if (destaque && typeof destaque === 'object') {
+        destaqueObj = destaque;
     }
-    const novo = { id: Date.now(), nome: inputNome.trim(), produtos: listaIds, ativo: true };
-    db.data.destaques.push(novo);
-    db.saveData();
 
-    // Salvar no servidor
-    fetch(window.location.origin + '/api/destaques', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(db.data.destaques)
-    }).catch(e => console.warn('[DESTAQUES] Erro ao salvar no servidor:', e));
+    // Prepare form
+    const idEl = document.getElementById('destaque-id');
+    const nomeEl = document.getElementById('destaque-nome');
+    const listaEl = document.getElementById('destaque-produtos-list');
+    const buscaEl = document.getElementById('destaque-busca');
 
-    renderizarDestaques();
+    idEl.value = destaqueObj && destaqueObj.id ? destaqueObj.id : '';
+    nomeEl.value = destaqueObj && destaqueObj.nome ? destaqueObj.nome : '';
+    listaEl.innerHTML = '';
+
+    // Build products checkbox list
+    const produtos = Array.isArray(db.data.produtos) ? db.data.produtos : [];
+    const selecionados = destaque && Array.isArray(destaque.produtos) ? destaque.produtos.map(x => Number(x)) : [];
+
+    if (produtos.length === 0) {
+        listaEl.innerHTML = '<div style="color:var(--texto-medio);">Nenhum produto cadastrado</div>';
+    } else {
+        const frag = document.createDocumentFragment();
+        produtos.forEach(p => {
+            const row = document.createElement('div');
+            row.style.display = 'flex';
+            row.style.alignItems = 'center';
+            row.style.justifyContent = 'space-between';
+            row.style.padding = '6px 0';
+
+            const left = document.createElement('div');
+            left.style.display = 'flex';
+            left.style.alignItems = 'center';
+            left.style.gap = '8px';
+
+            const chk = document.createElement('input');
+            chk.type = 'checkbox';
+            chk.value = p.id;
+            chk.dataset.produtoId = p.id;
+            if (selecionados.includes(Number(p.id))) chk.checked = true;
+
+            const nome = document.createElement('div');
+            nome.textContent = (p.nome || ('#' + p.id));
+
+            left.appendChild(chk);
+            left.appendChild(nome);
+
+            row.appendChild(left);
+
+            frag.appendChild(row);
+        });
+        listaEl.appendChild(frag);
+    }
+
+    // Search filter
+    buscaEl.value = '';
+    buscaEl.oninput = function() {
+        const term = (this.value || '').toLowerCase();
+        Array.from(listaEl.querySelectorAll('div')).forEach(r => {
+            const text = (r.textContent || '').toLowerCase();
+            r.style.display = text.includes(term) ? 'flex' : 'none';
+        });
+    };
+
+    modal.classList.add('active');
 }
+
+// Salvar destaque do modal
+const formDestaque = document.getElementById('form-destaque');
+if (formDestaque) {
+    formDestaque.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const id = document.getElementById('destaque-id').value || ('d' + Date.now());
+        const nome = document.getElementById('destaque-nome').value.trim();
+        const listaEl = document.getElementById('destaque-produtos-list');
+        if (!nome) { alert('Informe o nome do destaque'); return; }
+
+        const produtosSelecionados = Array.from(listaEl.querySelectorAll('input[type="checkbox"]')).filter(c => c.checked).map(c => Number(c.value));
+
+        if (!Array.isArray(db.data.destaques)) {
+            db.data.destaques = (db.data.destaques && typeof db.data.destaques === 'object') ? Object.values(db.data.destaques) : [];
+        }
+
+        // If exists, update; else push
+        const idx = db.data.destaques.findIndex(d => String(d.id) === String(id));
+        const novo = { id: id, nome: nome, produtos: produtosSelecionados, ativo: true };
+        if (idx === -1) db.data.destaques.push(novo); else db.data.destaques[idx] = novo;
+        db.saveData();
+
+        // Persist server-side
+        fetch(window.location.origin + '/api/destaques', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(db.data.destaques) }).catch(()=>{});
+
+        fecharModal('modal-destaque');
+        renderizarDestaques();
+        try { renderizarProdutos(); } catch(e) {}
+    });
+}
+
 
 function renderizarDestaques() {
     const container = document.getElementById('destaques-list');
@@ -1943,6 +2022,7 @@ function renderizarDestaques() {
         return '<div style="display:flex; justify-content:space-between; align-items:center; padding: 12px; background: var(--bg-primary); border-radius:8px; margin-bottom:8px;">' +
             '<div style="flex:1;"><strong style="color:var(--texto-claro);">' + (d.nome || '') + '</strong><div style="color:var(--texto-medio); font-size:0.9rem;">' + nomes + '</div></div>' +
             '<div style="display:flex; gap:8px;">' +
+            '<button class="btn" onclick="abrirModalDestaque(' + d.id + ')">Editar</button>' +
             '<button class="btn" onclick="toggleAtivoDestaque(' + d.id + ')">' + (d.ativo ? 'Desativar' : 'Ativar') + '</button>' +
             '<button class="btn btn-secondary" onclick="excluirDestaque(' + d.id + ')">Excluir</button>' +
             '</div></div>';
@@ -1958,6 +2038,7 @@ function toggleAtivoDestaque(id) {
     db.saveData();
     fetch(window.location.origin + '/api/destaques', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(db.data.destaques) }).catch(()=>{});
     renderizarDestaques();
+    try { renderizarProdutos(); } catch (e) {}
 }
 
 function excluirDestaque(id) {
@@ -1968,6 +2049,7 @@ function excluirDestaque(id) {
     db.saveData();
     fetch(window.location.origin + '/api/destaques', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(db.data.destaques) }).catch(()=>{});
     renderizarDestaques();
+    try { renderizarProdutos(); } catch (e) {}
 }
 
 // Remover foto de produto (apenas limpa referência e salva no servidor)
@@ -2004,6 +2086,8 @@ window.abrirModalDestaque = abrirModalDestaque;
 window.renderizarDestaques = renderizarDestaques;
 window.toggleAtivoDestaque = toggleAtivoDestaque;
 window.excluirDestaque = excluirDestaque;
+// Expose pagamento modal opener globally to ensure inline onclick works
+window.abrirModalPagamento = abrirModalPagamento;
 window.removerFotoProduto = removerFotoProduto;
 
 // Preview de imagem no modal do gestor
@@ -3195,38 +3279,44 @@ function carregarPagamentos() {
 }
 
 function abrirModalPagamento(id = null) {
-    const modal = document.getElementById('modal-pagamento');
-    if (!modal) return;
+    try {
+        const modal = document.getElementById('modal-pagamento');
+        if (!modal) return;
 
-    // limpar campos
-    document.getElementById('pagamento-id').value = id || '';
-    document.getElementById('pagamento-nome').value = '';
-    document.getElementById('pagamento-key').value = '';
-    document.getElementById('pagamento-tipo').value = 'pix_manual';
-    document.getElementById('pagamento-descricao').value = '';
-    document.getElementById('pagamento-opcoes-entrega').style.display = 'none';
-    document.getElementById('aceita_pix').checked = false;
-    document.getElementById('aceita_debito').checked = false;
-    document.getElementById('aceita_credito').checked = false;
+        // Open immediately so user sees modal even if something else fails
+        modal.classList.add('active');
 
-    if (id) {
-        const pagamentos = (db.getConfiguracoes().pagamentos) || [];
-        const p = pagamentos.find(x => x.id === id);
-        if (p) {
-            document.getElementById('pagamento-nome').value = p.nome || '';
-            document.getElementById('pagamento-key').value = p.key || '';
-            document.getElementById('pagamento-tipo').value = p.tipo || 'pix_manual';
-            document.getElementById('pagamento-descricao').value = p.descricao || '';
-            if (p.tipo === 'pagamento_na_entrega' && p.opcoesEntrega) {
-                document.getElementById('pagamento-opcoes-entrega').style.display = 'block';
-                document.getElementById('aceita_pix').checked = (p.opcoesEntrega || []).includes('pix');
-                document.getElementById('aceita_debito').checked = (p.opcoesEntrega || []).includes('debito');
-                document.getElementById('aceita_credito').checked = (p.opcoesEntrega || []).includes('credito');
+        // limpar campos
+        const el = (sel) => document.getElementById(sel);
+        el('pagamento-id').value = id || '';
+        if (el('pagamento-nome')) el('pagamento-nome').value = '';
+        if (el('pagamento-key')) el('pagamento-key').value = '';
+        if (el('pagamento-tipo')) el('pagamento-tipo').value = 'pix_manual';
+        if (el('pagamento-descricao')) el('pagamento-descricao').value = '';
+        if (el('pagamento-opcoes-entrega')) el('pagamento-opcoes-entrega').style.display = 'none';
+        if (el('aceita_pix')) el('aceita_pix').checked = false;
+        if (el('aceita_debito')) el('aceita_debito').checked = false;
+        if (el('aceita_credito')) el('aceita_credito').checked = false;
+
+        if (id) {
+            const pagamentos = (db.getConfiguracoes().pagamentos) || [];
+            const p = pagamentos.find(x => x.id === id);
+            if (p) {
+                if (el('pagamento-nome')) el('pagamento-nome').value = p.nome || '';
+                if (el('pagamento-key')) el('pagamento-key').value = p.key || '';
+                if (el('pagamento-tipo')) el('pagamento-tipo').value = p.tipo || 'pix_manual';
+                if (el('pagamento-descricao')) el('pagamento-descricao').value = p.descricao || '';
+                if (p.tipo === 'pagamento_na_entrega' && p.opcoesEntrega) {
+                    if (el('pagamento-opcoes-entrega')) el('pagamento-opcoes-entrega').style.display = 'block';
+                    if (el('aceita_pix')) el('aceita_pix').checked = (p.opcoesEntrega || []).includes('pix');
+                    if (el('aceita_debito')) el('aceita_debito').checked = (p.opcoesEntrega || []).includes('debito');
+                    if (el('aceita_credito')) el('aceita_credito').checked = (p.opcoesEntrega || []).includes('credito');
+                }
             }
         }
+    } catch (err) {
+        console.error('[PAGAMENTOS] abrirModalPagamento erro:', err);
     }
-
-    modal.classList.add('active');
 }
 
 function editarPagamentoGestor(id) {
