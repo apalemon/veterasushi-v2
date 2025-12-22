@@ -520,9 +520,48 @@
                             <p style="margin:0; color: var(--texto-medio);">Cadastre e configure os métodos de pagamento que aparecerão no checkout.</p>
                         </div>
                         <div>
-                            <button class="btn btn-primary" onclick="abrirModalPagamento()">Adicionar Método</button>
+                            <button class="btn btn-primary" id="btn-toggle-pagamento">Adicionar Método</button>
                         </div>
                     </div>
+
+                    <!-- Inline editor para métodos de pagamento (não usar modal) -->
+                    <div id="pagamento-editor" style="display:none; margin-bottom:12px; background:var(--bg-primary); padding:12px; border-radius:8px; border:1px solid var(--borda);">
+                        <form id="form-pagamento-inline">
+                            <input type="hidden" id="pagamento-id-inline">
+                            <div class="form-grid">
+                                <div class="form-group">
+                                    <label class="form-label">Nome do Método *</label>
+                                    <input type="text" class="form-input" id="pagamento-nome-inline" required>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Chave/ID</label>
+                                    <input type="text" class="form-input" id="pagamento-key-inline" placeholder="pix_manual" required>
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Tipo</label>
+                                <select class="form-select" id="pagamento-tipo-inline">
+                                    <option value="pix_manual">PIX manual (aprovação manual)</option>
+                                    <option value="pagamento_na_entrega">Pagamento na entrega (mostrar opções)</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Descrição</label>
+                                <input type="text" class="form-input" id="pagamento-descricao-inline">
+                            </div>
+                            <div class="form-group" id="pagamento-opcoes-entrega-inline" style="display:none;">
+                                <label class="form-label">Opções aceitas na entrega</label>
+                                <label><input type="checkbox" id="aceita_pix_inline"> PIX</label> &nbsp;
+                                <label><input type="checkbox" id="aceita_debito_inline"> Cartão Débito</label> &nbsp;
+                                <label><input type="checkbox" id="aceita_credito_inline"> Cartão Crédito</label>
+                            </div>
+                            <div style="display:flex; gap:8px; margin-top:12px;">
+                                <button type="submit" class="btn btn-primary">Salvar</button>
+                                <button type="button" class="btn btn-secondary" id="btn-cancelar-pagamento">Cancelar</button>
+                            </div>
+                        </form>
+                    </div>
+
                     <div id="pagamentos-lista"></div>
                 </div>
             </section>

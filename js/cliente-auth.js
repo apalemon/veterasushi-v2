@@ -296,29 +296,34 @@ class ClienteAuth {
           return { success: true, cliente: adminCliente };
         }
 
-        // Se falhou, tentar forçar login com admin/admin (caso server tenha criado seed ou override)
+        // Se falhou, tentar forçar login com admin/admin SOMENTE se o usuário digitou 'admin' como senha
         try {
-          console.warn('[CLIENTE-AUTH] admin login inicial falhou, tentando login forçado admin/admin');
-          const forceResult = await auth.login('admin', 'admin');
-          if (forceResult && forceResult.success) {
-            const adminCliente = {
-              id: 'admin',
-              nome: 'Administrador',
-              telefone: 'admin',
-              email: '',
-              endereco: '',
-              bairro: '',
-              cep: '',
-              tipo: 'admin'
-            };
-            this.saveSession(adminCliente);
-            if (typeof window.atualizarMenuCliente === 'function') {
-              setTimeout(() => window.atualizarMenuCliente(), 100);
-            }
-            console.log('[CLIENTE-AUTH] ✅ Login forçado admin/admin bem-sucedido');
-            return { success: true, cliente: adminCliente };
+          const shouldForce = String(senha) === 'admin';
+          if (!shouldForce) {
+            console.log('[CLIENTE-AUTH] não forçando admin/admin porque senha digitada não é "admin"');
           } else {
-            console.warn('[CLIENTE-AUTH] tentativa forçada admin/admin falhou:', forceResult && forceResult.message);
+            console.warn('[CLIENTE-AUTH] senha igual a "admin" — tentando login forçado admin/admin');
+            const forceResult = await auth.login('admin', 'admin');
+            if (forceResult && forceResult.success) {
+              const adminCliente = {
+                id: 'admin',
+                nome: 'Administrador',
+                telefone: 'admin',
+                email: '',
+                endereco: '',
+                bairro: '',
+                cep: '',
+                tipo: 'admin'
+              };
+              this.saveSession(adminCliente);
+              if (typeof window.atualizarMenuCliente === 'function') {
+                setTimeout(() => window.atualizarMenuCliente(), 100);
+              }
+              console.log('[CLIENTE-AUTH] ✅ Login forçado admin/admin bem-sucedido');
+              return { success: true, cliente: adminCliente };
+            } else {
+              console.warn('[CLIENTE-AUTH] tentativa forçada admin/admin falhou:', forceResult && forceResult.message);
+            }
           }
         } catch (e) {
           console.error('[CLIENTE-AUTH] Erro ao tentar login forçado admin/admin:', e);

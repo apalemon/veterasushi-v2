@@ -3411,34 +3411,130 @@ function excluirPagamentoGestor(id) {
     carregarPagamentos();
 }
 
-// Salvar pagamento
-const formPagamento = document.getElementById('form-pagamento');
-if (formPagamento) {
-    formPagamento.addEventListener('submit', function(e) {
-        e.preventDefault();
-        const id = document.getElementById('pagamento-id').value || ('p' + Date.now());
-        const nome = document.getElementById('pagamento-nome').value.trim();
-        const key = document.getElementById('pagamento-key').value.trim();
-        const tipo = document.getElementById('pagamento-tipo').value;
-        const descricao = document.getElementById('pagamento-descricao').value.trim();
-        const opcoes = [];
-        if (document.getElementById('aceita_pix').checked) opcoes.push('pix');
-        if (document.getElementById('aceita_debito').checked) opcoes.push('debito');
-        if (document.getElementById('aceita_credito').checked) opcoes.push('credito');
-
-        if (!nome || !key) {
-            alert('Preencha o nome e a chave do método.');
-            return;
+// Salvar pagamento (handler genérico reutilizável)
+async function salvarPagamentoFromForm() {
+    const getElVal = (ids) => {
+        for (const id of ids) {
+            const el = document.getElementById(id);
+            if (el) return el.value;
         }
+        return '';
+    };
+    const getElChecked = (ids) => {
+        for (const id of ids) {
+            const el = document.getElementById(id);
+            if (el) return el.checked;
+        }
+        return false;
+    };
 
-        const config = db.getConfiguracoes();
-        const pagamentos = (config.pagamentos || []).filter(p => p.id !== id);
-        pagamentos.push({ id, nome, key, tipo, descricao, opcoesEntrega: opcoes });
-        db.atualizarConfiguracoes({ pagamentos });
-        carregarPagamentos();
-        fecharModal('modal-pagamento');
-    });
+    const id = getElVal(['pagamento-id', 'pagamento-id-inline']) || ('p' + Date.now());
+    const nome = (getElVal(['pagamento-nome-inline', 'pagamento-nome']) || '').trim();
+    const key = (getElVal(['pagamento-key-inline', 'pagamento-key']) || '').trim();
+    const tipo = getElVal(['pagamento-tipo-inline', 'pagamento-tipo']) || 'pix_manual';
+    const descricao = (getElVal(['pagamento-descricao-inline', 'pagamento-descricao']) || '').trim();
+
+    const opcoes = [];
+    if (getElChecked(['aceita_pix_inline', 'aceita_pix'])) opcoes.push('pix');
+    if (getElChecked(['aceita_debito_inline', 'aceita_debito'])) opcoes.push('debito');
+    if (getElChecked(['aceita_credito_inline', 'aceita_credito'])) opcoes.push('credito');
+
+    if (!nome || !key) {
+        alert('Preencha o nome e a chave do método.');
+        return false;
+    }
+
+    const config = db.getConfiguracoes();
+    const pagamentos = (config.pagamentos || []).filter(p => p.id !== id);
+    pagamentos.push({ id, nome, key, tipo, descricao, opcoesEntrega: opcoes });
+    db.atualizarConfiguracoes({ pagamentos });
+    carregarPagamentos();
+    return true;
 }
+
+// Attach payment form handlers on DOMContentLoaded and setup inline editor toggles
+document.addEventListener('DOMContentLoaded', function() {
+    // Inline editor toggle
+    const btnToggle = document.getElementById('btn-toggle-pagamento');
+    const editor = document.getElementById('pagamento-editor');
+    const btnCancelar = document.getElementById('btn-cancelar-pagamento');
+    if (btnToggle && editor) {
+        btnToggle.addEventListener('click', function() {
+            const showing = editor.style.display !== 'none';
+            if (showing) {
+                editor.style.display = 'none';
+            } else {
+                // reset fields
+                document.getElementById('pagamento-id-inline').value = '';
+                document.getElementById('pagamento-nome-inline').value = '';
+                document.getElementById('pagamento-key-inline').value = '';
+                document.getElementById('pagamento-tipo-inline').value = 'pix_manual';
+                document.getElementById('pagamento-descricao-inline').value = '';
+                document.getElementById('aceita_pix_inline').checked = false;
+                document.getElementById('aceita_debito_inline').checked = false;
+                document.getElementById('aceita_credito_inline').checked = false;
+                document.getElementById('pagamento-opcoes-entrega-inline').style.display = 'none';
+                editor.style.display = 'block';
+                document.getElementById('pagamento-nome-inline').focus();
+            }
+        });
+    }
+    if (btnCancelar && editor) {
+        btnCancelar.addEventListener('click', function() { editor.style.display = 'none'; });
+    }
+
+    // show/hide opcoes-entrega inline select
+    const tipoInline = document.getElementById('pagamento-tipo-inline');
+    if (tipoInline) {
+        tipoInline.addEventListener('change', function() {
+            const s = document.getElementById('pagamento-opcoes-entrega-inline');
+            if (this.value === 'pagamento_na_entrega') s.style.display = 'block'; else s.style.display = 'none';
+        });
+    }
+
+    // Attach submit handler for inline form
+    const formInline = document.getElementById('form-pagamento-inline');
+    if (formInline) {
+        formInline.addEventListener('submit', function(e) {
+            e.preventDefault();
+            salvarPagamentoFromForm();
+            document.getElementById('pagamento-editor').style.display = 'none';
+        });
+    }
+
+    // Also attach handler for modal form if present
+    const formModal = document.getElementById('form-pagamento');
+    if (formModal) {
+        formModal.addEventListener('submit', function(e) {
+            e.preventDefault();
+            (async () => {
+                const ok = await salvarPagamentoFromForm();
+                if (ok) fecharModal('modal-pagamento');
+            })();
+        });
+    }
+
+});
+
+// When editing from list, populate inline editor and show
+function editarPagamentoGestor(id) {
+    const pagamentos = (db.getConfiguracoes().pagamentos) || [];
+    const p = pagamentos.find(x => x.id === id);
+    if (!p) return;
+    // populate inline editor
+    document.getElementById('pagamento-id-inline').value = p.id || '';
+    document.getElementById('pagamento-nome-inline').value = p.nome || '';
+    document.getElementById('pagamento-key-inline').value = p.key || '';
+    document.getElementById('pagamento-tipo-inline').value = p.tipo || 'pix_manual';
+    document.getElementById('pagamento-descricao-inline').value = p.descricao || '';
+    document.getElementById('aceita_pix_inline').checked = (p.opcoesEntrega || []).includes('pix');
+    document.getElementById('aceita_debito_inline').checked = (p.opcoesEntrega || []).includes('debito');
+    document.getElementById('aceita_credito_inline').checked = (p.opcoesEntrega || []).includes('credito');
+    document.getElementById('pagamento-opcoes-entrega-inline').style.display = p.tipo === 'pagamento_na_entrega' ? 'block' : 'none';
+    document.getElementById('pagamento-editor').style.display = 'block';
+    document.getElementById('pagamento-nome-inline').focus();
+}
+
 
 // Inicializar carregamento de pagamentos após carregar configurações
 document.addEventListener('DOMContentLoaded', function() {
