@@ -19,12 +19,6 @@
       ]
     }
   ],
-  "rewrites": [
-    { "source": "/:store/cardapio", "destination": "/cardapio.html" },
-    { "source": "/:store/gestor", "destination": "/gestor.html" },
-    { "source": "/:store/api/:path*", "destination": "/api/:path*" }
-  ],
-  "redirects": [
-    { "source": "/:store", "destination": "/:store/cardapio", "permanent": false }
-  ]
+  "rewrites": [],
+  "redirects": []
 }
