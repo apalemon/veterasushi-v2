@@ -20,7 +20,7 @@
     }
   ],
   "rewrites": [
-    { "source": "/:store/cardapio", "destination": "/index.html" },
+    { "source": "/:store/cardapio", "destination": "/cardapio.html" },
     { "source": "/:store/gestor", "destination": "/gestor.html" },
     { "source": "/:store/api/:path*", "destination": "/api/:path*" }
   ],
