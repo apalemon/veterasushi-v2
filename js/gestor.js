@@ -3282,10 +3282,9 @@ if (formConfig) {
 
         // Atualizar UI e mostrar URLs
         carregarConfiguracoes();
-        const base = slug ? (window.location.origin + '/' + slug) : window.location.origin;
         const urlsList = document.getElementById('config-urls-list');
         if (urlsList) {
-            urlsList.innerHTML = `<div style="display:flex; flex-direction:column; gap:6px;"><div><strong>Cardápio:</strong> <a href="${base}/cardapio" target="_blank">${base}/cardapio</a></div><div><strong>Gestor:</strong> <a href="${base}/gestor" target="_blank">${base}/gestor</a></div></div>`;
+            urlsList.innerHTML = `<div style="display:flex; flex-direction:column; gap:6px;"><div><strong>Cardápio:</strong> <a href="cardapio.html" target="_blank">cardapio.html</a></div><div><strong>Gestor:</strong> <a href="gestor.html" target="_blank">gestor.html</a></div></div>`;
             document.getElementById('config-urls').style.display = 'block';
         }
     });
