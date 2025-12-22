@@ -114,7 +114,9 @@ class Auth {
           try {
             if (db && db.data && Array.isArray(db.data.usuarios) && db.data.usuarios.length > 0) {
               console.log('[AUTH] 🔄 Tentando login local como fallback (API 401)...');
-              return this.loginLocal(usuario, senha);
+              const localResult = this.loginLocal(usuario, senha);
+              console.log('[AUTH] 🔄 Resultado do loginLocal:', localResult);
+              return localResult;
             }
 
             // Se não houver usuários locais, criar seed admin e tentar login local
@@ -133,8 +135,10 @@ class Auth {
               };
               db.data.usuarios.push(adminUser);
               try { if (typeof db.saveData === 'function') db.saveData(); localStorage.setItem('vetera_database', JSON.stringify(db.data)); } catch(e) { console.warn('[AUTH] ⚠️ Falha ao salvar admin seed:', e); }
+              console.log('[AUTH] 🔁 admin seed added locally. total usuarios now:', db.data.usuarios.length);
               try {
                 const localResult = this.loginLocal(usuario, senha);
+                console.log('[AUTH] 🔁 resultado loginLocal após seed:', localResult);
                 if (localResult && localResult.success) {
                   console.log('[AUTH] ✅ Login local bem-sucedido após criar admin seed');
                   this.saveSession(localResult.user);
