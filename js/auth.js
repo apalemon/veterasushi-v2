@@ -107,13 +107,67 @@ class Auth {
         }
       } else {
         console.error('[AUTH] ❌ API retornou erro:', response.status);
-        // Tratar 404 explicitamente para tentar fallback local e dar mensagem útil
+        // Tratar 404 explicitamente: tentar um endpoint alternativo com o prefixo da loja (ex: /<store>/api/auth/login) antes do fallback local
         if (response.status === 404) {
           console.warn('[AUTH] ⚠️ Endpoint de autenticação não encontrado (404).');
+          try {
+            const pathParts = window.location.pathname.split('/').filter(Boolean);
+            const first = pathParts[0];
+            if (first && !['gestor','cardapio',''].includes(first)) {
+              const altApi = '/' + first + '/api/auth/login';
+              console.log('[AUTH] 🔁 Tentando endpoint alternativo:', altApi);
+              const altResp = await fetch(altApi, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ usuario, senha })
+              });
+              if (altResp.ok) {
+                const altResult = await altResp.json();
+                if (altResult.success) {
+                  this.saveSession(altResult.user);
+                  console.log('[AUTH] ✅ Login bem-sucedido via endpoint alternativo!');
+                  return { success: true, user: altResult.user };
+                } else {
+                  console.log('[AUTH] ❌ Alternativo falhou:', altResult.message);
+                  return { success: false, message: altResult.message || 'Credenciais inválidas (endpoint alternativo)'};
+                }
+              } else {
+                console.warn('[AUTH] ⚠️ Endpoint alternativo retornou:', altResp.status);
+              }
+            }
+          } catch (e) {
+            console.warn('[AUTH] ⚠️ Erro ao tentar endpoint alternativo:', e);
+          }
+
+          // Se ainda nada, tentar fallback local se houver usuários
           if (db && db.data && Array.isArray(db.data.usuarios) && db.data.usuarios.length > 0) {
             console.log('[AUTH] 🔄 Tentando login local como fallback (API 404)...');
             return this.loginLocal(usuario, senha);
           }
+
+          // Se não houver usuários locais, criar um admin temporário para facilitar testes (admin/admin)
+          try {
+            if (!db) window.db = window.db || {};
+            if (!db.data) db.data = {};
+            if (!Array.isArray(db.data.usuarios)) db.data.usuarios = [];
+            if (db.data.usuarios.length === 0) {
+              console.warn('[AUTH] ⚠️ Nenhum usuário local encontrado — criando usuário admin temporário (admin/admin) para testes. Troque a senha após entrar.');
+              const adminUser = {
+                id: Date.now(),
+                usuario: 'admin',
+                senha: this.hashPassword('admin'),
+                nome: 'Administrador (seed)',
+                nivel: 'admin',
+                ativo: true
+              };
+              db.data.usuarios.push(adminUser);
+              try { if (typeof db.saveData === 'function') db.saveData(); localStorage.setItem('vetera_database', JSON.stringify(db.data)); } catch(e) { console.warn('[AUTH] ⚠️ Falha ao salvar admin seed:', e); }
+              return { success: false, message: 'Usuário admin temporário criado — use admin/admin para entrar e altere a senha.' };
+            }
+          } catch (e) {
+            console.warn('[AUTH] ⚠️ Erro criando usuário admin temporário:', e);
+          }
+
           return { success: false, message: 'API de autenticação não encontrada (404). No servidor não há endpoint para /api/auth/login e não há usuários locais para fallback.' };
         }
         try {

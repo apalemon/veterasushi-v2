@@ -18,5 +18,10 @@
         }
       ]
     }
+  ],
+  "rewrites": [
+    { "source": "/:store/cardapio", "destination": "/index.html" },
+    { "source": "/:store/gestor", "destination": "/gestor.html" },
+    { "source": "/:store/api/:path*", "destination": "/api/:path*" }
   ]
 }
