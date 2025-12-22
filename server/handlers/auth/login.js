@@ -16,16 +16,36 @@ module.exports = async (req, res) => {
         const usuariosCollection = await getCollection('usuarios');
         const totalUsers = await usuariosCollection.countDocuments();
         console.log('[AUTH/LOGIN] total usuarios in DB:', totalUsers);
-        const user = await usuariosCollection.findOne({ usuario, senha, ativo: { $ne: false } });
-        if (!user) {
-            // Debug: check if user exists ignoring password
-            const userByName = await usuariosCollection.findOne({ usuario });
-            if (userByName) {
-                console.warn('[AUTH/LOGIN] usuário encontrado sem correspondência de senha. usuario:', usuario, 'storedPasswordType:', (userByName.senha||'').startsWith('hashed_') ? 'hashed' : 'plain');
-            } else {
-                console.log('[AUTH/LOGIN] usuário não encontrado com usuario:', usuario);
-            }
 
+        // Helper: reproduce client hash algorithm
+        function serverHashPassword(password) {
+            try {
+                const salt = 'vetera_sushi_2024_salt_secure';
+                const saltedPassword = salt + password + salt;
+                let hash = 0;
+                for (let i = 0; i < saltedPassword.length; i++) {
+                    const char = saltedPassword.charCodeAt(i);
+                    hash = ((hash << 5) - hash) + char;
+                    hash = hash & hash;
+                }
+                let hash2 = 0;
+                for (let i = saltedPassword.length - 1; i >= 0; i--) {
+                    const char = saltedPassword.charCodeAt(i);
+                    hash2 = ((hash2 << 3) - hash2) + char;
+                    hash2 = hash2 & hash2;
+                }
+                const combined = Math.abs(hash) + Math.abs(hash2);
+                return 'hashed_' + Math.abs(combined).toString(36) + Math.abs(hash).toString(36).slice(-10);
+            } catch (e) {
+                console.warn('[AUTH/LOGIN] erro ao hashear senha no servidor', e);
+                return String(password);
+            }
+        }
+
+        // Find user by username only, then compare password (supports hashed and plain)
+        const user = await usuariosCollection.findOne({ usuario, ativo: { $ne: false } });
+        if (!user) {
+            // No user with that username
             const allowOverride = String(process.env.ALLOW_ADMIN_OVERRIDE || '').toLowerCase() === 'true';
             if (allowOverride && String(usuario) === 'admin' && String(senha) === 'admin') {
                 console.warn('[AUTH/LOGIN] ALLOW_ADMIN_OVERRIDE enabled - granting admin login (admin/admin)');
@@ -37,7 +57,38 @@ module.exports = async (req, res) => {
                 const adminUser = { id: 'admin', usuario: 'admin', nome: 'Administrador (seed)', nivel: 'admin', ativo: true };
                 return res.status(200).json({ success: true, user: adminUser });
             }
-            return res.status(401).json({ error: 'Credenciais inválidas', info: (allowOverride ? 'Server override (ALLOW_ADMIN_OVERRIDE) is active' : undefined) });
+            console.log('[AUTH/LOGIN] usuário não encontrado com usuario:', usuario);
+            return res.status(401).json({ error: 'Credenciais inválidas' });
+        }
+
+        // Compare passwords
+        const senhaArmazenada = user.senha || '';
+        const isHashedStored = String(senhaArmazenada).startsWith('hashed_');
+        const attemptedHashed = serverHashPassword(senha);
+
+        console.log('[AUTH/LOGIN] comparando senha: usuario=', usuario, 'isHashedStored=', isHashedStored);
+
+        let senhaValida = false;
+        if (isHashedStored) {
+            senhaValida = attemptedHashed === String(senhaArmazenada);
+        } else {
+            // stored plain: accept if equal to provided (legacy) or if attempted hashed equals stored hashed (unlikely)
+            if (String(senhaArmazenada) === String(senha)) {
+                senhaValida = true;
+                // Migrate to hashed password
+                try {
+                    const newHashed = serverHashPassword(senha);
+                    await usuariosCollection.updateOne({ _id: user._id }, { $set: { senha: newHashed } });
+                    console.log('[AUTH/LOGIN] senha de usuario migrada para hashed:', usuario);
+                } catch (e) {
+                    console.warn('[AUTH/LOGIN] falha ao migrar senha para hashed:', e);
+                }
+            }
+        }
+
+        if (!senhaValida) {
+            console.warn('[AUTH/LOGIN] senha inválida para usuario:', usuario);
+            return res.status(401).json({ error: 'Credenciais inválidas' });
         }
 
         // Remover senha antes de retornar
