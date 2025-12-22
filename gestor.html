@@ -11,18 +11,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
 <script>
-// Proteção global: redireciona URLs inválidas para o formato correto
-document.addEventListener('DOMContentLoaded', function() {
-    var path = window.location.pathname.split('/').filter(Boolean);
-    // Se está em /gestor/cardapio ou /gestor.html/cardapio, redireciona para /cardapio
-    if ((path[0] === 'gestor' || path[0] === 'gestor.html') && path[1] === 'cardapio') {
-        window.location.href = '/cardapio';
-        return;
-    }
-    // Se está em /gestor ou /gestor.html sem slug, deixa passar (página do gestor)
-});
-</script>
-<script>
 // Corrige links de navegação para multi-loja
 document.addEventListener('DOMContentLoaded', function() {
     function getStoreSlug() {
