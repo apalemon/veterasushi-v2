@@ -1,7 +1,6 @@
 // Lightweight shim to ensure /api/auth/login exists as a direct serverless entry
 // It delegates to the consolidated handler in server/handlers/auth/login.js
 const path = require('path');
-
 module.exports = async (req, res) => {
   console.log('[API SHIM] /api/auth/login invoked', req.method, req.url);
   try {
