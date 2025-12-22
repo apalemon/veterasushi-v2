@@ -10,6 +10,30 @@
     <link rel="shortcut icon" type="image/png" href="/logo.png"
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
+<script>
+// Corrige links de navegação para multi-loja
+document.addEventListener('DOMContentLoaded', function() {
+    function getStoreSlug() {
+        var parts = window.location.pathname.split('/').filter(Boolean);
+        // Se estiver em /NOME_DA_LOJA/gestor ou /NOME_DA_LOJA/cardapio
+        if (parts.length >= 2 && !['gestor','cardapio','index.html'].includes(parts[0])) {
+            return parts[0];
+        }
+        return '';
+    }
+    var loja = getStoreSlug();
+    if (loja) {
+        var cardapioLinks = document.querySelectorAll('a[href="/cardapio"], a[href="../cardapio"], a[href="cardapio"]');
+        cardapioLinks.forEach(function(link) {
+            link.setAttribute('href', '/' + loja + '/cardapio');
+        });
+        var gestorLinks = document.querySelectorAll('a[href="/gestor"], a[href="../gestor"], a[href="gestor"]');
+        gestorLinks.forEach(function(link) {
+            link.setAttribute('href', '/' + loja + '/gestor');
+        });
+    }
+});
+</script>
 <body>
     <div id="site-loading-overlay" aria-hidden="false">
         <div class="loading-spinner" aria-hidden="true"></div>
