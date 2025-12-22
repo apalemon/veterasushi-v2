@@ -82,8 +82,8 @@ class Auth {
     
     // Tentar login via API primeiro (mais seguro)
     try {
-      const apiUrl = window.location.origin + '/api/auth/login';
-      console.log('[AUTH] 📡 Chamando API:', apiUrl);
+      const apiUrl = '/api/auth/login';
+      console.log('[AUTH] 📡 Chamando API (relativo):', apiUrl);
       
       const response = await fetch(apiUrl, {
         method: 'POST',
@@ -107,6 +107,22 @@ class Auth {
         }
       } else {
         console.error('[AUTH] ❌ API retornou erro:', response.status);
+        // Tratar 404 explicitamente para tentar fallback local e dar mensagem útil
+        if (response.status === 404) {
+          console.warn('[AUTH] ⚠️ Endpoint de autenticação não encontrado (404).');
+          if (db && db.data && Array.isArray(db.data.usuarios) && db.data.usuarios.length > 0) {
+            console.log('[AUTH] 🔄 Tentando login local como fallback (API 404)...');
+            return this.loginLocal(usuario, senha);
+          }
+          return { success: false, message: 'API de autenticação não encontrada (404). No servidor não há endpoint para /api/auth/login e não há usuários locais para fallback.' };
+        }
+        try {
+          const errBody = await response.json();
+          const msg = errBody && (errBody.message || errBody.error) ? (errBody.message || errBody.error) : `Erro na API: ${response.status}`;
+          return { success: false, message: msg };
+        } catch (e) {
+          return { success: false, message: `Erro ao autenticar: ${response.status}` };
+        }
       }
     } catch (error) {
       console.error('[AUTH] ❌ Erro ao chamar API:', error);

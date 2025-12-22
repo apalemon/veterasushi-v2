@@ -1942,6 +1942,29 @@ function abrirModalDestaque(destaque = null) {
     idEl.value = destaqueObj && destaqueObj.id ? destaqueObj.id : '';
     nomeEl.value = destaqueObj && destaqueObj.nome ? destaqueObj.nome : '';
     listaEl.innerHTML = '';
+    // Ensure the modal is appended to body and visible (fallback for nesting/visibility issues)
+    try {
+        if (modal.parentElement !== document.body) document.body.appendChild(modal);
+        modal.style.display = 'flex';
+        modal.style.zIndex = '99999';
+        modal.style.visibility = 'visible';
+        modal.style.pointerEvents = 'auto';
+        modal.setAttribute('data-gestor-visible','1');
+        // Force full-screen fixed positioning to avoid clipping
+        modal.style.position = 'fixed';
+        modal.style.top = '0';
+        modal.style.left = '0';
+        modal.style.width = '100%';
+        modal.style.height = '100%';
+        modal.style.alignItems = 'center';
+        modal.style.justifyContent = 'center';
+        const inner = modal.querySelector('.modal');
+        if (inner) inner.style.zIndex = '100000';
+        try { modal.scrollIntoView({ block: 'center', inline: 'nearest' }); } catch(e){}
+        console.log('[GESTOR] modal-destaque shown', modal.getBoundingClientRect());
+    } catch (e) {
+        console.warn('[GESTOR] abrirModalDestaque visibility fallback failed at init', e);
+    }
 
     // Build products checkbox list
     const produtos = Array.isArray(db.data.produtos) ? db.data.produtos : [];
@@ -1993,6 +2016,12 @@ function abrirModalDestaque(destaque = null) {
     };
 
     modal.classList.add('active');
+    try {
+        console.log('[GESTOR] modal-destaque shown', modal.getBoundingClientRect());
+        modal.scrollIntoView({ block: 'center' });
+    } catch (e) {
+        console.warn('[GESTOR] modal-destaque show log failed', e);
+    }
 }
 
 // Salvar destaque do modal
@@ -3307,6 +3336,35 @@ function abrirModalPagamento(id = null) {
 
         // Open immediately so user sees modal even if something else fails
         modal.classList.add('active');
+        try {
+            // Ensure it is visible even if styles are overridden; force display and high z-index
+            modal.style.display = 'flex';
+            modal.style.zIndex = '99999';
+            modal.style.visibility = 'visible';
+            modal.style.pointerEvents = 'auto';
+            modal.setAttribute('data-gestor-visible','1');
+            // Force full-screen fixed positioning to avoid clipping
+            modal.style.position = 'fixed';
+            modal.style.top = '0';
+            modal.style.left = '0';
+            modal.style.width = '100%';
+            modal.style.height = '100%';
+            modal.style.alignItems = 'center';
+            modal.style.justifyContent = 'center';
+            // Ensure inner dialog is above overlay
+            const inner = modal.querySelector('.modal');
+            if (inner) inner.style.zIndex = '100000';
+            // Move modal to document body to avoid clipping by parent containers
+            if (modal.parentElement !== document.body) document.body.appendChild(modal);
+            // Focus first input for accessibility
+            const firstInput = modal.querySelector('input, textarea, select, button');
+            if (firstInput && typeof firstInput.focus === 'function') firstInput.focus();
+            // Scroll into view and report geometry for debugging
+            try { modal.scrollIntoView({ block: 'center', inline: 'nearest' }); } catch(e){}
+            console.log('[GESTOR] modal-pagamento shown', modal.getBoundingClientRect());
+        } catch (e) {
+            console.warn('[GESTOR] abrirModalPagamento visibility fallback failed', e);
+        }
 
         // limpar campos
         const el = (sel) => document.getElementById(sel);
