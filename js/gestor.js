@@ -4338,16 +4338,19 @@ window.abrirLojaManual = async function() {
     }
     
     try {
+        console.log('[HORARIOS] ℹ️ Enviando PUT /api/horarios { statusManual: true }');
         const response = await fetch(window.location.origin + '/api/horarios', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ statusManual: true })
         });
-        
+        console.log('[HORARIOS] 📡 Resposta inicial:', response.status, response.statusText, response.url);
+
         if (response.ok) {
             // Preferir usar o documento retornado pelo servidor quando disponível
             try {
                 const doc = await response.json();
+                console.log('[HORARIOS] 📦 Documento retornado pelo servidor:', doc);
                 if (doc && typeof doc === 'object') {
                     db.data.horarios = doc;
                     db.saveData();
@@ -4355,12 +4358,54 @@ window.abrirLojaManual = async function() {
                     await carregarHorariosDoServidor();
                 }
             } catch (e) {
+                console.warn('[HORARIOS] ⚠️ Não foi possível ler JSON da resposta, recarregando do servidor', e);
                 await carregarHorariosDoServidor();
             }
             atualizarStatusHorarios();
             atualizarBotoesAbrirFechar();
             alert('✅ Loja aberta manualmente!');
-        } else if (response.status === 503) {
+            return;
+        }
+
+        // Se 404, tentar endpoint com prefixo da loja (ex: /minhaloja/api/horarios)
+        if (response.status === 404) {
+            console.warn('[HORARIOS] ⚠️ Endpoint /api/horarios não encontrado. Tentando endpoint alternativo com prefixo de loja.');
+            try {
+                const pathParts = window.location.pathname.split('/').filter(Boolean);
+                const first = pathParts[0];
+                if (first) {
+                    const cleaned = String(first).toLowerCase();
+                    const isValidStore = /^[a-z0-9_-]{1,50}$/.test(cleaned) && !cleaned.includes('.') && !['index.html','api','gestor','cardapio',''].includes(cleaned);
+                    if (isValidStore) {
+                        const altApi = '/' + cleaned + '/api/horarios';
+                        console.log('[HORARIOS] 🔁 Tentando alternative:', altApi);
+                        const altResp = await fetch(altApi, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ statusManual: true })
+                        });
+                        console.log('[HORARIOS] 🔁 Resposta alternativa:', altResp.status, altResp.statusText, altResp.url);
+                        if (altResp.ok) {
+                            try {
+                                const doc = await altResp.json();
+                                if (doc && typeof doc === 'object') {
+                                    db.data.horarios = doc;
+                                    db.saveData();
+                                }
+                            } catch (e) { /* ignore */ }
+                            atualizarStatusHorarios();
+                            atualizarBotoesAbrirFechar();
+                            alert('✅ Loja aberta manualmente (via endpoint alternativo)!');
+                            return;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('[HORARIOS] ⚠️ Erro ao tentar endpoint alternativo:', e);
+            }
+        }
+
+        if (response.status === 503) {
             // Service Unavailable - atualizar localmente
             console.warn('[HORARIOS] ⚠️ Servidor indisponível (503), atualizando localmente');
             if (db && db.data && db.data.horarios) {
@@ -4373,11 +4418,20 @@ window.abrirLojaManual = async function() {
             } else {
                 alert('Erro: servidor indisponível e não há dados locais.');
             }
-        } else {
-            throw new Error('Erro ao atualizar status');
+            return;
+        }
+
+        // Para outros códigos, tentar exibir corpo da resposta para diagnosticar
+        try {
+            const txt = await response.text();
+            console.error('[HORARIOS] ❌ Falha ao abrir loja. Código:', response.status, 'Resposta:', txt);
+            alert('Erro ao abrir loja: ' + (txt || response.status));
+        } catch (e) {
+            console.error('[HORARIOS] ❌ Falha ao abrir loja. Código:', response.status);
+            alert('Erro ao abrir loja. Código: ' + response.status);
         }
     } catch (e) {
-        console.error('[HORARIOS] ❌ Erro ao abrir loja:', e);
+        console.error('[HORARIOS] ❌ Erro ao abrir loja (catch):', e);
         alert('Erro ao abrir loja. Tente novamente.');
     }
 };
@@ -4389,16 +4443,19 @@ window.fecharLojaManual = async function() {
     }
     
     try {
+        console.log('[HORARIOS] ℹ️ Enviando PUT /api/horarios { statusManual: false }');
         const response = await fetch(window.location.origin + '/api/horarios', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ statusManual: false })
         });
-        
+        console.log('[HORARIOS] 📡 Resposta inicial:', response.status, response.statusText, response.url);
+
         if (response.ok) {
             // Preferir usar o documento retornado pelo servidor quando disponível
             try {
                 const doc = await response.json();
+                console.log('[HORARIOS] 📦 Documento retornado pelo servidor:', doc);
                 if (doc && typeof doc === 'object') {
                     db.data.horarios = doc;
                     db.saveData();
@@ -4406,13 +4463,54 @@ window.fecharLojaManual = async function() {
                     await carregarHorariosDoServidor();
                 }
             } catch (e) {
+                console.warn('[HORARIOS] ⚠️ Não foi possível ler JSON da resposta, recarregando do servidor', e);
                 await carregarHorariosDoServidor();
             }
 
             atualizarStatusHorarios();
             atualizarBotoesAbrirFechar();
             alert('🔒 Loja fechada manualmente!');
-        } else if (response.status === 503) {
+            return;
+        }
+
+        if (response.status === 404) {
+            console.warn('[HORARIOS] ⚠️ Endpoint /api/horarios não encontrado. Tentando endpoint alternativo com prefixo de loja.');
+            try {
+                const pathParts = window.location.pathname.split('/').filter(Boolean);
+                const first = pathParts[0];
+                if (first) {
+                    const cleaned = String(first).toLowerCase();
+                    const isValidStore = /^[a-z0-9_-]{1,50}$/.test(cleaned) && !cleaned.includes('.') && !['index.html','api','gestor','cardapio',''].includes(cleaned);
+                    if (isValidStore) {
+                        const altApi = '/' + cleaned + '/api/horarios';
+                        console.log('[HORARIOS] 🔁 Tentando alternative:', altApi);
+                        const altResp = await fetch(altApi, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ statusManual: false })
+                        });
+                        console.log('[HORARIOS] 🔁 Resposta alternativa:', altResp.status, altResp.statusText, altResp.url);
+                        if (altResp.ok) {
+                            try {
+                                const doc = await altResp.json();
+                                if (doc && typeof doc === 'object') {
+                                    db.data.horarios = doc;
+                                    db.saveData();
+                                }
+                            } catch (e) { /* ignore */ }
+                            atualizarStatusHorarios();
+                            atualizarBotoesAbrirFechar();
+                            alert('🔒 Loja fechada manualmente (via endpoint alternativo)!');
+                            return;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('[HORARIOS] ⚠️ Erro ao tentar endpoint alternativo:', e);
+            }
+        }
+
+        if (response.status === 503) {
             // Service Unavailable - atualizar localmente
             console.warn('[HORARIOS] ⚠️ Servidor indisponível (503), atualizando localmente');
             if (db && db.data && db.data.horarios) {
@@ -4425,8 +4523,17 @@ window.fecharLojaManual = async function() {
             } else {
                 alert('Erro: servidor indisponível e não há dados locais.');
             }
-        } else {
-            throw new Error('Erro ao atualizar status');
+            return;
+        }
+
+        // Para outros códigos, tentar exibir corpo da resposta para diagnosticar
+        try {
+            const txt = await response.text();
+            console.error('[HORARIOS] ❌ Falha ao fechar loja. Código:', response.status, 'Resposta:', txt);
+            alert('Erro ao fechar loja: ' + (txt || response.status));
+        } catch (e) {
+            console.error('[HORARIOS] ❌ Falha ao fechar loja. Código:', response.status);
+            alert('Erro ao fechar loja. Código: ' + response.status);
         }
     } catch (e) {
         console.error('[HORARIOS] ❌ Erro ao fechar loja:', e);
@@ -4441,24 +4548,71 @@ window.voltarModoAutomatico = async function() {
     }
 
     try {
-        // Enviar PUT para remover a flag de status manual no servidor
+        console.log('[HORARIOS] ℹ️ Enviando PUT /api/horarios { statusManual: null }');
         const response = await fetch(window.location.origin + '/api/horarios', {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ statusManual: null })
         });
+        console.log('[HORARIOS] 📡 Resposta inicial:', response.status, response.statusText, response.url);
 
         if (response.ok) {
             // Atualizar local com o documento retornado
-            const doc = await response.json();
-            if (doc) {
-                db.data.horarios = doc;
-                db.saveData();
+            try {
+                const doc = await response.json();
+                if (doc) {
+                    db.data.horarios = doc;
+                    db.saveData();
+                }
+            } catch (e) {
+                console.warn('[HORARIOS] ⚠️ Não foi possível ler JSON da resposta, recarregando do servidor', e);
+                await carregarHorariosDoServidor();
             }
+
             atualizarStatusHorarios();
             atualizarBotoesAbrirFechar();
             alert('✅ Modo automático ativado!');
-        } else if (response.status === 503) {
+            return;
+        }
+
+        if (response.status === 404) {
+            console.warn('[HORARIOS] ⚠️ Endpoint /api/horarios não encontrado. Tentando endpoint alternativo com prefixo de loja.');
+            try {
+                const pathParts = window.location.pathname.split('/').filter(Boolean);
+                const first = pathParts[0];
+                if (first) {
+                    const cleaned = String(first).toLowerCase();
+                    const isValidStore = /^[a-z0-9_-]{1,50}$/.test(cleaned) && !cleaned.includes('.') && !['index.html','api','gestor','cardapio',''].includes(cleaned);
+                    if (isValidStore) {
+                        const altApi = '/' + cleaned + '/api/horarios';
+                        console.log('[HORARIOS] 🔁 Tentando alternative:', altApi);
+                        const altResp = await fetch(altApi, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ statusManual: null })
+                        });
+                        console.log('[HORARIOS] 🔁 Resposta alternativa:', altResp.status, altResp.statusText, altResp.url);
+                        if (altResp.ok) {
+                            try {
+                                const doc = await altResp.json();
+                                if (doc && typeof doc === 'object') {
+                                    db.data.horarios = doc;
+                                    db.saveData();
+                                }
+                            } catch (e) { /* ignore */ }
+                            atualizarStatusHorarios();
+                            atualizarBotoesAbrirFechar();
+                            alert('✅ Modo automático ativado (via endpoint alternativo)!');
+                            return;
+                        }
+                    }
+                }
+            } catch (e) {
+                console.warn('[HORARIOS] ⚠️ Erro ao tentar endpoint alternativo:', e);
+            }
+        }
+
+        if (response.status === 503) {
             // Servidor indisponível - atualizar localmente
             console.warn('[HORARIOS] ⚠️ Servidor indisponível (503), ativando automático localmente');
             if (db && db.data && db.data.horarios) {
@@ -4470,8 +4624,17 @@ window.voltarModoAutomatico = async function() {
             } else {
                 alert('Erro: servidor indisponível e não há dados locais.');
             }
-        } else {
-            throw new Error('Erro ao atualizar status');
+            return;
+        }
+
+        // Para outros códigos, tentar exibir corpo da resposta para diagnosticar
+        try {
+            const txt = await response.text();
+            console.error('[HORARIOS] ❌ Falha ao ativar automático. Código:', response.status, 'Resposta:', txt);
+            alert('Erro ao ativar automático: ' + (txt || response.status));
+        } catch (e) {
+            console.error('[HORARIOS] ❌ Falha ao ativar automático. Código:', response.status);
+            alert('Erro ao ativar automático. Código: ' + response.status);
         }
     } catch (e) {
         console.error('[HORARIOS] ❌ Erro ao voltar ao automático:', e);
