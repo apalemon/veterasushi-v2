@@ -3311,11 +3311,13 @@ function carregarPagamentos() {
     let html = '<div style="display:flex; flex-direction:column; gap:10px;">';
     pagamentos.forEach(p => {
         const aceita = p.opcoesEntrega ? p.opcoesEntrega.join(', ') : '';
+        const chaveTexto = p.tipo === 'pix_manual' ? '(usando chave em Configurações)' : (p.key || p.tipo || '');
         html += `
             <div style="display:flex; justify-content:space-between; align-items:center; padding:10px; border-radius:8px; background: var(--bg-primary); border:1px solid var(--borda);">
                 <div>
                     <div style="font-weight:600;">${escapeHTML(p.nome || p.key)}</div>
-                    <div style="color: var(--texto-medio); font-size:0.9rem;">${escapeHTML(p.descricao || '')} ${aceita ? '<br><small style="color:var(--texto-medio);">Opções na entrega: '+escapeHTML(aceita)+'</small>' : ''}</div>
+                    <div style="color: var(--texto-medio); font-size:0.9rem;">${escapeHTML(p.descricao || '')} ${aceita ? '<br><small style="color:var(--texto-medio);">Opções na entrega: '+escapeHTML(aceita)+'</small>' : ''}
+                    <br><small style="color:var(--texto-medio);">Chave: ${escapeHTML(chaveTexto)}</small></div>
                 </div>
                 <div style="display:flex; gap:8px;">
                     <button class="btn btn-secondary" onclick="editarPagamentoGestor('${p.id}')">Editar</button>
@@ -3383,7 +3385,11 @@ function abrirModalPagamento(id = null) {
             const p = pagamentos.find(x => x.id === id);
             if (p) {
                 if (el('pagamento-nome')) el('pagamento-nome').value = p.nome || '';
-                if (el('pagamento-key')) el('pagamento-key').value = p.key || '';
+                const keyInfo = el('pagamento-key-info');
+                if (keyInfo) {
+                    if (p.tipo === 'pix_manual') keyInfo.style.display = 'block';
+                    keyInfo.innerHTML = '<label class="form-label">Chave/ID</label><div style="color: var(--texto-medio);">' + (p.tipo === 'pix_manual' ? 'Usa a chave PIX que está em <strong>Configurações</strong>.' : ('Chave atual: <strong>' + (p.key || p.tipo) + '</strong>')) + '</div>';
+                }
                 if (el('pagamento-tipo')) el('pagamento-tipo').value = p.tipo || 'pix_manual';
                 if (el('pagamento-descricao')) el('pagamento-descricao').value = p.descricao || '';
                 if (p.tipo === 'pagamento_na_entrega' && p.opcoesEntrega) {
@@ -3430,7 +3436,6 @@ async function salvarPagamentoFromForm() {
 
     const id = getElVal(['pagamento-id', 'pagamento-id-inline']) || ('p' + Date.now());
     const nome = (getElVal(['pagamento-nome-inline', 'pagamento-nome']) || '').trim();
-    const key = (getElVal(['pagamento-key-inline', 'pagamento-key']) || '').trim();
     const tipo = getElVal(['pagamento-tipo-inline', 'pagamento-tipo']) || 'pix_manual';
     const descricao = (getElVal(['pagamento-descricao-inline', 'pagamento-descricao']) || '').trim();
 
@@ -3439,15 +3444,26 @@ async function salvarPagamentoFromForm() {
     if (getElChecked(['aceita_debito_inline', 'aceita_debito'])) opcoes.push('debito');
     if (getElChecked(['aceita_credito_inline', 'aceita_credito'])) opcoes.push('credito');
 
-    if (!nome || !key) {
-        alert('Preencha o nome e a chave do método.');
+    if (!nome) {
+        alert('Preencha o nome do método.');
         return false;
     }
 
-    const config = db.getConfiguracoes();
-    const pagamentos = (config.pagamentos || []).filter(p => p.id !== id);
+    // Determine key automatically: for PIX use global chavePix, else default to tipo
+    const cfg = db.getConfiguracoes();
+    let key = '';
+    if (tipo === 'pix_manual') {
+        key = cfg.chavePix || 'pix_manual';
+    } else {
+        key = tipo;
+    }
+
+    const pagamentos = (cfg.pagamentos || []).filter(p => p.id !== id);
     pagamentos.push({ id, nome, key, tipo, descricao, opcoesEntrega: opcoes });
-    db.atualizarConfiguracoes({ pagamentos });
+    const updated = db.atualizarConfiguracoes({ pagamentos });
+    try { db.saveData(); } catch (e) { console.warn('[GESTOR] falha ao salvar DB localmente:', e); }
+    console.log('[GESTOR] Método de pagamento salvo:', { id, nome, key, tipo, descricao, opcoesEntrega: opcoes });
+    alert('Método salvo!');
     carregarPagamentos();
     return true;
 }
@@ -3467,7 +3483,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 // reset fields
                 document.getElementById('pagamento-id-inline').value = '';
                 document.getElementById('pagamento-nome-inline').value = '';
-                document.getElementById('pagamento-key-inline').value = '';
+                const keyInfoInline = document.getElementById('pagamento-key-inline-info');
+                if (keyInfoInline) keyInfoInline.innerHTML = '<label class="form-label">Chave/ID</label><div style="color: var(--texto-medio);">Usa a chave PIX que está em <strong>Configurações</strong>.</div>';
                 document.getElementById('pagamento-tipo-inline').value = 'pix_manual';
                 document.getElementById('pagamento-descricao-inline').value = '';
                 document.getElementById('aceita_pix_inline').checked = false;
@@ -3488,17 +3505,22 @@ document.addEventListener('DOMContentLoaded', function() {
     if (tipoInline) {
         tipoInline.addEventListener('change', function() {
             const s = document.getElementById('pagamento-opcoes-entrega-inline');
+            const keyInfoInline = document.getElementById('pagamento-key-inline-info');
             if (this.value === 'pagamento_na_entrega') s.style.display = 'block'; else s.style.display = 'none';
+            // Update info text for key
+            if (keyInfoInline) {
+                if (this.value === 'pix_manual') keyInfoInline.style.display = 'block'; else keyInfoInline.style.display = 'block';
+            }
         });
     }
 
     // Attach submit handler for inline form
     const formInline = document.getElementById('form-pagamento-inline');
     if (formInline) {
-        formInline.addEventListener('submit', function(e) {
+        formInline.addEventListener('submit', async function(e) {
             e.preventDefault();
-            salvarPagamentoFromForm();
-            document.getElementById('pagamento-editor').style.display = 'none';
+            const ok = await salvarPagamentoFromForm();
+            if (ok) document.getElementById('pagamento-editor').style.display = 'none';
         });
     }
 
@@ -3524,7 +3546,15 @@ function editarPagamentoGestor(id) {
     // populate inline editor
     document.getElementById('pagamento-id-inline').value = p.id || '';
     document.getElementById('pagamento-nome-inline').value = p.nome || '';
-    document.getElementById('pagamento-key-inline').value = p.key || '';
+    // Update key info display (inline) instead of input
+    const keyInfoInline = document.getElementById('pagamento-key-inline-info');
+    if (keyInfoInline) {
+        if (p.tipo === 'pix_manual') {
+            keyInfoInline.innerHTML = '<label class="form-label">Chave/ID</label><div style="color: var(--texto-medio);">Usa a chave PIX que está em <strong>Configurações</strong>.</div>';
+        } else {
+            keyInfoInline.innerHTML = '<label class="form-label">Chave/ID</label><div style="color: var(--texto-medio);">Chave atual: <strong>' + (p.key || p.tipo) + '</strong></div>';
+        }
+    }
     document.getElementById('pagamento-tipo-inline').value = p.tipo || 'pix_manual';
     document.getElementById('pagamento-descricao-inline').value = p.descricao || '';
     document.getElementById('aceita_pix_inline').checked = (p.opcoesEntrega || []).includes('pix');
@@ -3543,7 +3573,9 @@ document.addEventListener('DOMContentLoaded', function() {
     if (tipoSel) {
         tipoSel.addEventListener('change', function() {
             const s = document.getElementById('pagamento-opcoes-entrega');
+            const keyInfoModal = document.getElementById('pagamento-key-info');
             if (this.value === 'pagamento_na_entrega') s.style.display = 'block'; else s.style.display = 'none';
+            if (keyInfoModal) keyInfoModal.style.display = 'block';
         });
     }
 });

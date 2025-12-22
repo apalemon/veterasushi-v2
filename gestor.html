@@ -533,9 +533,9 @@
                                     <label class="form-label">Nome do Método *</label>
                                     <input type="text" class="form-input" id="pagamento-nome-inline" required>
                                 </div>
-                                <div class="form-group">
+                                <div class="form-group" id="pagamento-key-inline-info">
                                     <label class="form-label">Chave/ID</label>
-                                    <input type="text" class="form-input" id="pagamento-key-inline" placeholder="pix_manual" required>
+                                    <div style="color: var(--texto-medio);">Usa a chave PIX que está em <strong>Configurações → Chave PIX</strong>. Para outros tipos será usada uma chave automática baseada no tipo.</div>
                                 </div>
                             </div>
                             <div class="form-group">
@@ -807,9 +807,9 @@
                     <label class="form-label">Nome do Método *</label>
                     <input type="text" class="form-input" id="pagamento-nome" required>
                 </div>
-                <div class="form-group">
-                    <label class="form-label">Chave/ID (ex: pix_manual, pagamento_na_entrega)</label>
-                    <input type="text" class="form-input" id="pagamento-key" placeholder="pix_manual" required>
+                <div class="form-group" id="pagamento-key-info">
+                    <label class="form-label">Chave/ID</label>
+                    <div style="color: var(--texto-medio);">A chave é gerenciada em <strong>Configurações → Chave PIX</strong>. Para métodos PIX será usada essa chave automaticamente.</div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Tipo</label>
