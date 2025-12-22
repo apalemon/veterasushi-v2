@@ -40,51 +40,6 @@
     <!-- Security functions -->
     <script src="/js/security.js"></script>
 </head>
-<script>
-// Proteção global: redireciona URLs inválidas para o formato correto
-document.addEventListener('DOMContentLoaded', function() {
-    var path = window.location.pathname.split('/').filter(Boolean);
-    // Se está em /gestor/cardapio ou /gestor.html/cardapio, redireciona para /cardapio
-    if ((path[0] === 'gestor' || path[0] === 'gestor.html') && path[1] === 'cardapio') {
-        window.location.href = '/cardapio';
-        return;
-    }
-    // Se está em /index.html/cardapio, redireciona para /cardapio
-    if (path[0] === 'index.html' && path[1] === 'cardapio') {
-        window.location.href = '/cardapio';
-        return;
-    }
-});
-</script>
-<script>
-// Corrige links de navegação para multi-loja
-document.addEventListener('DOMContentLoaded', function() {
-    function getStoreSlug() {
-        var parts = window.location.pathname.split('/').filter(Boolean);
-        // Se estiver em /NOME_DA_LOJA/gestor ou /NOME_DA_LOJA/cardapio
-        if (parts.length >= 2 && !['gestor','cardapio','index.html'].includes(parts[0])) {
-            return parts[0];
-        }
-        return '';
-    }
-    var loja = getStoreSlug();
-    if (loja) {
-        var cardapioLinks = document.querySelectorAll('a[href="/cardapio"], a[href="../cardapio"], a[href="cardapio"]');
-        cardapioLinks.forEach(function(link) {
-            link.setAttribute('href', '/' + loja + '/cardapio');
-        });
-        var gestorLinks = document.querySelectorAll('a[href="/gestor"], a[href="../gestor"], a[href="gestor"]');
-        gestorLinks.forEach(function(link) {
-            if (loja) {
-                link.setAttribute('href', '/' + loja + '/gestor');
-            } else {
-                link.setAttribute('href', '/gestor.html');
-            }
-        });
-    }
-});
-
-</script>
 <body>
     <div id="site-loading-overlay" aria-hidden="false">
         <div class="loading-spinner" aria-hidden="true"></div>
@@ -101,7 +56,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 <ul class="nav-menu">
                     <li><a href="/cardapio">Cardápio</a></li>
                     <li id="gestor-menu-item" style="display: none;">
-                        <a href="/gestor" class="btn-gestor" style="background: var(--vermelho-claro); color: #fff; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: 500;">Gestor</a>
                         <a href="/gestor.html" class="btn-gestor" style="background: var(--vermelho-claro); color: #fff; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: 500;">Gestor</a>
                     </li>
                     <li id="login-menu-item">

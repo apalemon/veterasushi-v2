@@ -6,18 +6,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cardápio</title>
 </head>
-<script>
-// Proteção global: redireciona URLs inválidas para o formato correto
-document.addEventListener('DOMContentLoaded', function() {
-    var path = window.location.pathname.split('/').filter(Boolean);
-    // Se está em /gestor/cardapio ou /gestor.html/cardapio, redireciona para /cardapio
-    if ((path[0] === 'gestor' || path[0] === 'gestor.html') && path[1] === 'cardapio') {
-        window.location.href = '/cardapio';
-        return;
-    }
-    // Se está em /cardapio, deixa passar normalmente
-});
-</script>
 <body>
     <h1>Cardápio</h1>
     <!-- Conteúdo do cardápio aqui -->
