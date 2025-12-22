@@ -75,7 +75,11 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         var gestorLinks = document.querySelectorAll('a[href="/gestor"], a[href="../gestor"], a[href="gestor"]');
         gestorLinks.forEach(function(link) {
-            link.setAttribute('href', '/' + loja + '/gestor');
+            if (loja) {
+                link.setAttribute('href', '/' + loja + '/gestor');
+            } else {
+                link.setAttribute('href', '/gestor.html');
+            }
         });
     }
 });
