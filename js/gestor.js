@@ -4345,8 +4345,18 @@ window.abrirLojaManual = async function() {
         });
         
         if (response.ok) {
-            // Recarregar horários do servidor
-            await carregarHorariosDoServidor();
+            // Preferir usar o documento retornado pelo servidor quando disponível
+            try {
+                const doc = await response.json();
+                if (doc && typeof doc === 'object') {
+                    db.data.horarios = doc;
+                    db.saveData();
+                } else {
+                    await carregarHorariosDoServidor();
+                }
+            } catch (e) {
+                await carregarHorariosDoServidor();
+            }
             atualizarStatusHorarios();
             atualizarBotoesAbrirFechar();
             alert('✅ Loja aberta manualmente!');
@@ -4386,8 +4396,19 @@ window.fecharLojaManual = async function() {
         });
         
         if (response.ok) {
-            // Recarregar horários do servidor
-            await carregarHorariosDoServidor();
+            // Preferir usar o documento retornado pelo servidor quando disponível
+            try {
+                const doc = await response.json();
+                if (doc && typeof doc === 'object') {
+                    db.data.horarios = doc;
+                    db.saveData();
+                } else {
+                    await carregarHorariosDoServidor();
+                }
+            } catch (e) {
+                await carregarHorariosDoServidor();
+            }
+
             atualizarStatusHorarios();
             atualizarBotoesAbrirFechar();
             alert('🔒 Loja fechada manualmente!');
@@ -4418,20 +4439,40 @@ window.voltarModoAutomatico = async function() {
     if (!confirm('Deseja voltar ao modo automático? A loja seguirá os horários configurados.')) {
         return;
     }
-    
+
     try {
-        // Atualizar localmente primeiro
-        const horarios = getHorarios();
-        horarios.statusManual = null;
-        db.data.horarios = horarios;
-        db.saveData();
-        
-        // Salvar no servidor
-        await salvarHorariosNoServidor(horarios);
-        
-        atualizarStatusHorarios();
-        atualizarBotoesAbrirFechar();
-        alert('✅ Modo automático ativado!');
+        // Enviar PUT para remover a flag de status manual no servidor
+        const response = await fetch(window.location.origin + '/api/horarios', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ statusManual: null })
+        });
+
+        if (response.ok) {
+            // Atualizar local com o documento retornado
+            const doc = await response.json();
+            if (doc) {
+                db.data.horarios = doc;
+                db.saveData();
+            }
+            atualizarStatusHorarios();
+            atualizarBotoesAbrirFechar();
+            alert('✅ Modo automático ativado!');
+        } else if (response.status === 503) {
+            // Servidor indisponível - atualizar localmente
+            console.warn('[HORARIOS] ⚠️ Servidor indisponível (503), ativando automático localmente');
+            if (db && db.data && db.data.horarios) {
+                db.data.horarios.statusManual = null;
+                db.saveData();
+                atualizarStatusHorarios();
+                atualizarBotoesAbrirFechar();
+                alert('⚠️ Modo automático ativado localmente (servidor indisponível).');
+            } else {
+                alert('Erro: servidor indisponível e não há dados locais.');
+            }
+        } else {
+            throw new Error('Erro ao atualizar status');
+        }
     } catch (e) {
         console.error('[HORARIOS] ❌ Erro ao voltar ao automático:', e);
         alert('Erro ao voltar ao modo automático. Tente novamente.');

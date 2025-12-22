@@ -73,5 +73,43 @@ module.exports = async (req, res) => {
         }
     }
 
+    // PUT - atualizar flags (statusManual / aberta) sem precisar enviar o documento completo
+    if (req.method === 'PUT') {
+        try {
+            const body = req.body || {};
+            const coll = await getCollection('horarios');
+
+            // Prepare the update according to received flags
+            const update = {};
+            if (Object.prototype.hasOwnProperty.call(body, 'statusManual')) {
+                // If explicit boolean or null provided
+                update.statusManual = body.statusManual === null ? null : !!body.statusManual;
+                // If statusManual is boolean true -> mark aberta true; if false -> aberta false; if null -> do not change aberta
+                if (body.statusManual === true) update.aberta = true;
+                else if (body.statusManual === false) update.aberta = false;
+            }
+
+            if (Object.prototype.hasOwnProperty.call(body, 'aberta')) {
+                update.aberta = !!body.aberta;
+            }
+
+            if (Object.keys(update).length === 0) {
+                return res.status(400).json({ error: 'Nenhuma alteração válida fornecida' });
+            }
+
+            // Ensure a single document storage with _id = 'main'
+            await coll.updateOne({ _id: 'main' }, { $set: update }, { upsert: true });
+
+            console.log('[HORARIOS] ✅ Atualizado (PUT):', update);
+            // Return the updated document
+            const doc = await coll.findOne({ _id: 'main' });
+            if (doc && doc._id) delete doc._id;
+            return res.status(200).json(doc);
+        } catch (err) {
+            console.error('[HORARIOS] ❌ Erro no PUT:', err.message);
+            return res.status(500).json({ error: 'Erro ao atualizar horários', detalhes: err.message });
+        }
+    }
+
     return res.status(405).json({ error: 'Método não permitido' });
 };
