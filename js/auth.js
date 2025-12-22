@@ -113,26 +113,32 @@ class Auth {
           try {
             const pathParts = window.location.pathname.split('/').filter(Boolean);
             const first = pathParts[0];
-            if (first && !['gestor','cardapio',''].includes(first)) {
-              const altApi = '/' + first + '/api/auth/login';
-              console.log('[AUTH] 🔁 Tentando endpoint alternativo:', altApi);
-              const altResp = await fetch(altApi, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ usuario, senha })
-              });
-              if (altResp.ok) {
-                const altResult = await altResp.json();
-                if (altResult.success) {
-                  this.saveSession(altResult.user);
-                  console.log('[AUTH] ✅ Login bem-sucedido via endpoint alternativo!');
-                  return { success: true, user: altResult.user };
-                } else {
-                  console.log('[AUTH] ❌ Alternativo falhou:', altResult.message);
-                  return { success: false, message: altResult.message || 'Credenciais inválidas (endpoint alternativo)'};
-                }
+            if (first) {
+              const cleaned = String(first).toLowerCase();
+              const isValidStore = /^[a-z0-9_-]{1,50}$/.test(cleaned) && !cleaned.includes('.') && !['index.html','api','gestor','cardapio',''].includes(cleaned);
+              if (!isValidStore) {
+                console.warn('[AUTH] ⚠️ Ignorando segmento de path inválido para store:', first);
               } else {
-                console.warn('[AUTH] ⚠️ Endpoint alternativo retornou:', altResp.status);
+                const altApi = '/' + cleaned + '/api/auth/login';
+                console.log('[AUTH] 🔁 Tentando endpoint alternativo:', altApi);
+                const altResp = await fetch(altApi, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ usuario, senha })
+                });
+                if (altResp.ok) {
+                  const altResult = await altResp.json();
+                  if (altResult.success) {
+                    this.saveSession(altResult.user);
+                    console.log('[AUTH] ✅ Login bem-sucedido via endpoint alternativo!');
+                    return { success: true, user: altResult.user };
+                  } else {
+                    console.log('[AUTH] ❌ Alternativo falhou:', altResult.message);
+                    return { success: false, message: altResult.message || 'Credenciais inválidas (endpoint alternativo)'};
+                  }
+                } else {
+                  console.warn('[AUTH] ⚠️ Endpoint alternativo retornou:', altResp.status);
+                }
               }
             }
           } catch (e) {
@@ -162,6 +168,17 @@ class Auth {
               };
               db.data.usuarios.push(adminUser);
               try { if (typeof db.saveData === 'function') db.saveData(); localStorage.setItem('vetera_database', JSON.stringify(db.data)); } catch(e) { console.warn('[AUTH] ⚠️ Falha ao salvar admin seed:', e); }
+              // Tentar login local automaticamente após criar seed
+              try {
+                const localResult = this.loginLocal(usuario, senha);
+                if (localResult && localResult.success) {
+                  console.log('[AUTH] ✅ Login local bem-sucedido após criar admin seed');
+                  this.saveSession(localResult.user);
+                  return { success: true, user: localResult.user };
+                }
+              } catch (e) {
+                console.warn('[AUTH] ⚠️ Erro ao tentar login local após seed:', e);
+              }
               return { success: false, message: 'Usuário admin temporário criado — use admin/admin para entrar e altere a senha.' };
             }
           } catch (e) {
