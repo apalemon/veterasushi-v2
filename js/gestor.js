@@ -3256,7 +3256,7 @@ function carregarConfiguracoes() {
     if (urlsList && urlsWrap) {
         const slug = config.slug || '';
         // Sempre mostrar links fixos, nunca com slug
-        urlsList.innerHTML = `<div style="display:flex; flex-direction:column; gap:6px;"><div><strong>Cardápio:</strong> <a href="${window.location.origin}/cardapio" target="_blank">${window.location.origin}/cardapio</a></div><div><strong>Gestor:</strong> <a href="${window.location.origin}/gestor.html" target="_blank">${window.location.origin}/gestor.html</a></div></div>`;
+        urlsList.innerHTML = `<div style="display:flex; flex-direction:column; gap:6px;"><div><strong>Cardápio:</strong> <a href="cardapio.html" target="_blank">cardapio.html</a></div><div><strong>Gestor:</strong> <a href="gestor.html" target="_blank">gestor.html</a></div></div>`;
         urlsWrap.style.display = 'block';
     }
 }
