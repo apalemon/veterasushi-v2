@@ -194,8 +194,45 @@ class Auth {
             console.warn('[AUTH] ⚠️ Erro ao tentar endpoint alternativo:', e);
           }
 
-          return { success: false, message: 'API de autenticação não encontrada (404). No servidor não há endpoint para /api/auth/login e não há usuários locais para fallback.' };
-        }        try {
+          // Se não houver API, tentar fallback local
+          try {
+            if (typeof db !== 'undefined') {
+              if (!db.data) db.data = {};
+              if (!Array.isArray(db.data.usuarios)) db.data.usuarios = [];
+
+              if (db.data.usuarios.length > 0) {
+                console.log('[AUTH] 🔄 API 404 — tentando login local como fallback...');
+                return this.loginLocal(usuario, senha);
+              }
+
+              if (db.data.usuarios.length === 0 && String(usuario).toLowerCase() === 'admin' && String(senha) === 'admin') {
+                console.warn('[AUTH] ⚠️ API 404 e nenhum usuário local — criando usuário admin temporário (admin/admin) para testes.');
+                const adminUser = {
+                  id: Date.now(),
+                  usuario: 'admin',
+                  senha: this.hashPassword('admin'),
+                  nome: 'Administrador (seed)',
+                  nivel: 'admin',
+                  ativo: true
+                };
+                db.data.usuarios.push(adminUser);
+                try { if (typeof db.saveData === 'function') db.saveData(); localStorage.setItem('vetera_database', JSON.stringify(db.data)); } catch(e) { console.warn('[AUTH] ⚠️ Falha ao salvar admin seed:', e); }
+
+                const localResult = this.loginLocal(usuario, senha);
+                if (localResult && localResult.success) {
+                  this.saveSession(localResult.user);
+                  return { success: true, user: localResult.user };
+                }
+              }
+            }
+          } catch (e) {
+            console.warn('[AUTH] ⚠️ Erro no fallback local após 404:', e);
+          }
+
+          return { success: false, message: 'API de autenticação não encontrada (404). Inicie o projeto em um servidor que exponha /api (ex: Vercel) ou use usuários locais para login.' };
+        }
+
+        try {
           const errBody = await response.json();
           const msg = errBody && (errBody.message || errBody.error) ? (errBody.message || errBody.error) : `Erro na API: ${response.status}`;
           return { success: false, message: msg };
