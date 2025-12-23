@@ -368,51 +368,59 @@ function inicializarAudioContext() {
             
             audioContextGlobal = new AudioContextClass();
             
-            // Se estiver suspenso, tentar resumir
-            if (audioContextGlobal.state === 'suspended') {
-                audioContextGlobal.resume().catch(err => {
-                    console.warn('[GESTOR] Erro ao resumir AudioContext:', err);
-                });
-            }
+            // Não tentar resumir automaticamente - deixar para quando for necessário tocar
+            // Isso evita avisos de autoplay
         } catch (error) {
-            console.warn('[GESTOR] Erro ao criar AudioContext:', error);
+            // Silenciosamente ignorar erros
             return null;
         }
-    }
-    
-    // Se estiver suspenso, tentar resumir
-    if (audioContextGlobal && audioContextGlobal.state === 'suspended') {
-        audioContextGlobal.resume().catch(err => {
-            console.warn('[GESTOR] Erro ao resumir AudioContext:', err);
-        });
     }
     
     return audioContextGlobal;
 }
 
-// Inicializar AudioContext na primeira interação do usuário
-document.addEventListener('click', function() {
+// Inicializar AudioContext na primeira interação do usuário (múltiplos eventos para garantir)
+let audioContextInicializado = false;
+function inicializarAudioContextOnUserInteraction() {
+    if (audioContextInicializado) return;
+    audioContextInicializado = true;
     inicializarAudioContext();
-}, { once: true });
+}
+
+// Escutar múltiplos eventos de interação do usuário
+['click', 'touchstart', 'keydown'].forEach(eventType => {
+    document.addEventListener(eventType, inicializarAudioContextOnUserInteraction, { once: true, passive: true });
+});
 
 // Tocar notificação sonora (melhorada)
 function tocarNotificacao() {
     try {
+        // Tentar inicializar se ainda não foi feito
+        if (!audioContextInicializado) {
+            inicializarAudioContextOnUserInteraction();
+        }
+        
         const audioContext = inicializarAudioContext();
-        if (!audioContext) return;
+        if (!audioContext) {
+            // Se não conseguir criar, silenciosamente retornar (não mostrar erro)
+            return;
+        }
         
         // Garantir que está rodando
         if (audioContext.state === 'suspended') {
             audioContext.resume().then(() => {
                 tocarBeeps(audioContext);
             }).catch(err => {
-                console.warn('[GESTOR] Erro ao resumir AudioContext para tocar:', err);
+                // Silenciosamente ignorar erros de autoplay
+                // console.warn('[GESTOR] Erro ao resumir AudioContext para tocar:', err);
             });
-        } else {
+        } else if (audioContext.state === 'running') {
             tocarBeeps(audioContext);
         }
+        // Se estiver em 'closed', não fazer nada
     } catch (error) {
-        console.warn('[GESTOR] Erro ao tocar notificação:', error);
+        // Silenciosamente ignorar erros de autoplay
+        // console.warn('[GESTOR] Erro ao tocar notificação:', error);
     }
 }
 

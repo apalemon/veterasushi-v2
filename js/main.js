@@ -809,6 +809,17 @@ function renderizarCheckoutModal() {
                 </div>
             `;
         });
+        // Limpar seleção antes de atualizar innerHTML para evitar erro de Range
+        try {
+            if (window.getSelection) {
+                const selection = window.getSelection();
+                if (selection.rangeCount > 0) {
+                    selection.removeAllRanges();
+                }
+            }
+        } catch (e) {
+            // Ignorar erros de seleção
+        }
         resumoContainer.innerHTML = htmlItens;
     }
     
@@ -895,6 +906,17 @@ function renderizarFormasPagamentoCheckout() {
         </label>`;
     });
 
+    // Limpar seleção antes de atualizar innerHTML para evitar erro de Range
+    try {
+        if (window.getSelection) {
+            const selection = window.getSelection();
+            if (selection.rangeCount > 0) {
+                selection.removeAllRanges();
+            }
+        }
+    } catch (e) {
+        // Ignorar erros de seleção
+    }
     container.innerHTML = html;
 }
 
