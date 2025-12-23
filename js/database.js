@@ -418,12 +418,34 @@ class Database {
       return null;
     }
     
+    const pedidoAntigo = { ...this.data.pedidos[index] };
+    
     // Atualizar pedido localmente
     this.data.pedidos[index] = {
       ...this.data.pedidos[index],
       ...atualizacoes
     };
     this.saveData();
+    
+    // Disparar evento de pedido atualizado para notificar clientes
+    try {
+      const evento = new CustomEvent('pedidoAtualizado', {
+        detail: {
+          pedidoId: id,
+          pedidoAntigo: pedidoAntigo,
+          pedidoNovo: this.data.pedidos[index],
+          atualizacoes: atualizacoes
+        },
+        bubbles: true,
+        cancelable: true
+      });
+      window.dispatchEvent(evento);
+      if (typeof document !== 'undefined') {
+        document.dispatchEvent(evento);
+      }
+    } catch (e) {
+      console.warn('[DATABASE] Erro ao disparar evento pedidoAtualizado:', e);
+    }
     
     // Salvar TODOS os pedidos no servidor (MongoDB)
     try {

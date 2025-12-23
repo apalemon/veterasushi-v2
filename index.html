@@ -72,11 +72,11 @@
     </header>
 
     <!-- MODAL DE LOGIN/REGISTRO DE CLIENTE -->
-    <div class="modal-overlay" id="modal-cliente-auth">
+    <div class="modal-overlay" id="modal-cliente-auth" role="dialog" aria-labelledby="cliente-auth-titulo" aria-modal="true">
         <div class="modal" style="max-width: 500px;">
             <div class="modal-header">
                 <h2 class="modal-title" id="cliente-auth-titulo"><i class="fas fa-user-circle"></i> Login</h2>
-                <button class="modal-close" onclick="fecharModalCliente()"><i class="fas fa-times"></i></button>
+                <button class="modal-close" onclick="fecharModalCliente()" aria-label="Fechar"><i class="fas fa-times"></i></button>
             </div>
             <div id="cliente-auth-container" data-modo="login">
                 <!-- MODO LOGIN -->
@@ -198,11 +198,11 @@
     </div>
 
     <!-- MODAL DE CARRINHO DETALHADO -->
-    <div class="modal-overlay" id="modal-carrinho">
+    <div class="modal-overlay" id="modal-carrinho" role="dialog" aria-labelledby="modal-carrinho-title" aria-modal="true">
         <div class="modal">
             <div class="modal-header">
-                <h2 class="modal-title">Seu Carrinho</h2>
-                <button class="modal-close" onclick="fecharModal('modal-carrinho')"><i class="fas fa-times"></i></button>
+                <h2 class="modal-title" id="modal-carrinho-title">Seu Carrinho</h2>
+                <button class="modal-close" onclick="fecharModal('modal-carrinho')" aria-label="Fechar"><i class="fas fa-times"></i></button>
             </div>
             <div id="carrinho-detalhado">
                 <!-- Itens do carrinho serão inseridos aqui -->
@@ -236,11 +236,11 @@
     </div>
 
     <!-- MODAL DE CHECKOUT -->
-    <div class="modal-overlay" id="modal-checkout" style="z-index: 10000;">
+    <div class="modal-overlay" id="modal-checkout" style="z-index: 10000;" role="dialog" aria-labelledby="modal-checkout-title" aria-modal="true">
         <div class="modal" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header">
-                <h2 class="modal-title">Finalizar Pedido</h2>
-                <button class="modal-close" onclick="fecharModal('modal-checkout')"><i class="fas fa-times"></i></button>
+                <h2 class="modal-title" id="modal-checkout-title">Finalizar Pedido</h2>
+                <button class="modal-close" onclick="fecharModal('modal-checkout')" aria-label="Fechar"><i class="fas fa-times"></i></button>
             </div>
             
             <!-- RESUMO DO PEDIDO -->
@@ -337,11 +337,11 @@
     </div>
 
     <!-- MODAL PIX -->
-    <div class="modal-overlay" id="modal-pix" style="z-index: 10001;">
+    <div class="modal-overlay" id="modal-pix" style="z-index: 10001;" role="dialog" aria-labelledby="modal-pix-title" aria-modal="true">
         <div class="modal">
             <div class="modal-header">
-                <h2 class="modal-title"><i class="fas fa-qrcode"></i> Pagamento via PIX</h2>
-                <button class="modal-close" onclick="fecharModal('modal-pix')"><i class="fas fa-times"></i></button>
+                <h2 class="modal-title" id="modal-pix-title"><i class="fas fa-qrcode"></i> Pagamento via PIX</h2>
+                <button class="modal-close" onclick="fecharModal('modal-pix')" aria-label="Fechar"><i class="fas fa-times"></i></button>
             </div>
             <div id="pix-container">
                 <!-- QR Code será inserido aqui -->
