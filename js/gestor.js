@@ -3497,7 +3497,7 @@ async function salvarPagamentoFromForm() {
         return false;
     };
 
-    const id = getElVal(['pagamento-id', 'pagamento-id-inline']) || ('p' + Date.now());
+    const existingIdRaw = (getElVal(['pagamento-id', 'pagamento-id-inline']) || '').trim();
     const nome = (getElVal(['pagamento-nome-inline', 'pagamento-nome']) || '').trim();
     const tipo = getElVal(['pagamento-tipo-inline', 'pagamento-tipo']) || 'pix_manual';
     const descricao = (getElVal(['pagamento-descricao-inline', 'pagamento-descricao']) || '').trim();
@@ -3523,8 +3523,15 @@ async function salvarPagamentoFromForm() {
 
     // Limitar a apenas UMA forma de pagamento
     const cfg = db.getConfiguracoes();
-    const pagamentosExistentes = (cfg.pagamentos || []).filter(p => p.id !== id);
-    if (pagamentosExistentes.length > 0) {
+    const existingId = existingIdRaw ? String(existingIdRaw) : '';
+    const isEditing = existingId && (cfg.pagamentos || []).some(p => String(p.id) === existingId);
+    const id = isEditing ? existingId : ('p' + Date.now());
+
+    // Sempre remover o registro anterior com o mesmo id (evita duplicar por mismatch string/number)
+    const pagamentosSemEste = (cfg.pagamentos || []).filter(p => String(p.id) !== String(id));
+
+    // Só pedir confirmação se estiver substituindo um método existente ao CRIAR um novo (não ao editar)
+    if (!isEditing && pagamentosSemEste.length > 0) {
         if (!confirm('Já existe uma forma de pagamento cadastrada. Deseja substituí-la?')) {
             return false;
         }
@@ -3538,8 +3545,8 @@ async function salvarPagamentoFromForm() {
         key = tipo;
     }
 
-    const pagamentos = pagamentosExistentes;
-    pagamentos.push({ id, nome, key, tipo, descricao, opcoesEntrega: opcoes });
+    const pagamentos = pagamentosSemEste;
+    pagamentos.push({ id: String(id), nome, key, tipo, descricao, opcoesEntrega: opcoes });
     const updated = db.atualizarConfiguracoes({ pagamentos });
     try { db.saveData(); } catch (e) { console.warn('[GESTOR] falha ao salvar DB localmente:', e); }
     console.log('[GESTOR] Método de pagamento salvo:', { id, nome, key, tipo, descricao, opcoesEntrega: opcoes });
