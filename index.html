@@ -384,28 +384,29 @@
     <script src="/js/notificacoes.js" onerror="console.error('Erro ao carregar notificacoes.js')"></script>
     <script src="/js/main.js" onerror="console.error('Erro ao carregar main.js')"></script>
     <script>
-    // Formas de pagamento fixas
-    const FORMAS_PAGAMENTO_FIXAS = [
-        { id: 'debito', nome: 'Débito' },
-        { id: 'credito', nome: 'Crédito' },
-        { id: 'pix', nome: 'Pix' },
-        { id: 'dinheiro', nome: 'Dinheiro' },
-        { id: 'ted', nome: 'TED' },
-        { id: 'boleto', nome: 'Boleto' }
-    ];
 
-    // Renderizar formas de pagamento no checkout
-    function renderizarFormasPagamentoCheckout() {
-        const container = document.getElementById('checkout-formas-list');
-        if (!container) return;
-        container.innerHTML = FORMAS_PAGAMENTO_FIXAS.map(fp => `
-            <label style="display:block; margin-bottom:10px;">
-                <input type="radio" name="forma-pagamento" value="${fp.id}" required>
-                ${fp.nome}
-            </label>
-        `).join('');
-    }
-    document.addEventListener('DOMContentLoaded', renderizarFormasPagamentoCheckout);
+        // Formas de pagamento fixas (corrigido)
+        const FORMAS_PAGAMENTO_FIXAS = [
+            { id: 'debito', nome: 'Débito' },
+            { id: 'credito', nome: 'Crédito' },
+            { id: 'pix', nome: 'Pix' },
+            { id: 'dinheiro', nome: 'Dinheiro' },
+            { id: 'ted', nome: 'TED' },
+            { id: 'boleto', nome: 'Boleto' }
+        ];
+
+        // Renderizar todas as formas de pagamento no checkout
+        function renderizarFormasPagamentoCheckout() {
+            const container = document.getElementById('checkout-formas-list');
+            if (!container) return;
+            container.innerHTML = FORMAS_PAGAMENTO_FIXAS.map(fp => `
+                <label style="display:block; margin-bottom:10px;">
+                    <input type="radio" name="forma-pagamento" value="${fp.id}" required>
+                    ${fp.nome}
+                </label>
+            `).join('');
+        }
+        document.addEventListener('DOMContentLoaded', renderizarFormasPagamentoCheckout);
 
     // Processar pedido conforme forma de pagamento
     function processarPedidoCheckout() {
