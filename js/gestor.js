@@ -3382,6 +3382,9 @@ function abrirModalPagamento(id = null) {
         if (el('aceita_pix')) el('aceita_pix').checked = false;
         if (el('aceita_debito')) el('aceita_debito').checked = false;
         if (el('aceita_credito')) el('aceita_credito').checked = false;
+        if (el('aceita_dinheiro')) el('aceita_dinheiro').checked = false;
+        if (el('aceita_ted')) el('aceita_ted').checked = false;
+        if (el('aceita_boleto')) el('aceita_boleto').checked = false;
 
         if (id) {
             const pagamentos = (db.getConfiguracoes().pagamentos) || [];
@@ -3395,11 +3398,14 @@ function abrirModalPagamento(id = null) {
                 }
                 if (el('pagamento-tipo')) el('pagamento-tipo').value = p.tipo || 'pix_manual';
                 if (el('pagamento-descricao')) el('pagamento-descricao').value = p.descricao || '';
-                if (p.tipo === 'pagamento_na_entrega' && p.opcoesEntrega) {
+                if (p.opcoesEntrega) {
                     if (el('pagamento-opcoes-entrega')) el('pagamento-opcoes-entrega').style.display = 'block';
                     if (el('aceita_pix')) el('aceita_pix').checked = (p.opcoesEntrega || []).includes('pix');
                     if (el('aceita_debito')) el('aceita_debito').checked = (p.opcoesEntrega || []).includes('debito');
                     if (el('aceita_credito')) el('aceita_credito').checked = (p.opcoesEntrega || []).includes('credito');
+                    if (el('aceita_dinheiro')) el('aceita_dinheiro').checked = (p.opcoesEntrega || []).includes('dinheiro');
+                    if (el('aceita_ted')) el('aceita_ted').checked = (p.opcoesEntrega || []).includes('ted');
+                    if (el('aceita_boleto')) el('aceita_boleto').checked = (p.opcoesEntrega || []).includes('boleto');
                 }
             }
         }
