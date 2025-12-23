@@ -1,3 +1,12 @@
+// Função utilitária para obter métodos de pagamento configurados
+window.getPagamentosConfiguradosGestor = function() {
+    try {
+        const pagamentos = (db.getConfiguracoes().pagamentos && Array.isArray(db.getConfiguracoes().pagamentos)) ? db.getConfiguracoes().pagamentos : [];
+        return pagamentos;
+    } catch (e) {
+        return [];
+    }
+};
 // ============================================
 // GESTOR DE PEDIDOS
 // ============================================

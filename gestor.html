@@ -951,21 +951,20 @@
     <script src="/js/gestor.js"></script>
 
         <script>
-        // Formas de pagamento fixas para gestor
-        const FORMAS_PAGAMENTO_FIXAS_GESTOR = [
-            { id: 'debito', nome: 'Débito' },
-            { id: 'credito', nome: 'Crédito' },
-            { id: 'pix', nome: 'Pix' },
-            { id: 'dinheiro', nome: 'Dinheiro' },
-            { id: 'ted', nome: 'TED' },
-            { id: 'boleto', nome: 'Boleto' }
-        ];
 
-        // Renderizar formas de pagamento no gestor
+        // Renderizar formas de pagamento no gestor (apenas se configuradas)
         function renderizarFormasPagamentoGestor() {
             const container = document.getElementById('gestor-formas-list');
             if (!container) return;
-            container.innerHTML = FORMAS_PAGAMENTO_FIXAS_GESTOR.map(fp => `
+            let pagamentos = [];
+            try {
+                pagamentos = (db.getConfiguracoes().pagamentos && Array.isArray(db.getConfiguracoes().pagamentos)) ? db.getConfiguracoes().pagamentos : [];
+            } catch (e) { pagamentos = []; }
+            if (!pagamentos || pagamentos.length === 0) {
+                container.innerHTML = '<div style="color: var(--texto-medio);">O administrador não configurou o método de pagamento. Tente novamente em breve.</div>';
+                return;
+            }
+            container.innerHTML = pagamentos.map(fp => `
                 <label style="display:block; margin-bottom:10px;">
                     <input type="radio" name="gestor-forma-pagamento" value="${fp.id}" required>
                     ${fp.nome}
