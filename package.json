@@ -3,8 +3,8 @@
   "version": "1.0.0",
   "description": "Sistema de gestão Vetera Sushi",
   "scripts": {
-    "start": "echo 'Static files are served automatically by Vercel'",
-    "dev": "echo 'Static files are served automatically by Vercel'"
+    "start": "node server.js",
+    "dev": "node server.js"
   },
   "keywords": [
     "vetera",
