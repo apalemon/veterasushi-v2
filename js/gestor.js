@@ -3446,6 +3446,9 @@ async function salvarPagamentoFromForm() {
     if (getElChecked(['aceita_pix_inline', 'aceita_pix'])) opcoes.push('pix');
     if (getElChecked(['aceita_debito_inline', 'aceita_debito'])) opcoes.push('debito');
     if (getElChecked(['aceita_credito_inline', 'aceita_credito'])) opcoes.push('credito');
+    if (getElChecked(['aceita_dinheiro_inline', 'aceita_dinheiro'])) opcoes.push('dinheiro');
+    if (getElChecked(['aceita_ted_inline', 'aceita_ted'])) opcoes.push('ted');
+    if (getElChecked(['aceita_boleto_inline', 'aceita_boleto'])) opcoes.push('boleto');
 
     if (!nome) {
         alert('Preencha o nome do método.');

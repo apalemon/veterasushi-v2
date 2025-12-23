@@ -813,21 +813,19 @@
                     <div style="color: var(--texto-medio);">A chave é gerenciada em <strong>Configurações → Chave PIX</strong>. Para métodos PIX será usada essa chave automaticamente.</div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Tipo</label>
-                    <select class="form-select" id="pagamento-tipo">
-                        <option value="pix_manual">PIX manual (aprovação manual)</option>
-                        <option value="pagamento_na_entrega">Pagamento na entrega (mostrar opções)</option>
-                    </select>
+                    <label class="form-label">Selecione as formas de pagamento aceitas:</label>
+                    <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+                        <label><input type="checkbox" id="aceita_pix"> PIX</label>
+                        <label><input type="checkbox" id="aceita_debito"> Cartão Débito</label>
+                        <label><input type="checkbox" id="aceita_credito"> Cartão Crédito</label>
+                        <label><input type="checkbox" id="aceita_dinheiro"> Dinheiro</label>
+                        <label><input type="checkbox" id="aceita_ted"> TED</label>
+                        <label><input type="checkbox" id="aceita_boleto"> Boleto</label>
+                    </div>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Descrição</label>
                     <input type="text" class="form-input" id="pagamento-descricao">
-                </div>
-                <div class="form-group" id="pagamento-opcoes-entrega" style="display:none;">
-                    <label class="form-label">Opções aceitas na entrega</label>
-                    <label><input type="checkbox" id="aceita_pix"> PIX</label> &nbsp;
-                    <label><input type="checkbox" id="aceita_debito"> Cartão Débito</label> &nbsp;
-                    <label><input type="checkbox" id="aceita_credito"> Cartão Crédito</label>
                 </div>
                 <div style="display:flex; gap:8px; margin-top:12px;">
                     <button type="submit" class="btn btn-primary">Salvar</button>
@@ -964,12 +962,22 @@
                 container.innerHTML = '<div style="color: var(--texto-medio);">O administrador não configurou o método de pagamento. Tente novamente em breve.</div>';
                 return;
             }
-            container.innerHTML = pagamentos.map(fp => `
-                <label style="display:block; margin-bottom:10px;">
-                    <input type="radio" name="gestor-forma-pagamento" value="${fp.id}" required>
-                    ${fp.nome}
-                </label>
-            `).join('');
+            container.innerHTML = pagamentos.map(fp => {
+                if (!fp.opcoesEntrega || fp.opcoesEntrega.length === 0) return '';
+                return fp.opcoesEntrega.map(tipo => {
+                    let nomeTipo = '';
+                    switch (tipo) {
+                        case 'pix': nomeTipo = 'Pix'; break;
+                        case 'debito': nomeTipo = 'Débito'; break;
+                        case 'credito': nomeTipo = 'Crédito'; break;
+                        case 'dinheiro': nomeTipo = 'Dinheiro'; break;
+                        case 'ted': nomeTipo = 'TED'; break;
+                        case 'boleto': nomeTipo = 'Boleto'; break;
+                        default: nomeTipo = tipo;
+                    }
+                    return `<label style="display:block; margin-bottom:10px;"><input type="radio" name="gestor-forma-pagamento" value="${tipo}" required> ${nomeTipo}</label>`;
+                }).join('');
+            }).join('');
         }
         document.addEventListener('DOMContentLoaded', renderizarFormasPagamentoGestor);
 

@@ -398,12 +398,22 @@
                 container.innerHTML = '<div style="color: var(--texto-medio);">O administrador não configurou o método de pagamento. Tente novamente em breve.</div>';
                 return;
             }
-            container.innerHTML = pagamentos.map(fp => `
-                <label style="display:block; margin-bottom:10px;">
-                    <input type="radio" name="forma-pagamento" value="${fp.id}" required>
-                    ${fp.nome}
-                </label>
-            `).join('');
+            container.innerHTML = pagamentos.map(fp => {
+                if (!fp.opcoesEntrega || fp.opcoesEntrega.length === 0) return '';
+                return fp.opcoesEntrega.map(tipo => {
+                    let nomeTipo = '';
+                    switch (tipo) {
+                        case 'pix': nomeTipo = 'Pix'; break;
+                        case 'debito': nomeTipo = 'Débito'; break;
+                        case 'credito': nomeTipo = 'Crédito'; break;
+                        case 'dinheiro': nomeTipo = 'Dinheiro'; break;
+                        case 'ted': nomeTipo = 'TED'; break;
+                        case 'boleto': nomeTipo = 'Boleto'; break;
+                        default: nomeTipo = tipo;
+                    }
+                    return `<label style="display:block; margin-bottom:10px;"><input type="radio" name="forma-pagamento" value="${tipo}" required> ${nomeTipo}</label>`;
+                }).join('');
+            }).join('');
         }
         document.addEventListener('DOMContentLoaded', renderizarFormasPagamentoCheckout);
 
@@ -422,7 +432,7 @@
             // Pedido feito, gestor entrará em contato
             fecharModal('modal-checkout');
             alert('Pedido feito! Qualquer coisa o administrador entrará em contato com você pelo seu número de telefone.');
-        }
+        }   
     }
     window.processarPedidoCheckout = processarPedidoCheckout;
     </script>
