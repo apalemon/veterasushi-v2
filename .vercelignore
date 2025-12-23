@@ -2,4 +2,4 @@
 # Ignore all API functions except the catch-all router
 api/**
 !api/
-!api/[...slug].js
+!api/router.js
