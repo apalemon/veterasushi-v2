@@ -3303,7 +3303,17 @@ if (formConfig) {
 function carregarPagamentos() {
     const config = db.getConfiguracoes();
     const listaEl = document.getElementById('pagamentos-lista');
+    const btnToggle = document.getElementById('btn-toggle-pagamento');
     const pagamentos = (config.pagamentos && Array.isArray(config.pagamentos)) ? config.pagamentos : [];
+
+    // Atualizar texto do botão: se já existe método, mudar para "Editar Método"
+    if (btnToggle) {
+        if (pagamentos.length > 0) {
+            btnToggle.textContent = 'Editar Método';
+        } else {
+            btnToggle.textContent = 'Adicionar Método';
+        }
+    }
 
     if (!listaEl) return;
     if (pagamentos.length === 0) {
@@ -3415,6 +3425,41 @@ function abrirModalPagamento(id = null) {
 }
 
 function editarPagamentoGestor(id) {
+    // Preencher formulário inline se existir
+    const editor = document.getElementById('pagamento-editor');
+    if (editor) {
+        const pagamentos = (db.getConfiguracoes().pagamentos) || [];
+        const p = pagamentos.find(x => x.id === id);
+        if (p) {
+            document.getElementById('pagamento-id-inline').value = p.id || '';
+            document.getElementById('pagamento-nome-inline').value = p.nome || '';
+            const keyInfoInline = document.getElementById('pagamento-key-inline-info');
+            if (keyInfoInline) {
+                keyInfoInline.innerHTML = '<label class="form-label">Chave/ID</label><div style="color: var(--texto-medio);">' + (p.tipo === 'pix_manual' ? 'Usa a chave PIX que está em <strong>Configurações</strong>.' : ('Chave atual: <strong>' + (p.key || p.tipo) + '</strong>')) + '</div>';
+            }
+            document.getElementById('pagamento-tipo-inline').value = p.tipo || 'pix_manual';
+            document.getElementById('pagamento-descricao-inline').value = p.descricao || '';
+            
+            // Mostrar/ocultar opções de entrega baseado no tipo
+            const opcoesEl = document.getElementById('pagamento-opcoes-entrega-inline');
+            if (opcoesEl) {
+                opcoesEl.style.display = p.tipo === 'pagamento_na_entrega' ? 'block' : 'none';
+            }
+            
+            // Preencher checkboxes
+            document.getElementById('aceita_pix_inline').checked = (p.opcoesEntrega || []).includes('pix');
+            document.getElementById('aceita_debito_inline').checked = (p.opcoesEntrega || []).includes('debito');
+            document.getElementById('aceita_credito_inline').checked = (p.opcoesEntrega || []).includes('credito');
+            document.getElementById('aceita_dinheiro_inline').checked = (p.opcoesEntrega || []).includes('dinheiro');
+            document.getElementById('aceita_ted_inline').checked = (p.opcoesEntrega || []).includes('ted');
+            document.getElementById('aceita_boleto_inline').checked = (p.opcoesEntrega || []).includes('boleto');
+            
+            editor.style.display = 'block';
+            document.getElementById('pagamento-nome-inline').focus();
+            return;
+        }
+    }
+    // Fallback: abrir modal se não conseguir preencher inline
     abrirModalPagamento(id);
 }
 
@@ -3461,8 +3506,16 @@ async function salvarPagamentoFromForm() {
         return false;
     }
 
-    // Determine key automatically: for PIX use global chavePix, else default to tipo
+    // Limitar a apenas UMA forma de pagamento
     const cfg = db.getConfiguracoes();
+    const pagamentosExistentes = (cfg.pagamentos || []).filter(p => p.id !== id);
+    if (pagamentosExistentes.length > 0) {
+        if (!confirm('Já existe uma forma de pagamento cadastrada. Deseja substituí-la?')) {
+            return false;
+        }
+    }
+
+    // Determine key automatically: for PIX use global chavePix, else default to tipo
     let key = '';
     if (tipo === 'pix_manual') {
         key = cfg.chavePix || 'pix_manual';
@@ -3470,7 +3523,7 @@ async function salvarPagamentoFromForm() {
         key = tipo;
     }
 
-    const pagamentos = (cfg.pagamentos || []).filter(p => p.id !== id);
+    const pagamentos = pagamentosExistentes;
     pagamentos.push({ id, nome, key, tipo, descricao, opcoesEntrega: opcoes });
     const updated = db.atualizarConfiguracoes({ pagamentos });
     try { db.saveData(); } catch (e) { console.warn('[GESTOR] falha ao salvar DB localmente:', e); }
@@ -3488,6 +3541,18 @@ document.addEventListener('DOMContentLoaded', function() {
     const btnCancelar = document.getElementById('btn-cancelar-pagamento');
     if (btnToggle && editor) {
         btnToggle.addEventListener('click', function() {
+            const config = db.getConfiguracoes();
+            const pagamentos = (config.pagamentos && Array.isArray(config.pagamentos)) ? config.pagamentos : [];
+            
+            // Se já existe método, abrir editor com dados do método existente
+            if (pagamentos.length > 0) {
+                editarPagamentoGestor(pagamentos[0].id);
+                // Abrir editor inline
+                editor.style.display = 'block';
+                return;
+            }
+            
+            // Se não existe método, usar comportamento padrão de toggle
             const showing = editor.style.display !== 'none';
             if (showing) {
                 editor.style.display = 'none';
@@ -3502,6 +3567,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('aceita_pix_inline').checked = false;
                 document.getElementById('aceita_debito_inline').checked = false;
                 document.getElementById('aceita_credito_inline').checked = false;
+                document.getElementById('aceita_dinheiro_inline').checked = false;
+                document.getElementById('aceita_ted_inline').checked = false;
+                document.getElementById('aceita_boleto_inline').checked = false;
                 document.getElementById('pagamento-opcoes-entrega-inline').style.display = 'none';
                 editor.style.display = 'block';
                 document.getElementById('pagamento-nome-inline').focus();

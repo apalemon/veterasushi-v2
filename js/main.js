@@ -854,42 +854,45 @@ function renderizarFormasPagamentoCheckout() {
     const container = document.getElementById('checkout-formas-list');
     if (!container) return;
     const config = db.getConfiguracoes() || {};
-    const pagamentos = Array.isArray(config.pagamentos) && config.pagamentos.length ? config.pagamentos : [{ key: 'pix', nome: 'PIX', tipo: 'pix' }];
+    const pagamentos = Array.isArray(config.pagamentos) && config.pagamentos.length ? config.pagamentos : [];
+
+    if (!pagamentos || pagamentos.length === 0) {
+        container.innerHTML = '<div style="color: var(--texto-medio);">Nenhuma forma de pagamento configurada.</div>';
+        return;
+    }
+
+    // Pegar o primeiro método de pagamento (só pode ter um)
+    const p = pagamentos[0];
+    const opcoes = p.opcoesEntrega || [];
+    
+    if (opcoes.length === 0) {
+        container.innerHTML = '<div style="color: var(--texto-medio);">Nenhuma forma de pagamento disponível.</div>';
+        return;
+    }
+
+    // Mapear os valores para nomes legíveis
+    const nomeFormaPagamento = (valor) => {
+        const map = {
+            'pix': 'Pix',
+            'debito': 'Débito',
+            'credito': 'Crédito',
+            'dinheiro': 'Dinheiro',
+            'ted': 'TED',
+            'boleto': 'Boleto'
+        };
+        return map[valor] || valor;
+    };
 
     let html = '';
-    pagamentos.forEach(p => {
-        const id = 'checkout-pag-' + (p.key || p.id || Math.random().toString(36).slice(2,8));
+    opcoes.forEach((opcao, index) => {
+        const nome = nomeFormaPagamento(opcao);
         html += `<label style="display:flex; align-items:center; gap:12px; padding:12px; background: rgba(255,255,255,0.03); border-radius:8px; cursor:pointer; margin-bottom:8px;">
-            <input type="radio" name="checkout-pagamento" value="${p.key}" style="width:18px; height:18px;" ${p === pagamentos[0] ? 'checked' : ''} onchange="onChangeFormaPagamento('${p.key}')">
-            <span style="color:#fff; font-weight:500;">${escapeHTML(p.nome || p.key)}</span>
+            <input type="radio" name="checkout-pagamento" value="${opcao}" style="width:18px; height:18px;" ${index === 0 ? 'checked' : ''}>
+            <span style="color:#fff; font-weight:500;">${escapeHTML(nome)}</span>
         </label>`;
-        if (p.tipo === 'pagamento_na_entrega') {
-            const optId = 'pagamento-entrega-opcoes-' + (p.key || p.id || Math.random().toString(36).slice(2,6));
-            const opcoes = p.opcoesEntrega || [];
-            let sub = `<div id="${optId}" class="pagamento-entrega-opcoes" style="display:none; margin-left:28px; margin-bottom:8px;">`;
-            opcoes.forEach(o => {
-                sub += `<label style="display:inline-flex; align-items:center; gap:8px; margin-right:12px;"><input type="radio" name="checkout-pagamento-entrega" value="${o}"> ${escapeHTML(o)}</label>`;
-            });
-            sub += '</div>';
-            html += sub;
-        }
     });
 
     container.innerHTML = html;
-    // Garantir que blocos condizentes apareçam se o primeiro método for tipo pagamento_na_entrega
-    const selecionado = document.querySelector('input[name="checkout-pagamento"]:checked');
-    if (selecionado) onChangeFormaPagamento(selecionado.value);
-}
-
-function onChangeFormaPagamento(key) {
-    // Mostrar/ocultar blocos de opções de entrega
-    document.querySelectorAll('.pagamento-entrega-opcoes').forEach(el => el.style.display = 'none');
-    const p = (db.getConfiguracoes().pagamentos || []).find(pp => pp.key === key);
-    if (p && p.tipo === 'pagamento_na_entrega') {
-        // mostrar o primeiro matching block
-        const block = document.querySelector('[id^="pagamento-entrega-opcoes-"]');
-        if (block) block.style.display = 'block';
-    }
 }
 
 // Validar CPF (algoritmo brasileiro)
@@ -1217,15 +1220,10 @@ async function processarPedidoCheckout() {
     
     const total = subtotal - desconto - descontoCondicional + taxaEntrega;
     
-    // Se forma de pagamento é pagamento na entrega, validar método escolhido
-    let formaPagamentoDetalhe = null;
-    if (formaPagamento === 'pagamento_na_entrega') {
-        const detalhe = document.querySelector('input[name="checkout-pagamento-entrega"]:checked');
-        if (!detalhe) {
-            alert('Selecione a forma de pagamento que será utilizada na entrega (PIX, Cartão Débito, Cartão Crédito).');
-            return;
-        }
-        formaPagamentoDetalhe = detalhe.value;
+    // Validar se forma de pagamento foi selecionada
+    if (!formaPagamento) {
+        alert('Selecione uma forma de pagamento!');
+        return;
     }
 
     // Preparar itens
@@ -1251,7 +1249,6 @@ async function processarPedidoCheckout() {
     
     let pedido;
     try {
-        const formaPagamentoFinal = formaPagamentoDetalhe ? `${formaPagamento}:${formaPagamentoDetalhe}` : formaPagamento;
         pedido = db.criarPedido({
             clienteId: clienteId,
             clienteNome: nome,
@@ -1263,8 +1260,8 @@ async function processarPedidoCheckout() {
             desconto: desconto + descontoCondicional,
             taxaEntrega: taxaEntrega,
             total: total,
-            formaPagamento: formaPagamentoFinal,
-            formaPagamentoDetalhe: formaPagamentoDetalhe,
+            formaPagamento: formaPagamento,
+            formaPagamentoDetalhe: null,
             observacoes: observacoes,
             cupom: cupomAplicado ? cupomAplicado.codigo : null
         });
@@ -1320,11 +1317,13 @@ async function processarPedidoCheckout() {
     // Fechar modal de checkout
     fecharModal('modal-checkout');
     
-    // Mostrar QR Code PIX
+    // Mostrar QR Code PIX ou mensagem simples
     if (formaPagamento === 'pix' && pedido) {
+        // PIX: abrir modal para aprovação manual do gestor
         mostrarQRCodePix(pedido);
     } else if (pedido) {
-        alert(`Pedido #${pedido.id} criado com sucesso!`);
+        // Outras formas: mostrar apenas mensagem simples
+        alert('Pedido feito! Qualquer coisa o administrador entrará em contato com você pelo seu número de telefone.');
     }
 }
 
