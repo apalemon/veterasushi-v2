@@ -1,4 +1,5 @@
 # Keep only a single Serverless Function to stay under the Hobby plan limit
 # Ignore all API functions except the catch-all router
 api/**
+!api/
 !api/[...slug].js
