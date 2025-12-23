@@ -385,21 +385,20 @@
     <script src="/js/main.js" onerror="console.error('Erro ao carregar main.js')"></script>
     <script>
 
-        // Formas de pagamento fixas (corrigido)
-        const FORMAS_PAGAMENTO_FIXAS = [
-            { id: 'debito', nome: 'Débito' },
-            { id: 'credito', nome: 'Crédito' },
-            { id: 'pix', nome: 'Pix' },
-            { id: 'dinheiro', nome: 'Dinheiro' },
-            { id: 'ted', nome: 'TED' },
-            { id: 'boleto', nome: 'Boleto' }
-        ];
 
-        // Renderizar todas as formas de pagamento no checkout
+        // Renderizar formas de pagamento no checkout (apenas se configuradas)
         function renderizarFormasPagamentoCheckout() {
             const container = document.getElementById('checkout-formas-list');
             if (!container) return;
-            container.innerHTML = FORMAS_PAGAMENTO_FIXAS.map(fp => `
+            let pagamentos = [];
+            try {
+                pagamentos = (db.getConfiguracoes().pagamentos && Array.isArray(db.getConfiguracoes().pagamentos)) ? db.getConfiguracoes().pagamentos : [];
+            } catch (e) { pagamentos = []; }
+            if (!pagamentos || pagamentos.length === 0) {
+                container.innerHTML = '<div style="color: var(--texto-medio);">O administrador não configurou o método de pagamento. Tente novamente em breve.</div>';
+                return;
+            }
+            container.innerHTML = pagamentos.map(fp => `
                 <label style="display:block; margin-bottom:10px;">
                     <input type="radio" name="forma-pagamento" value="${fp.id}" required>
                     ${fp.nome}
