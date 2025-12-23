@@ -863,10 +863,13 @@ function renderizarFormasPagamentoCheckout() {
 
     // Pegar o primeiro método de pagamento (só pode ter um)
     const p = pagamentos[0];
-    const opcoes = p.opcoesEntrega || [];
+    const opcoes = Array.isArray(p.opcoesEntrega) ? p.opcoesEntrega : [];
+    
+    console.log('[CHECKOUT] Método de pagamento:', p);
+    console.log('[CHECKOUT] Opções de entrega:', opcoes);
     
     if (opcoes.length === 0) {
-        container.innerHTML = '<div style="color: var(--texto-medio);">Nenhuma forma de pagamento disponível.</div>';
+        container.innerHTML = '<div style="color: var(--texto-medio);">Nenhuma forma de pagamento disponível. Configure as opções de pagamento no painel do gestor.</div>';
         return;
     }
 
@@ -1249,6 +1252,10 @@ async function processarPedidoCheckout() {
     
     let pedido;
     try {
+        // Para PIX, o pedido deve aguardar aprovação manual do gestor
+        const statusInicial = formaPagamento === 'pix' ? 'aguardando_aprovacao_pix' : 'aguardando_pagamento';
+        const statusPagamentoInicial = formaPagamento === 'pix' ? 'pendente_aprovacao' : 'pendente';
+        
         pedido = db.criarPedido({
             clienteId: clienteId,
             clienteNome: nome,
@@ -1263,7 +1270,9 @@ async function processarPedidoCheckout() {
             formaPagamento: formaPagamento,
             formaPagamentoDetalhe: null,
             observacoes: observacoes,
-            cupom: cupomAplicado ? cupomAplicado.codigo : null
+            cupom: cupomAplicado ? cupomAplicado.codigo : null,
+            status: statusInicial,
+            statusPagamento: statusPagamentoInicial
         });
         
         console.log('[MAIN] ✅ Pedido criado com sucesso! ID:', pedido.id);
@@ -1336,7 +1345,25 @@ function mostrarQRCodePix(pedido) {
     
     if (!modal || !container) return;
     
+    // Renderizar QR Code
     pixPayment.renderizarQRCode('pix-container', chavePixFixa, pedido.total, `Pedido #${pedido.id} - Vetera Sushi`);
+    
+    // Adicionar mensagem de aprovação manual após o QR Code
+    setTimeout(() => {
+        const mensagemAprovacao = document.createElement('div');
+        mensagemAprovacao.style.cssText = 'margin-top: 20px; padding: 15px; background: rgba(220, 38, 38, 0.1); border: 1px solid rgba(220, 38, 38, 0.3); border-radius: 8px; text-align: center;';
+        mensagemAprovacao.innerHTML = `
+            <p style="color: #fff; margin: 0; font-weight: 500;">
+                <i class="fas fa-clock" style="color: var(--vermelho-claro);"></i> 
+                Aguardando aprovação manual do gestor
+            </p>
+            <p style="color: var(--texto-medio); margin: 10px 0 0 0; font-size: 0.9rem;">
+                Após o pagamento, o gestor aprovará seu pedido manualmente.
+            </p>
+        `;
+        container.appendChild(mensagemAprovacao);
+    }, 500);
+    
     modal.classList.add('active');
     localStorage.setItem('vetera_pedido_aguardando_pix', pedido.id);
 }

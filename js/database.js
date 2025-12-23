@@ -314,11 +314,11 @@ class Database {
       
       const novoPedido = {
         id: idTemporario,
-        ...pedidoData,
         data: new Date().toISOString(),
         timestamp: idTemporario,
         status: 'aguardando_pagamento',
-        statusPagamento: 'pendente'
+        statusPagamento: 'pendente',
+        ...pedidoData  // pedidoData sobrescreve os valores padrão acima
       };
 
       // Verificar duplicação antes de adicionar

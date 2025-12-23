@@ -720,7 +720,9 @@ function abrirDetalhesPedido(pedidoId) {
 
     html += '<div style="display: flex; gap: 1rem; flex-wrap: wrap;">';
     
-    if (pedido.statusPagamento === 'pendente') {
+    // Mostrar botão de confirmar pagamento para pedidos pendentes ou aguardando aprovação PIX
+    if (pedido.statusPagamento === 'pendente' || pedido.statusPagamento === 'pendente_aprovacao' || 
+        pedido.status === 'aguardando_aprovacao_pix' || pedido.status === 'aguardando_pagamento') {
         html += '<button class="btn btn-success" onclick="confirmarPagamento(' + pedido.id + ')" style="flex: 1; min-width: 200px;"><i class="fas fa-check"></i> Confirmar Pagamento</button>';
         html += '<button class="btn btn-danger" onclick="recusarPedido(' + pedido.id + ')" style="flex: 1; min-width: 200px;"><i class="fas fa-times"></i> Recusar Pedido</button>';
     }
@@ -1417,6 +1419,7 @@ function formatarStatus(status) {
     const statusMap = {
         'pendente': 'Pendente',
         'aguardando_pagamento': 'Aguardando Pagamento',
+        'aguardando_aprovacao_pix': 'Aguardando Aprovação PIX',
         'pago': 'Pago',
         'em_preparo': 'Em Preparo',
         'em preparo': 'Em Preparo', // Variante
