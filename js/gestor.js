@@ -720,9 +720,10 @@ function abrirDetalhesPedido(pedidoId) {
 
     html += '<div style="display: flex; gap: 1rem; flex-wrap: wrap;">';
     
-    // Mostrar botão de confirmar pagamento para pedidos pendentes ou aguardando aprovação PIX
+    // Mostrar botão de confirmar pagamento para pedidos pendentes ou aguardando aprovação
     if (pedido.statusPagamento === 'pendente' || pedido.statusPagamento === 'pendente_aprovacao' || 
-        pedido.status === 'aguardando_aprovacao_pix' || pedido.status === 'aguardando_pagamento') {
+        pedido.status === 'aguardando_aprovacao' || pedido.status === 'aguardando_aprovacao_pix' || 
+        pedido.status === 'aguardando_pagamento') {
         html += '<button class="btn btn-success" onclick="confirmarPagamento(' + pedido.id + ')" style="flex: 1; min-width: 200px;"><i class="fas fa-check"></i> Confirmar Pagamento</button>';
         html += '<button class="btn btn-danger" onclick="recusarPedido(' + pedido.id + ')" style="flex: 1; min-width: 200px;"><i class="fas fa-times"></i> Recusar Pedido</button>';
     }
@@ -1419,6 +1420,7 @@ function formatarStatus(status) {
     const statusMap = {
         'pendente': 'Pendente',
         'aguardando_pagamento': 'Aguardando Pagamento',
+        'aguardando_aprovacao': 'Aguardando Aprovação',
         'aguardando_aprovacao_pix': 'Aguardando Aprovação PIX',
         'pago': 'Pago',
         'em_preparo': 'Em Preparo',
@@ -3391,7 +3393,7 @@ function abrirModalPagamento(id = null) {
         if (el('pagamento-key')) el('pagamento-key').value = '';
         if (el('pagamento-tipo')) el('pagamento-tipo').value = 'pix_manual';
         if (el('pagamento-descricao')) el('pagamento-descricao').value = '';
-        if (el('pagamento-opcoes-entrega')) el('pagamento-opcoes-entrega').style.display = 'none';
+        // Campo de opções sempre visível agora
         if (el('aceita_pix')) el('aceita_pix').checked = false;
         if (el('aceita_debito')) el('aceita_debito').checked = false;
         if (el('aceita_credito')) el('aceita_credito').checked = false;
@@ -3412,7 +3414,7 @@ function abrirModalPagamento(id = null) {
                 if (el('pagamento-tipo')) el('pagamento-tipo').value = p.tipo || 'pix_manual';
                 if (el('pagamento-descricao')) el('pagamento-descricao').value = p.descricao || '';
                 if (p.opcoesEntrega) {
-                    if (el('pagamento-opcoes-entrega')) el('pagamento-opcoes-entrega').style.display = 'block';
+                    // Campo de opções sempre visível agora
                     if (el('aceita_pix')) el('aceita_pix').checked = (p.opcoesEntrega || []).includes('pix');
                     if (el('aceita_debito')) el('aceita_debito').checked = (p.opcoesEntrega || []).includes('debito');
                     if (el('aceita_credito')) el('aceita_credito').checked = (p.opcoesEntrega || []).includes('credito');
@@ -3443,11 +3445,7 @@ function editarPagamentoGestor(id) {
             document.getElementById('pagamento-tipo-inline').value = p.tipo || 'pix_manual';
             document.getElementById('pagamento-descricao-inline').value = p.descricao || '';
             
-            // Mostrar/ocultar opções de entrega baseado no tipo
-            const opcoesEl = document.getElementById('pagamento-opcoes-entrega-inline');
-            if (opcoesEl) {
-                opcoesEl.style.display = p.tipo === 'pagamento_na_entrega' ? 'block' : 'none';
-            }
+            // Campo de opções sempre visível agora
             
             // Preencher checkboxes
             document.getElementById('aceita_pix_inline').checked = (p.opcoesEntrega || []).includes('pix');
@@ -3506,6 +3504,12 @@ async function salvarPagamentoFromForm() {
 
     if (!nome) {
         alert('Preencha o nome do método.');
+        return false;
+    }
+    
+    // Validar que pelo menos uma opção de pagamento foi selecionada
+    if (opcoes.length === 0) {
+        alert('Selecione pelo menos uma forma de pagamento!');
         return false;
     }
 
@@ -3573,7 +3577,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('aceita_dinheiro_inline').checked = false;
                 document.getElementById('aceita_ted_inline').checked = false;
                 document.getElementById('aceita_boleto_inline').checked = false;
-                document.getElementById('pagamento-opcoes-entrega-inline').style.display = 'none';
+                // Campo de opções sempre visível agora
                 editor.style.display = 'block';
                 document.getElementById('pagamento-nome-inline').focus();
             }
@@ -3583,13 +3587,11 @@ document.addEventListener('DOMContentLoaded', function() {
         btnCancelar.addEventListener('click', function() { editor.style.display = 'none'; });
     }
 
-    // show/hide opcoes-entrega inline select
+    // Campo de opções sempre visível agora - não precisa mais esconder/mostrar baseado no tipo
     const tipoInline = document.getElementById('pagamento-tipo-inline');
     if (tipoInline) {
         tipoInline.addEventListener('change', function() {
-            const s = document.getElementById('pagamento-opcoes-entrega-inline');
             const keyInfoInline = document.getElementById('pagamento-key-inline-info');
-            if (this.value === 'pagamento_na_entrega') s.style.display = 'block'; else s.style.display = 'none';
             // Update info text for key
             if (keyInfoInline) {
                 if (this.value === 'pix_manual') keyInfoInline.style.display = 'block'; else keyInfoInline.style.display = 'block';
@@ -3643,7 +3645,7 @@ function editarPagamentoGestor(id) {
     document.getElementById('aceita_pix_inline').checked = (p.opcoesEntrega || []).includes('pix');
     document.getElementById('aceita_debito_inline').checked = (p.opcoesEntrega || []).includes('debito');
     document.getElementById('aceita_credito_inline').checked = (p.opcoesEntrega || []).includes('credito');
-    document.getElementById('pagamento-opcoes-entrega-inline').style.display = p.tipo === 'pagamento_na_entrega' ? 'block' : 'none';
+    // Campo de opções sempre visível agora
     document.getElementById('pagamento-editor').style.display = 'block';
     document.getElementById('pagamento-nome-inline').focus();
 }
@@ -3655,9 +3657,8 @@ document.addEventListener('DOMContentLoaded', function() {
     const tipoSel = document.getElementById('pagamento-tipo');
     if (tipoSel) {
         tipoSel.addEventListener('change', function() {
-            const s = document.getElementById('pagamento-opcoes-entrega');
+            // Campo de opções sempre visível agora
             const keyInfoModal = document.getElementById('pagamento-key-info');
-            if (this.value === 'pagamento_na_entrega') s.style.display = 'block'; else s.style.display = 'none';
             if (keyInfoModal) keyInfoModal.style.display = 'block';
         });
     }

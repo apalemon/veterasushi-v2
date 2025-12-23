@@ -1252,9 +1252,9 @@ async function processarPedidoCheckout() {
     
     let pedido;
     try {
-        // Para PIX, o pedido deve aguardar aprovação manual do gestor
-        const statusInicial = formaPagamento === 'pix' ? 'aguardando_aprovacao_pix' : 'aguardando_pagamento';
-        const statusPagamentoInicial = formaPagamento === 'pix' ? 'pendente_aprovacao' : 'pendente';
+        // Todos os pedidos devem aguardar aprovação manual do gestor
+        const statusInicial = 'aguardando_aprovacao';
+        const statusPagamentoInicial = 'pendente_aprovacao';
         
         pedido = db.criarPedido({
             clienteId: clienteId,

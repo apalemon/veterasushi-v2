@@ -552,8 +552,8 @@
                                 <label class="form-label">Descrição</label>
                                 <input type="text" class="form-input" id="pagamento-descricao-inline">
                             </div>
-                            <div class="form-group" id="pagamento-opcoes-entrega-inline" style="display:none;">
-                                <label class="form-label">Opções aceitas na entrega</label>
+                            <div class="form-group" id="pagamento-opcoes-entrega-inline">
+                                <label class="form-label">Formas de Pagamento Aceitas *</label>
                                 <div style="display: flex; flex-wrap: wrap; gap: 12px;">
                                     <label><input type="checkbox" id="aceita_pix_inline"> PIX</label>
                                     <label><input type="checkbox" id="aceita_debito_inline"> Débito</label>
@@ -562,6 +562,7 @@
                                     <label><input type="checkbox" id="aceita_ted_inline"> TED</label>
                                     <label><input type="checkbox" id="aceita_boleto_inline"> Boleto</label>
                                 </div>
+                                <small style="color: var(--texto-medio); font-size: 0.85rem; display: block; margin-top: 5px;">Selecione pelo menos uma forma de pagamento que aparecerá no checkout.</small>
                             </div>
                             <div style="display:flex; gap:8px; margin-top:12px;">
                                 <button type="submit" class="btn btn-primary">Salvar</button>
@@ -820,7 +821,7 @@
                     <div style="color: var(--texto-medio);">A chave é gerenciada em <strong>Configurações → Chave PIX</strong>. Para métodos PIX será usada essa chave automaticamente.</div>
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Selecione as formas de pagamento aceitas:</label>
+                    <label class="form-label">Formas de Pagamento Aceitas *</label>
                     <div style="display: flex; flex-wrap: wrap; gap: 12px;">
                         <label><input type="checkbox" id="aceita_pix"> PIX</label>
                         <label><input type="checkbox" id="aceita_debito"> Débito</label>
@@ -829,6 +830,7 @@
                         <label><input type="checkbox" id="aceita_ted"> TED</label>
                         <label><input type="checkbox" id="aceita_boleto"> Boleto</label>
                     </div>
+                    <small style="color: var(--texto-medio); font-size: 0.85rem; display: block; margin-top: 5px;">Selecione pelo menos uma forma de pagamento que aparecerá no checkout.</small>
                 </div>
                 <div class="form-group">
                     <label class="form-label">Descrição</label>
