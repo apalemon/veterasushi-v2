@@ -19,13 +19,13 @@
     <!-- HEADER -->
     <header>
         <div class="header-container">
-            <a href="cardapio.html" class="logo" style="display: flex; align-items: center; gap: 10px;">
+            <a href="index.html" class="logo" style="display: flex; align-items: center; gap: 10px;">
                 <img src="/logo.png" alt="Vetera Sushi" style="height: 40px; width: auto;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
                 <span style="display: none;">Vetera Sushi</span>
             </a>
             <nav>
                 <ul class="nav-menu">
-                    <li><a href="cardapio.html">Cardápio</a></li>
+                    <li><a href="index.html">Cardápio</a></li>
                     <li>
                         <button class="btn-logout" onclick="fazerLogout()">Sair</button>
                     </li>
@@ -949,6 +949,54 @@
     <script src="/js/auth.js"></script>
     <script src="/js/security.js"></script>
     <script src="/js/gestor.js"></script>
+
+        <script>
+        // Formas de pagamento fixas para gestor
+        const FORMAS_PAGAMENTO_FIXAS_GESTOR = [
+            { id: 'debito', nome: 'Débito' },
+            { id: 'credito', nome: 'Crédito' },
+            { id: 'pix', nome: 'Pix' },
+            { id: 'dinheiro', nome: 'Dinheiro' },
+            { id: 'ted', nome: 'TED' },
+            { id: 'boleto', nome: 'Boleto' }
+        ];
+
+        // Renderizar formas de pagamento no gestor
+        function renderizarFormasPagamentoGestor() {
+            const container = document.getElementById('gestor-formas-list');
+            if (!container) return;
+            container.innerHTML = FORMAS_PAGAMENTO_FIXAS_GESTOR.map(fp => `
+                <label style="display:block; margin-bottom:10px;">
+                    <input type="radio" name="gestor-forma-pagamento" value="${fp.id}" required>
+                    ${fp.nome}
+                </label>
+            `).join('');
+        }
+        document.addEventListener('DOMContentLoaded', renderizarFormasPagamentoGestor);
+
+        // Processar pagamento conforme forma de pagamento
+        function processarPagamentoGestor() {
+            const formaPagamento = document.querySelector('input[name="gestor-forma-pagamento"]:checked');
+            if (!formaPagamento) {
+                alert('Selecione uma forma de pagamento!');
+                return;
+            }
+            if (formaPagamento.value === 'pix') {
+                // Abre modal PIX para aprovação manual
+                document.getElementById('modal-pix-gestor').style.display = 'flex';
+                alert('Aguarde aprovação do gestor para pagamento via PIX.');
+            } else {
+                // Pagamento feito, gestor entrará em contato
+                alert('Pagamento registrado! O administrador entrará em contato pelo telefone cadastrado.');
+            }
+        }
+        window.processarPagamentoGestor = processarPagamentoGestor;
+
+        function fecharModalPixGestor() {
+            document.getElementById('modal-pix-gestor').style.display = 'none';
+        }
+        window.fecharModalPixGestor = fecharModalPixGestor;
+        </script>
     <script>
         // Preview de imagem no gestor
         let produtoImagemBase64Gestor = '';
