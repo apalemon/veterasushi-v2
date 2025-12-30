@@ -42,7 +42,7 @@
                 <h2>Vetera Sushi</h2>
                 <div class="db-status" id="db-status">
                     <span class="status-indicator"></span>
-                    <span>Carregando o banco de dados...</span>
+                    <span></span>
                 </div>
             </div>
             
@@ -82,9 +82,6 @@
                 </a>
                 <a href="#" class="nav-item" onclick="mostrarSecao('categorias'); return false;">
                     <span>Categorias</span>
-                </a>
-                <a href="#" class="nav-item" onclick="mostrarSecao('usuarios'); return false;">
-                    <span>Usuários</span>
                 </a>
             </nav>
         </aside>
@@ -339,31 +336,6 @@
                 </div>
                 <div class="categorias-list" id="categorias-list">
                     <!-- Categorias serão inseridas aqui -->
-                </div>
-            </section>
-
-            <!-- SEÇÃO USUÁRIOS -->
-            <section id="sec-usuarios" class="gestor-section">
-                <div class="section-header">
-                    <h1>Usuários</h1>
-                    <button class="btn btn-primary" onclick="abrirModalUsuario()">+ Adicionar Usuário</button>
-                </div>
-                <div class="usuarios-table-container">
-                    <table class="usuarios-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Usuário</th>
-                                <th>Nome</th>
-                                <th>Nível</th>
-                                <th>Status</th>
-                                <th>Ações</th>
-                            </tr>
-                        </thead>
-                        <tbody id="tabela-usuarios">
-                            <!-- Usuários serão inseridos aqui -->
-                        </tbody>
-                    </table>
                 </div>
             </section>
 
@@ -662,40 +634,7 @@
                         <span>Produto ativo</span>
                     </label>
                 </div>
-                <button type="submit" class="btn btn-primary" style="width: 100%;">Salvar</button>
-            </form>
-        </div>
-    </div>
 
-    <!-- MODAL PRODUTO -->
-    <div class="modal-overlay" id="modal-produto">
-        <div class="modal">
-            <div class="modal-header">
-                <h2 class="modal-title" id="modal-produto-titulo">Adicionar Produto</h2>
-                <button class="modal-close" onclick="fecharModal('modal-produto')"><i class="fas fa-times"></i></button>
-            </div>
-            <form id="form-produto">
-                <input type="hidden" id="produto-id">
-                <div class="form-group">
-                    <label class="form-label">Nome *</label>
-                    <input type="text" class="form-input" id="produto-nome" required>
-                </div>
-                <div class="form-group">
-                    <label class="form-label">Descrição</label>
-                    <textarea class="form-textarea" id="produto-descricao"></textarea>
-                </div>
-                <div class="form-grid">
-                    <div class="form-group">
-                        <label class="form-label">Preço (R$) *</label>
-                        <input type="number" step="0.01" class="form-input" id="produto-preco" required>
-                    </div>
-                    <div class="form-group">
-                        <label class="form-label">Categoria *</label>
-                        <select class="form-select" id="produto-categoria" required>
-                            <!-- Categorias serão inseridas aqui -->
-                        </select>
-                    </div>
-                </div>
                 <div class="form-group">
                     <label class="form-label">Imagem do Produto</label>
                     <div class="image-upload-container">
@@ -712,12 +651,6 @@
                             <button type="button" id="produto-remover-foto" class="btn btn-secondary" style="padding:6px 10px; font-size:0.9rem; display:none;" onclick="removerFotoProduto()">Remover Foto</button>
                         </div>
                     </div>
-                </div>
-                <div class="form-group">
-                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                        <input type="checkbox" id="produto-ativo" checked>
-                        <span>Produto ativo</span>
-                    </label>
                 </div>
                 <button type="submit" class="btn btn-primary" style="width: 100%;">Salvar</button>
             </form>
@@ -1057,7 +990,7 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            imagemBase64: produtoImagemBase64Gestor,
+                            image: produtoImagemBase64Gestor,
                             produtoId: produtoId,
                             nomeProduto: nome
                         })
@@ -1065,7 +998,7 @@
                     
                     if (response.ok) {
                         const result = await response.json();
-                        imagemUrl = result.url || result.caminho || produtoImagemBase64Gestor;
+                        imagemUrl = result.image || result.url || result.caminho || produtoImagemBase64Gestor;
                         console.log('Imagem salva com sucesso:', imagemUrl);
                     } else {
                         const errorText = await response.text();

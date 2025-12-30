@@ -145,6 +145,19 @@ class Database {
           configuracoes: dataFromFile.configuracoes || this.data.configuracoes || {}
         };
 
+        // Sincronizar condicionais do servidor (promoções/regras)
+        try {
+          const respCond = await fetch(window.location.origin + '/api/condicionais');
+          if (respCond.ok) {
+            const cond = await respCond.json();
+            if (Array.isArray(cond)) {
+              this.data.condicionais = cond;
+            }
+          }
+        } catch (e) {
+          // Ignorar falhas e manter condicionais locais
+        }
+
         // Tentar mesclar configurações persistidas no servidor (/api/configuracoes)
         (async () => {
           try {

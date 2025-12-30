@@ -261,6 +261,31 @@ function filtrarCategoria(categoria) {
     renderizarProdutos();
 }
 
+function normalizarTelefone(tel) {
+    return String(tel || '').replace(/\D/g, '');
+}
+
+function getTelefoneClienteAtual() {
+    try {
+        if (typeof window.clienteAuth !== 'undefined' && window.clienteAuth.isAuthenticated()) {
+            const c = window.clienteAuth.getCurrentCliente();
+            if (c && c.telefone) return String(c.telefone);
+        }
+    } catch (e) {
+        // ignora
+    }
+    try {
+        const raw = localStorage.getItem('vetera_cliente_local');
+        if (raw) {
+            const c = JSON.parse(raw);
+            if (c && c.telefone) return String(c.telefone);
+        }
+    } catch (e) {
+        // ignora
+    }
+    return '';
+}
+
 // Renderizar produtos
 function renderizarProdutos() {
     const container = document.getElementById('produtos-container');
@@ -293,10 +318,17 @@ function renderizarProdutos() {
     }
 
     console.log('[MAIN] Renderizando produtos. Total no db.data:', db.data.produtos?.length || 0);
-    
-    let produtos = categoriaSelecionada === 'Todas' 
-        ? db.getProdutos() 
-        : db.getProdutos(categoriaSelecionada);
+
+    // Importante: no cliente, também precisamos mostrar produtos pausados (ativo === false)
+    let produtos = Array.isArray(db.data.produtos) ? [...db.data.produtos] : [];
+    produtos.sort((a, b) => {
+        const ao = (typeof a.ordem === 'number') ? a.ordem : 0;
+        const bo = (typeof b.ordem === 'number') ? b.ordem : 0;
+        return ao - bo;
+    });
+    if (categoriaSelecionada && categoriaSelecionada !== 'Todas') {
+        produtos = produtos.filter(p => p && p.categoria === categoriaSelecionada);
+    }
 
     // Determinar ids de produtos em destaque (do destaque ativo)
     let destaqueIds = [];
@@ -359,9 +391,10 @@ function renderizarProdutos() {
         // Sanitizar dados
         const nomeSeguro = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(produto.nome) : String(produto.nome || '').replace(/[<>]/g, '');
         const descricaoSegura = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(produto.descricao) : String(produto.descricao || '').replace(/[<>]/g, '');
-        const imagemUrl = produto.imagem ? (produto.imagem.startsWith('http') || produto.imagem.startsWith('/') ? produto.imagem : '/Fotos/' + produto.imagem).replace(/[<>'"]/g, '') : '';
-        
-        return '<div class="produto-card">' +
+        const imagemUrl = produto.imagem ? ((produto.imagem.startsWith('http') || produto.imagem.startsWith('/') || produto.imagem.startsWith('data:')) ? produto.imagem : '/Fotos/' + produto.imagem).replace(/[<>'"]/g, '') : '';
+        const indisponivel = produto.ativo === false;
+
+        return '<div class="produto-card" style="' + (indisponivel ? 'opacity:0.55; filter:grayscale(1);' : '') + '">' +
             '<div class="produto-imagem-container">' +
             (produto.imagem ? 
                 '<img src="' + imagemUrl + '" alt="' + nomeSeguro + '" class="produto-imagem" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">' +
@@ -375,14 +408,15 @@ function renderizarProdutos() {
             (destaqueIds.includes(produto.id) ? '<span class="produto-badge destaque">DESTAQUE</span>' : '') +
             '</div>' +
             '<p class="produto-descricao">' + descricaoSegura + '</p>' +
+            (indisponivel ? '<div style="margin: 8px 0; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: var(--texto-medio); font-weight: 600; text-align:center;">Indisponível no momento</div>' : '') +
             descontoInfo +
             '<div class="produto-controles">' +
             '<div class="quantidade-controle">' +
-            '<button class="quantidade-btn" onclick="diminuirQuantidade(' + produto.id + ')">-</button>' +
+            '<button class="quantidade-btn" ' + (indisponivel ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '') + ' onclick="diminuirQuantidade(' + produto.id + ')">-</button>' +
             '<span class="quantidade-valor" id="qtd-' + produto.id + '">0</span>' +
-            '<button class="quantidade-btn" onclick="aumentarQuantidade(' + produto.id + ')">+</button>' +
+            '<button class="quantidade-btn" ' + (indisponivel ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '') + ' onclick="aumentarQuantidade(' + produto.id + ')">+</button>' +
             '</div>' +
-            '<button class="adicionar-btn" onclick="adicionarAoCarrinho(' + produto.id + ')">Adicionar</button>' +
+            '<button class="adicionar-btn" ' + (indisponivel ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '') + ' onclick="adicionarAoCarrinho(' + produto.id + ')">' + (indisponivel ? 'Indisponível' : 'Adicionar') + '</button>' +
             '</div>' +
             '</div>' +
             '</div>';
@@ -430,6 +464,8 @@ function atualizarQuantidadesVisiveis() {
 
 // Aumentar quantidade
 function aumentarQuantidade(produtoId) {
+    const produto = (typeof db !== 'undefined' && typeof db.getProduto === 'function') ? db.getProduto(produtoId) : null;
+    if (produto && produto.ativo === false) return;
     const qtdElement = document.getElementById(`qtd-${produtoId}`);
     if (!qtdElement) return;
     let quantidade = parseInt(qtdElement.textContent) || 0;
@@ -439,6 +475,8 @@ function aumentarQuantidade(produtoId) {
 
 // Diminuir quantidade
 function diminuirQuantidade(produtoId) {
+    const produto = (typeof db !== 'undefined' && typeof db.getProduto === 'function') ? db.getProduto(produtoId) : null;
+    if (produto && produto.ativo === false) return;
     const qtdElement = document.getElementById(`qtd-${produtoId}`);
     if (!qtdElement) return;
     let quantidade = parseInt(qtdElement.textContent) || 0;
@@ -455,6 +493,13 @@ function adicionarAoCarrinho(produtoId) {
     if (!idSeguro) {
         console.error('[MAIN] ❌ ID de produto inválido:', produtoId);
         return;
+    }
+
+    try {
+        const produto = (typeof db !== 'undefined' && typeof db.getProduto === 'function') ? db.getProduto(idSeguro) : null;
+        if (produto && produto.ativo === false) return;
+    } catch (e) {
+        // ignora
     }
     
     const qtdElement = document.getElementById(`qtd-${idSeguro}`);
@@ -1298,6 +1343,21 @@ async function processarPedidoCheckout() {
         });
         
         console.log('[MAIN] ✅ Pedido criado com sucesso! ID:', pedido.id);
+
+        // Criar/atualizar perfil local simples (sem senha)
+        try {
+            localStorage.setItem('vetera_cliente_local', JSON.stringify({
+                nome: nome,
+                telefone: telefone,
+                cpf: cpf,
+                endereco: endereco,
+                bairro: bairro,
+                cep: cep,
+                atualizadoEm: new Date().toISOString()
+            }));
+        } catch (e) {
+            // ignora
+        }
         
         // Sugerir notificações do navegador
         if (typeof window.sugerirNotificacoes === 'function') {
@@ -2159,6 +2219,136 @@ function aplicarMascaraCEP(input) {
         e.target.value = valor;
     });
 }
+
+async function carregarPedidosClienteServidor() {
+    try {
+        const resp = await fetch(window.location.origin + '/api/pedidos');
+        if (!resp.ok) return null;
+        const raw = await resp.json();
+        const pedidos = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.pedidos) ? raw.pedidos : []);
+        if (typeof db !== 'undefined') {
+            if (!db.data) db.data = {};
+            db.data.pedidos = pedidos;
+            if (typeof db.saveData === 'function') db.saveData();
+        }
+        return pedidos;
+    } catch (e) {
+        return null;
+    }
+}
+
+function abrirModalMeusPedidos() {
+    const modal = document.getElementById('modal-meus-pedidos');
+    if (!modal) return;
+    modal.classList.add('active');
+    renderizarMeusPedidos();
+}
+
+function fecharModalMeusPedidos() {
+    const modal = document.getElementById('modal-meus-pedidos');
+    if (modal) modal.classList.remove('active');
+}
+
+function formatarStatusPedidoCliente(status) {
+    const s = String(status || '').toLowerCase();
+    if (s === 'concluido') return 'Concluído';
+    if (s === 'cancelado') return 'Cancelado';
+    if (s === 'recusado') return 'Recusado';
+    if (s === 'em_preparo') return 'Em preparo';
+    if (s === 'aguardando_aprovacao') return 'Aguardando aprovação';
+    return status || 'Pendente';
+}
+
+async function renderizarMeusPedidos() {
+    const container = document.getElementById('meus-pedidos-lista');
+    if (!container) return;
+
+    const telefone = getTelefoneClienteAtual();
+    if (!telefone) {
+        container.innerHTML = '<div style="color: var(--texto-medio); text-align:center; padding: 1.5rem;">Faça um pedido para aparecer aqui.</div>';
+        return;
+    }
+
+    container.innerHTML = '<div style="color: var(--texto-medio); text-align:center; padding: 1.5rem;">Carregando...</div>';
+    const pedidosServidor = await carregarPedidosClienteServidor();
+    const pedidosBase = Array.isArray(pedidosServidor) ? pedidosServidor : (typeof db !== 'undefined' && typeof db.getPedidos === 'function' ? db.getPedidos() : []);
+
+    const telNorm = normalizarTelefone(telefone);
+    const meus = (pedidosBase || []).filter(p => normalizarTelefone(p && p.clienteTelefone) === telNorm);
+    meus.sort((a, b) => {
+        const ta = new Date(a.dataCriacao || a.data || a.timestamp || 0).getTime();
+        const tb = new Date(b.dataCriacao || b.data || b.timestamp || 0).getTime();
+        return tb - ta;
+    });
+
+    if (meus.length === 0) {
+        container.innerHTML = '<div style="color: var(--texto-medio); text-align:center; padding: 1.5rem;">Nenhum pedido encontrado para este telefone.</div>';
+        return;
+    }
+
+    container.innerHTML = meus.map(p => {
+        const dataMs = new Date(p.dataCriacao || p.data || p.timestamp || Date.now()).getTime();
+        const dentro10 = (Date.now() - dataMs) <= 10 * 60 * 1000;
+        const status = String(p.status || '').toLowerCase();
+        const podeCancelar = dentro10 && status !== 'concluido' && status !== 'recusado' && status !== 'cancelado';
+        const total = Number(p.total) || 0;
+        const dataFmt = new Date(dataMs).toLocaleString('pt-BR');
+        return '<div style="background: rgba(0,0,0,0.25); border: 1px solid var(--borda); border-radius: 12px; padding: 14px; margin-bottom: 10px;">' +
+            '<div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">' +
+                '<div style="color:#fff; font-weight:700;">Pedido #' + (p.id || '') + '</div>' +
+                '<div style="color: var(--texto-medio); font-weight:600;">' + formatarStatusPedidoCliente(p.status) + '</div>' +
+            '</div>' +
+            '<div style="margin-top:6px; color: var(--texto-medio); font-size: 0.9rem;">' + dataFmt + '</div>' +
+            '<div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center; gap:10px;">' +
+                '<div style="color: var(--vermelho-claro); font-weight:800;">R$ ' + total.toFixed(2) + '</div>' +
+                (podeCancelar ? '<button class="btn btn-secondary" onclick="cancelarPedidoCliente(' + p.id + ')">Cancelar (até 10 min)</button>' : '') +
+            '</div>' +
+        '</div>';
+    }).join('');
+}
+
+async function cancelarPedidoCliente(pedidoId) {
+    if (!confirm('Deseja cancelar este pedido?')) return;
+    try {
+        if (typeof db === 'undefined' || typeof db.atualizarPedido !== 'function') return;
+
+        const pedido = db.getPedido(pedidoId);
+        if (!pedido) return;
+        const dataMs = new Date(pedido.dataCriacao || pedido.data || pedido.timestamp || Date.now()).getTime();
+        const dentro10 = (Date.now() - dataMs) <= 10 * 60 * 1000;
+        const status = String(pedido.status || '').toLowerCase();
+        if (!dentro10 || status === 'concluido' || status === 'recusado' || status === 'cancelado') {
+            alert('Este pedido não pode mais ser cancelado.');
+            return;
+        }
+
+        await db.atualizarPedido(pedidoId, {
+            status: 'cancelado',
+            statusPagamento: pedido.statusPagamento || 'pendente',
+            dataCancelamento: new Date().toISOString(),
+            canceladoPor: 'cliente'
+        });
+
+        renderizarMeusPedidos();
+
+        const config = (typeof db.getConfiguracoes === 'function') ? db.getConfiguracoes() : {};
+        const telLoja = String(config.telefone || '').replace(/\D/g, '');
+        if (telLoja) {
+            const msg = encodeURIComponent('Olá! Cancelei o pedido #' + pedidoId + ' no site.');
+            window.open('https://wa.me/55' + telLoja + '?text=' + msg, '_blank');
+        } else {
+            alert('Pedido cancelado. Entre em contato pelo WhatsApp para confirmar.');
+        }
+    } catch (e) {
+        console.error('[MAIN] Erro ao cancelar pedido:', e);
+        alert('Erro ao cancelar pedido. Tente novamente.');
+    }
+}
+
+window.abrirModalMeusPedidos = abrirModalMeusPedidos;
+window.fecharModalMeusPedidos = fecharModalMeusPedidos;
+window.renderizarMeusPedidos = renderizarMeusPedidos;
+window.cancelarPedidoCliente = cancelarPedidoCliente;
 
 // --- Overlay de carregamento e fallback de ícones
 const _siteLoadingOverlayShownAt = Date.now();

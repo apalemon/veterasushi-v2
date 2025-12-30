@@ -14,6 +14,33 @@ window.getPagamentosConfiguradosGestor = function() {
 // Formatação de moeda (definir no início para evitar erros de inicialização)
 const currencyFmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' });
 
+async function toggleProdutoAtivo(produtoId) {
+    try {
+        if (!db.data || !Array.isArray(db.data.produtos)) return;
+        const idx = db.data.produtos.findIndex(p => p.id === produtoId);
+        if (idx === -1) return;
+        const atual = db.data.produtos[idx];
+        db.data.produtos[idx] = { ...atual, ativo: atual.ativo === false ? true : false };
+        db.saveData();
+
+        try {
+            await fetch(window.location.origin + '/api/produtos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(db.data.produtos || [])
+            });
+        } catch (e) {
+            // Salvo localmente, servidor pode estar indisponível
+        }
+
+        renderizarProdutos();
+    } catch (e) {
+        console.error('[PRODUTOS] ❌ Erro ao pausar/ativar:', e);
+    }
+}
+
+window.toggleProdutoAtivo = toggleProdutoAtivo;
+
 let pedidosVistos = new Set();
 let pedidosOcultos = new Set();
 let ultimoPedidoId = 0;
@@ -105,7 +132,6 @@ document.addEventListener('DOMContentLoaded', async function() {
     renderizarDestaques();
     renderizarCupons();
     renderizarCategorias();
-    renderizarUsuarios();
     renderizarCondicionais();
     
     // Carregar horários do servidor antes de renderizar
@@ -1437,7 +1463,9 @@ function formatarStatus(status) {
         'concluido': 'Concluído',
         'concluído': 'Concluído',
         'finalizado': 'Finalizado',
-        'recusado': 'Recusado'
+        'recusado': 'Recusado',
+        'cancelado': 'CANCELADO',
+        'cancelado_cliente': 'CANCELADO'
     };
     
     const statusLower = (status || '').toLowerCase().trim();
@@ -1492,7 +1520,7 @@ function renderizarProdutos() {
         html += '<button class="btn btn-small" onclick="moverProdutoUp(' + produto.id + ')" title="Mover para cima" style="padding:6px 10px;">↑</button>';
         html += '<button class="btn btn-small" onclick="moverProdutoDown(' + produto.id + ')" title="Mover para baixo" style="padding:6px 10px;">↓</button>';
         html += '<button class="btn btn-primary btn-small" onclick="editarProdutoGestor(' + produto.id + ')" style="flex: 1; min-width: 100px;">Editar</button>';
-        html += '<button class="btn" onclick="abrirModalProduto(' + produto.id + '); setTimeout(function(){ document.getElementById(\'produto-imagem-input\').click(); }, 300);" style="background: var(--cinza-medio); color: #fff; border: 1px solid var(--borda); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;" title="Adicionar/Editar Foto">Foto</button>';
+        html += '<button class="btn" onclick="toggleProdutoAtivo(' + produto.id + ')" style="background: var(--cinza-medio); color: #fff; border: 1px solid var(--borda); padding: 8px 12px; border-radius: 8px; cursor: pointer; font-size: 0.9rem;" title="Pausar/Ativar Item">' + (produto.ativo === false ? 'Ativar' : 'Pausar') + '</button>';
         html += '<button class="btn btn-secondary btn-small" onclick="excluirProdutoGestor(' + produto.id + ')" style="flex: 1; min-width: 100px;">Excluir</button>';
         html += '</div>';
         html += '</div>';
@@ -1642,7 +1670,21 @@ function excluirCupomGestor(id) {
     if (db.data.cupons) {
         db.data.cupons = db.data.cupons.filter(function(c) { return c.id !== id; });
         db.saveData();
-        renderizarCupons();
+        // Persistir no servidor
+        (async () => {
+            try {
+                await fetch(window.location.origin + '/api/cupons', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(db.data.cupons || [])
+                });
+                // Recarregar para garantir sincronização
+                await db.fetchInitialData();
+            } catch (e) {
+                // Servidor pode estar indisponível; mantém local
+            }
+            renderizarCupons();
+        })();
     }
 }
 
@@ -2056,7 +2098,11 @@ if (formDestaque) {
         const listaEl = document.getElementById('destaque-produtos-list');
         if (!nome) { alert('Informe o nome do destaque'); return; }
 
-        const produtosSelecionados = Array.from(listaEl.querySelectorAll('input[type="checkbox"]')).filter(c => c.checked).map(c => Number(c.value));
+        const produtosSelecionados = Array.from(new Set(
+            Array.from(listaEl.querySelectorAll('input[type="checkbox"]'))
+                .filter(c => c.checked)
+                .map(c => Number(c.value))
+        ));
 
         if (!Array.isArray(db.data.destaques)) {
             db.data.destaques = (db.data.destaques && typeof db.data.destaques === 'object') ? Object.values(db.data.destaques) : [];
@@ -3437,7 +3483,7 @@ function abrirModalPagamento(id = null) {
     }
 }
 
-function editarPagamentoGestor(id) {
+function editarPagamentoGestorLegacy(id) {
     // Preencher formulário inline se existir
     const editor = document.getElementById('pagamento-editor');
     if (editor) {
@@ -3640,29 +3686,37 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // When editing from list, populate inline editor and show
 function editarPagamentoGestor(id) {
-    const pagamentos = (db.getConfiguracoes().pagamentos) || [];
-    const p = pagamentos.find(x => x.id === id);
-    if (!p) return;
-    // populate inline editor
-    document.getElementById('pagamento-id-inline').value = p.id || '';
-    document.getElementById('pagamento-nome-inline').value = p.nome || '';
-    // Update key info display (inline) instead of input
-    const keyInfoInline = document.getElementById('pagamento-key-inline-info');
-    if (keyInfoInline) {
-        if (p.tipo === 'pix_manual') {
-            keyInfoInline.innerHTML = '<label class="form-label">Chave/ID</label><div style="color: var(--texto-medio);">Usa a chave PIX que está em <strong>Configurações</strong>.</div>';
-        } else {
-            keyInfoInline.innerHTML = '<label class="form-label">Chave/ID</label><div style="color: var(--texto-medio);">Chave atual: <strong>' + (p.key || p.tipo) + '</strong></div>';
+    // Preencher formulário inline se existir
+    const editor = document.getElementById('pagamento-editor');
+    if (editor) {
+        const pagamentos = (db.getConfiguracoes().pagamentos) || [];
+        const p = pagamentos.find(x => x.id === id);
+        if (p) {
+            document.getElementById('pagamento-id-inline').value = p.id || '';
+            document.getElementById('pagamento-nome-inline').value = p.nome || '';
+            const keyInfoInline = document.getElementById('pagamento-key-inline-info');
+            if (keyInfoInline) {
+                keyInfoInline.innerHTML = '<label class="form-label">Chave/ID</label><div style="color: var(--texto-medio);">' + (p.tipo === 'pix_manual' ? 'Usa a chave PIX que está em <strong>Configurações</strong>.' : ('Chave atual: <strong>' + (p.key || p.tipo) + '</strong>')) + '</div>';
+            }
+            document.getElementById('pagamento-tipo-inline').value = p.tipo || 'pix_manual';
+            document.getElementById('pagamento-descricao-inline').value = p.descricao || '';
+
+            // Preencher checkboxes
+            document.getElementById('aceita_pix_inline').checked = (p.opcoesEntrega || []).includes('pix');
+            document.getElementById('aceita_debito_inline').checked = (p.opcoesEntrega || []).includes('debito');
+            document.getElementById('aceita_credito_inline').checked = (p.opcoesEntrega || []).includes('credito');
+            document.getElementById('aceita_dinheiro_inline').checked = (p.opcoesEntrega || []).includes('dinheiro');
+            document.getElementById('aceita_ted_inline').checked = (p.opcoesEntrega || []).includes('ted');
+            document.getElementById('aceita_boleto_inline').checked = (p.opcoesEntrega || []).includes('boleto');
+
+            editor.style.display = 'block';
+            document.getElementById('pagamento-nome-inline').focus();
+            return;
         }
     }
-    document.getElementById('pagamento-tipo-inline').value = p.tipo || 'pix_manual';
-    document.getElementById('pagamento-descricao-inline').value = p.descricao || '';
-    document.getElementById('aceita_pix_inline').checked = (p.opcoesEntrega || []).includes('pix');
-    document.getElementById('aceita_debito_inline').checked = (p.opcoesEntrega || []).includes('debito');
-    document.getElementById('aceita_credito_inline').checked = (p.opcoesEntrega || []).includes('credito');
-    // Campo de opções sempre visível agora
-    document.getElementById('pagamento-editor').style.display = 'block';
-    document.getElementById('pagamento-nome-inline').focus();
+
+    // Fallback: abrir modal se não conseguir preencher inline
+    abrirModalPagamento(id);
 }
 
 
@@ -3871,10 +3925,10 @@ function hideSiteLoadingOverlayGestor() {
         overlay.style.display = 'none';
     }
 }
+// Esconder o overlay o mais cedo possível
+document.addEventListener('DOMContentLoaded', hideSiteLoadingOverlayGestor);
 window.addEventListener('load', function() {
-    const elapsed = Date.now() - _siteLoadingOverlayShownAt_Gestor;
-    const remaining = Math.max(2000 - elapsed, 0);
-    setTimeout(hideSiteLoadingOverlayGestor, remaining);
+    hideSiteLoadingOverlayGestor();
 });
 setTimeout(hideSiteLoadingOverlayGestor, 8000);
 

@@ -56,6 +56,9 @@
             <nav>
                 <ul class="nav-menu">
                     <li><a href="index.html">Cardápio</a></li>
+                    <li id="meus-pedidos-menu-item" style="display: block;">
+                        <button class="btn-login" onclick="abrirModalMeusPedidos()">Meus pedidos</button>
+                    </li>
                     <li id="gestor-menu-item" style="display: none;">
                         <a href="gestor.html" class="btn-gestor" style="background: var(--vermelho-claro); color: #fff; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: 500;">Gestor</a>
                     </li>
@@ -138,6 +141,19 @@
                         <button type="button" class="btn btn-secondary" onclick="alternarModoCliente('login')" style="width: 100%;">Fazer Login</button>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL MEUS PEDIDOS -->
+    <div class="modal-overlay" id="modal-meus-pedidos" style="z-index: 10002;" role="dialog" aria-labelledby="modal-meus-pedidos-title" aria-modal="true">
+        <div class="modal" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-meus-pedidos-title">Meus pedidos</h2>
+                <button class="modal-close" onclick="fecharModalMeusPedidos()" aria-label="Fechar"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="meus-pedidos-lista">
+                <!-- Inserido via JS -->
             </div>
         </div>
     </div>
