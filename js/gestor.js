@@ -34,6 +34,7 @@ async function toggleProdutoAtivo(produtoId) {
         }
 
         renderizarProdutos();
+        try { recarregarMenuPDVPreservandoQuantidades(); } catch (e) {}
     } catch (e) {
         console.error('[PRODUTOS] ❌ Erro ao pausar/ativar:', e);
     }
@@ -169,9 +170,16 @@ document.addEventListener('DOMContentLoaded', async function() {
     inicializarNovaVenda();
     inicializarDetalhes();
 
+    // Detectar cancelamentos pelo cliente e tocar alerta
+    try {
+        _gestorCanceladosVistos = _gestorLoadCanceladosVistos();
+        detectarCancelamentosGestor();
+    } catch (e) {}
+
     // Verificar novos pedidos a cada 3 segundos
     setInterval(function() {
         verificarNovosPedidos().catch(e => {});
+        try { detectarCancelamentosGestor(); } catch (e) {}
     }, 3000);
         
         // Verificar quando a página ganha foco
@@ -179,6 +187,7 @@ document.addEventListener('DOMContentLoaded', async function() {
             carregarPedidosDoServidor().then(() => {
                 verificarNovosPedidos();
                 renderizarPedidos();
+                try { detectarCancelamentosGestor(); } catch (e) {}
             });
         });
         
@@ -188,6 +197,7 @@ document.addEventListener('DOMContentLoaded', async function() {
                 carregarPedidosDoServidor().then(() => {
                     verificarNovosPedidos();
                     renderizarPedidos();
+                    try { detectarCancelamentosGestor(); } catch (e) {}
                 });
             }
         });
@@ -196,8 +206,79 @@ document.addEventListener('DOMContentLoaded', async function() {
         setInterval(function() {
             renderizarPedidos();
             atualizarContadorNovos();
+            try { detectarCancelamentosGestor(); } catch (e) {}
         }, 5000);
 });
+
+let _gestorCanceladosVistos = new Set();
+
+function _gestorLoadCanceladosVistos() {
+    try {
+        const raw = localStorage.getItem('vetera_gestor_cancelados_vistos');
+        if (!raw) return new Set();
+        const arr = JSON.parse(raw);
+        return new Set(Array.isArray(arr) ? arr : []);
+    } catch (e) {
+        return new Set();
+    }
+}
+
+function _gestorSaveCanceladosVistos() {
+    try {
+        localStorage.setItem('vetera_gestor_cancelados_vistos', JSON.stringify(Array.from(_gestorCanceladosVistos)));
+    } catch (e) {
+        // ignora
+    }
+}
+
+function _gestorTocarAlertaCancelamento() {
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'square';
+        o.frequency.value = 880;
+        g.gain.value = 0.0001;
+        o.connect(g);
+        g.connect(ctx.destination);
+        o.start();
+        const now = ctx.currentTime;
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.exponentialRampToValueAtTime(0.25, now + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+        o.stop(now + 0.38);
+        o.onended = () => { try { ctx.close(); } catch (e) {} };
+    } catch (e) {
+        // ignora
+    }
+}
+
+function detectarCancelamentosGestor() {
+    try {
+        if (!_gestorCanceladosVistos || typeof _gestorCanceladosVistos.has !== 'function') {
+            _gestorCanceladosVistos = new Set();
+        }
+        const pedidos = (typeof db !== 'undefined' && typeof db.getPedidos === 'function') ? db.getPedidos() : [];
+        const cancelados = (pedidos || []).filter(p => String(p && p.status || '').toLowerCase() === 'cancelado');
+        let novos = 0;
+        cancelados.forEach(p => {
+            const id = p && p.id;
+            if (!id) return;
+            if (!_gestorCanceladosVistos.has(id)) {
+                _gestorCanceladosVistos.add(id);
+                novos += 1;
+            }
+        });
+        if (novos > 0) {
+            _gestorSaveCanceladosVistos();
+            _gestorTocarAlertaCancelamento();
+        }
+    } catch (e) {
+        // ignora
+    }
+}
 
 // Carregar pedidos do servidor - SEMPRE usar servidor como fonte principal
 async function carregarPedidosDoServidor() {
@@ -2241,7 +2322,8 @@ function inicializarNovaVenda() {
         return {
             id: produto.id,
             name: produto.nome,
-            price: produto.preco
+            price: produto.preco,
+            ativo: produto.ativo !== false
         };
     });
     
@@ -2278,6 +2360,49 @@ function inicializarNovaVenda() {
     if (paymentMethod) paymentMethod.addEventListener('change', atualizarPedidoPDV);
 }
 
+function recarregarMenuPDVPreservandoQuantidades() {
+    try {
+        const container = document.getElementById('menu-list-pdv');
+        if (!container) return;
+        // Capturar quantidades atuais antes de re-render
+        const quantidades = {};
+        Array.from(container.querySelectorAll('input[type="number"][data-id]')).forEach(inp => {
+            const id = Number(inp.dataset.id);
+            const q = Math.max(0, Math.floor(Number(inp.value) || 0));
+            if (id) quantidades[id] = q;
+        });
+
+        // Recarregar itens do menu conforme produtos atuais
+        const produtos = db.getProdutos();
+        menuItemsPDV = (produtos || []).map(function(produto) {
+            return {
+                id: produto.id,
+                name: produto.nome,
+                price: produto.preco,
+                ativo: produto.ativo !== false
+            };
+        });
+
+        renderizarMenuPDV();
+
+        // Restaurar quantidades (somente para itens ativos). Itens pausados zeram.
+        Array.from(document.querySelectorAll('#menu-list-pdv input[type="number"][data-id]')).forEach(inp => {
+            const id = Number(inp.dataset.id);
+            const item = menuItemsPDV.find(function(x) { return Number(x.id) === id; });
+            const q = quantidades[id] || 0;
+            if (item && item.ativo !== false && q > 0) {
+                inp.value = q;
+            } else {
+                inp.value = 0;
+            }
+        });
+
+        atualizarPedidoPDV();
+    } catch (e) {
+        // ignora
+    }
+}
+
 // Renderizar menu de produtos
 function renderizarMenuPDV() {
     const container = document.getElementById('menu-list-pdv');
@@ -2289,10 +2414,15 @@ function renderizarMenuPDV() {
     }
     
     container.innerHTML = menuItemsPDV.map(function(item) {
-        return '<div class="menu-item-pdv" data-name="' + item.name.toLowerCase() + '" style="display: flex; align-items: center; gap: 12px; background: rgba(255, 255, 255, 0.03); padding: 15px; border-radius: 10px; border: 1px solid rgba(220, 38, 38, 0.1); transition: all 0.3s ease;">' +
-            '<div class="name" style="flex: 1; font-size: 14px; color: #fff;">' + item.name + '</div>' +
+        const indisponivel = item.ativo === false;
+        const wrapperStyle = 'display: flex; align-items: center; gap: 12px; background: rgba(255, 255, 255, 0.03); padding: 15px; border-radius: 10px; border: 1px solid rgba(220, 38, 38, 0.1); transition: all 0.3s ease;' +
+            (indisponivel ? 'opacity:0.55; filter:grayscale(1);' : '');
+        const inputStyle = 'width: 70px; padding: 8px; border-radius: 6px; border: 1px solid rgba(220, 38, 38, 0.3); background: rgba(0, 0, 0, 0.5); color: #fff; text-align: center;' +
+            (indisponivel ? 'opacity:0.6; cursor:not-allowed;' : '');
+        return '<div class="menu-item-pdv" data-name="' + item.name.toLowerCase() + '" style="' + wrapperStyle + '">' +
+            '<div class="name" style="flex: 1; font-size: 14px; color: #fff;">' + item.name + (indisponivel ? ' <span style="margin-left:8px; font-size:12px; color: var(--texto-medio); font-weight: 700;">(Indisponível)</span>' : '') + '</div>' +
             '<div class="price" style="font-weight: 600; color: var(--vermelho-claro); width: 90px; text-align: right;">R$ ' + item.price.toFixed(2).replace('.', ',') + '</div>' +
-            '<input type="number" min="0" step="1" value="0" data-id="' + item.id + '" style="width: 70px; padding: 8px; border-radius: 6px; border: 1px solid rgba(220, 38, 38, 0.3); background: rgba(0, 0, 0, 0.5); color: #fff; text-align: center;">' +
+            '<input type="number" min="0" step="1" value="0" data-id="' + item.id + '" ' + (indisponivel ? 'disabled' : '') + ' style="' + inputStyle + '">' +
             '</div>';
     }).join('');
 }
@@ -2320,17 +2450,23 @@ function atualizarPedidoPDV() {
     qtyInputs.forEach(function(inp) {
         const q = Math.max(0, Math.floor(Number(inp.value) || 0));
         const id = parseInt(inp.dataset.id);
-        if (q > 0) {
-            const item = menuItemsPDV.find(function(x) { return x.id === id; });
-            if (item) {
-                orderPDV.push({
-                    id: item.id,
-                    name: item.name,
-                    price: item.price,
-                    qty: q,
-                    total: q * item.price
-                });
+        const item = menuItemsPDV.find(function(x) { return x.id === id; });
+        if (!item) return;
+        // Produto pausado: não permitir entrar no pedido
+        if (item.ativo === false) {
+            if (q > 0) {
+                inp.value = 0;
             }
+            return;
+        }
+        if (q > 0) {
+            orderPDV.push({
+                id: item.id,
+                name: item.name,
+                price: item.price,
+                qty: q,
+                total: q * item.price
+            });
         }
     });
     

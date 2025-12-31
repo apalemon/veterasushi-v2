@@ -5,6 +5,41 @@
 let categoriaSelecionada = 'Todas';
 let cupomAplicado = null;
 
+function _getPedidosStatusCacheCliente() {
+    try {
+        const raw = localStorage.getItem('vetera_pedidos_status_cache');
+        if (!raw) return {};
+        const obj = JSON.parse(raw);
+        return (obj && typeof obj === 'object') ? obj : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function _setPedidosStatusCacheCliente(cache) {
+    try {
+        localStorage.setItem('vetera_pedidos_status_cache', JSON.stringify(cache || {}));
+    } catch (e) {
+        // ignora
+    }
+}
+
+function mostrarAvisoPedidoCliente(mensagem) {
+    try {
+        const existing = document.getElementById('pedido-status-toast');
+        if (existing) existing.remove();
+        const div = document.createElement('div');
+        div.id = 'pedido-status-toast';
+        div.style.cssText = 'position:fixed; left:50%; transform:translateX(-50%); bottom:90px; z-index:99999; max-width:92vw; padding:12px 14px; border-radius:12px; background: rgba(0,0,0,0.85); border: 1px solid rgba(255,255,255,0.12); color:#fff; font-weight:700; text-align:center;';
+        div.textContent = mensagem;
+        document.body.appendChild(div);
+        setTimeout(() => { try { div.remove(); } catch (e) {} }, 12000);
+    } catch (e) {
+        // fallback
+        try { alert(mensagem); } catch (err) {}
+    }
+}
+
 // Carregar cupom do localStorage
 function carregarCupomSalvo() {
     try {
@@ -43,6 +78,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
     
     await inicializarCardapio();
+
+    // Monitorar atualizações de status dos pedidos do cliente
+    iniciarMonitoramentoStatusPedidosCliente();
     
     // Carregar horários do servidor
     await carregarHorariosDoServidorMain();
@@ -54,6 +92,52 @@ document.addEventListener('DOMContentLoaded', async () => {
         atualizarStatusLojaIndicador();
     }, 30000); // A cada 30 segundos
 });
+
+function iniciarMonitoramentoStatusPedidosCliente() {
+    try {
+        const ids = (typeof getPedidoIdsClienteLocal === 'function') ? getPedidoIdsClienteLocal() : [];
+        if (!ids || ids.length === 0) return;
+        verificarAtualizacoesStatusPedidosCliente();
+        setInterval(verificarAtualizacoesStatusPedidosCliente, 10000);
+    } catch (e) {
+        // ignora
+    }
+}
+
+async function verificarAtualizacoesStatusPedidosCliente() {
+    try {
+        const ids = (typeof getPedidoIdsClienteLocal === 'function') ? getPedidoIdsClienteLocal() : [];
+        if (!ids || ids.length === 0) return;
+
+        const pedidosServidor = await carregarPedidosClienteServidor();
+        const pedidosBase = Array.isArray(pedidosServidor)
+            ? pedidosServidor
+            : (typeof db !== 'undefined' && typeof db.getPedidos === 'function' ? db.getPedidos() : []);
+
+        const setIds = new Set(ids.map(v => Number(v)));
+        const meus = (pedidosBase || []).filter(p => setIds.has(Number(p && p.id)));
+        if (meus.length === 0) return;
+
+        const cache = _getPedidosStatusCacheCliente();
+
+        meus.forEach(p => {
+            const id = Number(p.id);
+            const statusAtual = String(p.status || '').toLowerCase();
+            const statusAnterior = String(cache[id] || '').toLowerCase();
+
+            // Aceito / em preparo
+            if (statusAtual === 'em_preparo' && statusAnterior !== 'em_preparo') {
+                mostrarAvisoPedidoCliente('O seu pedido já foi aceito, e estamos fazendo ele.');
+            }
+
+            cache[id] = statusAtual;
+        });
+
+        _setPedidosStatusCacheCliente(cache);
+    } catch (e) {
+        // ignora
+    }
+}
 
 // Atualizar indicador de status da loja na página principal
 function atualizarStatusLojaIndicador() {

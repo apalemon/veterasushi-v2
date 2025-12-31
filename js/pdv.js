@@ -4,6 +4,85 @@
 
 let pedidoSelecionado = null;
 let filtroAtivo = 'todos';
+let _pdvCanceladosVistos = new Set();
+
+function _pdvLoadCanceladosVistos() {
+    try {
+        const raw = localStorage.getItem('vetera_pdv_cancelados_vistos');
+        if (!raw) return new Set();
+        const arr = JSON.parse(raw);
+        return new Set(Array.isArray(arr) ? arr : []);
+    } catch (e) {
+        return new Set();
+    }
+}
+
+function _pdvSaveCanceladosVistos() {
+    try {
+        localStorage.setItem('vetera_pdv_cancelados_vistos', JSON.stringify(Array.from(_pdvCanceladosVistos)));
+    } catch (e) {
+        // ignora
+    }
+}
+
+function _pdvTocarAlertaCancelamento() {
+    try {
+        const AudioCtx = window.AudioContext || window.webkitAudioContext;
+        if (!AudioCtx) return;
+        const ctx = new AudioCtx();
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'square';
+        o.frequency.value = 880;
+        g.gain.value = 0.0001;
+        o.connect(g);
+        g.connect(ctx.destination);
+        o.start();
+        const now = ctx.currentTime;
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.exponentialRampToValueAtTime(0.25, now + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+        o.stop(now + 0.38);
+        o.onended = () => { try { ctx.close(); } catch (e) {} };
+    } catch (e) {
+        // ignora
+    }
+}
+
+async function _pdvSincronizarPedidosServidor() {
+    try {
+        if (typeof db !== 'undefined' && typeof db.carregarPedidosServidor === 'function') {
+            await db.carregarPedidosServidor();
+        }
+    } catch (e) {
+        // ignora
+    }
+}
+
+function _pdvDetectarCancelamentos() {
+    try {
+        if (!_pdvCanceladosVistos || typeof _pdvCanceladosVistos.has !== 'function') {
+            _pdvCanceladosVistos = new Set();
+        }
+        const pedidos = (typeof db !== 'undefined' && typeof db.getPedidos === 'function') ? db.getPedidos() : [];
+        const cancelados = (pedidos || []).filter(p => String(p && p.status || '').toLowerCase() === 'cancelado');
+        let novos = 0;
+        cancelados.forEach(p => {
+            const id = p && p.id;
+            if (!id) return;
+            if (!_pdvCanceladosVistos.has(id)) {
+                _pdvCanceladosVistos.add(id);
+                novos += 1;
+            }
+        });
+        if (novos > 0) {
+            _pdvSaveCanceladosVistos();
+            _pdvTocarAlertaCancelamento();
+        }
+    } catch (e) {
+        // ignora
+    }
+}
 
 // Inicializar PDV
 document.addEventListener('DOMContentLoaded', () => {
@@ -12,17 +91,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!db.data) {
             await db.fetchInitialData();
         }
+        _pdvCanceladosVistos = _pdvLoadCanceladosVistos();
+        await _pdvSincronizarPedidosServidor();
         renderizarPedidos();
+        _pdvDetectarCancelamentos();
     };
     
     init();
     
     // Atualizar a cada 5 segundos
-    setInterval(() => {
+    setInterval(async () => {
+        await _pdvSincronizarPedidosServidor();
         renderizarPedidos();
         if (pedidoSelecionado) {
             atualizarDetalhesPedido(pedidoSelecionado);
         }
+        _pdvDetectarCancelamentos();
     }, 5000);
 });
 
