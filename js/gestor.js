@@ -17,10 +17,25 @@ const currencyFmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency
 async function toggleProdutoAtivo(produtoId) {
     try {
         if (!db.data || !Array.isArray(db.data.produtos)) return;
+        if (!Array.isArray(db.data.produtosPausados)) db.data.produtosPausados = [];
         const idx = db.data.produtos.findIndex(p => p.id === produtoId);
         if (idx === -1) return;
         const atual = db.data.produtos[idx];
-        db.data.produtos[idx] = { ...atual, ativo: atual.ativo === false ? true : false };
+        const novoAtivo = atual.ativo === false ? true : false;
+        db.data.produtos[idx] = { ...atual, ativo: novoAtivo };
+
+        // Manter lista robusta de IDs pausados
+        try {
+            const idNum = Number(produtoId);
+            const idToStore = Number.isFinite(idNum) ? idNum : produtoId;
+            if (novoAtivo === false) {
+                if (!db.data.produtosPausados.includes(idToStore)) db.data.produtosPausados.push(idToStore);
+            } else {
+                db.data.produtosPausados = (db.data.produtosPausados || []).filter(x => String(x) !== String(idToStore));
+            }
+        } catch (e) {
+            // ignora
+        }
         db.saveData();
 
         try {
@@ -56,6 +71,12 @@ document.addEventListener('DOMContentLoaded', async function() {
     if (!db.data) {
         await db.fetchInitialData();
     }
+
+    // Garantir estrutura para produtos pausados (fallback)
+    try {
+        if (!db.data) db.data = {};
+        if (!Array.isArray(db.data.produtosPausados)) db.data.produtosPausados = [];
+    } catch (e) {}
     
     // IMPORTANTE: Carregar cupons do servidor
     try {

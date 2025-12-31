@@ -131,18 +131,50 @@ class Database {
       
       if (response.ok) {
         const dataFromFile = await response.json();
+
+        // Garantir estrutura para produtos pausados (fallback local)
+        if (!this.data) this.data = {};
+        if (!Array.isArray(this.data.produtosPausados)) this.data.produtosPausados = [];
         
         // SEMPRE usar cupons do arquivo (fonte principal)
         // O servidor é a fonte da verdade para cupons
         const cuponsDoArquivo = dataFromFile.cupons || [];
         
         // Atualizar dados do arquivo (endpoint não retorna usuários)
+        // IMPORTANTE: nunca perder produtos pausados (ativo:false).
+        // Se por qualquer motivo o servidor não devolver um produto pausado, reanexamos o que existia localmente.
+        const produtosServidor = Array.isArray(dataFromFile.produtos) ? dataFromFile.produtos : (this.data.produtos || []);
+        const produtosLocais = Array.isArray(this.data.produtos) ? this.data.produtos : [];
+        const pausadosLocais = produtosLocais.filter(p => p && p.ativo === false);
+        const idsServidor = new Set((produtosServidor || []).map(p => p && p.id).filter(Boolean));
+        const pausadosReanexar = pausadosLocais.filter(p => p && p.id && !idsServidor.has(p.id));
+        let produtosMesclados = [...(produtosServidor || []), ...pausadosReanexar];
+
+        // Rehidratar status de pausado baseado na lista de IDs (caso algum fluxo perca `ativo:false`)
+        try {
+          const pausadosIdsSet = new Set((this.data.produtosPausados || []).map(x => String(x)));
+          produtosMesclados = (produtosMesclados || []).map(p => {
+            if (!p || !p.id) return p;
+            if (pausadosIdsSet.has(String(p.id))) {
+              return { ...p, ativo: false };
+            }
+            return p;
+          });
+        } catch (e) {}
+
+        // Atualizar a lista de IDs pausados (para renderização/robustez)
+        try {
+          const pausadosIds = new Set([...(this.data.produtosPausados || []), ...produtosMesclados.filter(p => p && p.ativo === false).map(p => p.id)]);
+          this.data.produtosPausados = Array.from(pausadosIds);
+        } catch (e) {}
+
         this.data = {
           ...this.data, // Preservar dados locais (usuários, pedidos, etc)
-          produtos: dataFromFile.produtos || this.data.produtos || [],
+          produtos: produtosMesclados,
           categorias: dataFromFile.categorias || this.data.categorias || [],
           cupons: cuponsDoArquivo,
-          configuracoes: dataFromFile.configuracoes || this.data.configuracoes || {}
+          configuracoes: dataFromFile.configuracoes || this.data.configuracoes || {},
+          produtosPausados: this.data.produtosPausados || []
         };
 
         // Sincronizar condicionais do servidor (promoções/regras)

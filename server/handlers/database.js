@@ -14,7 +14,7 @@ module.exports = async (req, res) => {
         const cuponsCollection = await getCollection('cupons');
         const configuracoesCollection = await getCollection('configuracoes');
 
-        const produtos = await produtosCollection.find({ ativo: { $ne: false } }).toArray();
+        const produtos = await produtosCollection.find({}).toArray();
         const cupons = await cuponsCollection.find({ ativo: { $ne: false } }).toArray();
 
         let configuracoes = await configuracoesCollection.findOne({ _id: 'main' });
