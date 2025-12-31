@@ -241,7 +241,7 @@ class Database {
   getProdutos(categoria = null) {
     if (!this.data || !this.data.produtos) return [];
     // Retornar cópia e ordenar por campo `ordem` quando disponível
-    let produtos = [...this.data.produtos].filter(p => p.ativo !== false);
+    let produtos = [...this.data.produtos];
     produtos.sort((a, b) => {
       const ao = (typeof a.ordem === 'number') ? a.ordem : 0;
       const bo = (typeof b.ordem === 'number') ? b.ordem : 0;

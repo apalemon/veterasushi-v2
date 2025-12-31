@@ -286,6 +286,32 @@ function getTelefoneClienteAtual() {
     return '';
 }
 
+function getPedidoIdsClienteLocal() {
+    try {
+        const raw = localStorage.getItem('vetera_pedidos_cliente');
+        if (!raw) return [];
+        const arr = JSON.parse(raw);
+        return Array.isArray(arr) ? arr : [];
+    } catch (e) {
+        return [];
+    }
+}
+
+function adicionarPedidoIdClienteLocal(pedidoId) {
+    try {
+        if (!pedidoId) return;
+        const ids = getPedidoIdsClienteLocal();
+        const idNum = Number(pedidoId);
+        const idToStore = Number.isFinite(idNum) ? idNum : pedidoId;
+        if (!ids.includes(idToStore)) ids.unshift(idToStore);
+        // evitar crescimento infinito
+        const trimmed = ids.slice(0, 50);
+        localStorage.setItem('vetera_pedidos_cliente', JSON.stringify(trimmed));
+    } catch (e) {
+        // ignora
+    }
+}
+
 // Renderizar produtos
 function renderizarProdutos() {
     const container = document.getElementById('produtos-container');
@@ -1344,6 +1370,9 @@ async function processarPedidoCheckout() {
         
         console.log('[MAIN] ✅ Pedido criado com sucesso! ID:', pedido.id);
 
+        // Salvar este pedido como "meu" no dispositivo (fonte principal do Meus Pedidos)
+        adicionarPedidoIdClienteLocal(pedido.id);
+
         // Criar/atualizar perfil local simples (sem senha)
         try {
             localStorage.setItem('vetera_cliente_local', JSON.stringify({
@@ -2264,17 +2293,29 @@ async function renderizarMeusPedidos() {
     if (!container) return;
 
     const telefone = getTelefoneClienteAtual();
-    if (!telefone) {
+    const meusIds = getPedidoIdsClienteLocal();
+    if ((!telefone || !normalizarTelefone(telefone)) && meusIds.length === 0) {
         container.innerHTML = '<div style="color: var(--texto-medio); text-align:center; padding: 1.5rem;">Faça um pedido para aparecer aqui.</div>';
         return;
     }
 
     container.innerHTML = '<div style="color: var(--texto-medio); text-align:center; padding: 1.5rem;">Carregando...</div>';
-    const pedidosServidor = await carregarPedidosClienteServidor();
-    const pedidosBase = Array.isArray(pedidosServidor) ? pedidosServidor : (typeof db !== 'undefined' && typeof db.getPedidos === 'function' ? db.getPedidos() : []);
 
-    const telNorm = normalizarTelefone(telefone);
-    const meus = (pedidosBase || []).filter(p => normalizarTelefone(p && p.clienteTelefone) === telNorm);
+    // Tentar atualizar do servidor, mas SEMPRE filtrar pelos IDs locais (ou por telefone como fallback)
+    const pedidosServidor = await carregarPedidosClienteServidor();
+    const pedidosBase = Array.isArray(pedidosServidor)
+        ? pedidosServidor
+        : (typeof db !== 'undefined' && typeof db.getPedidos === 'function' ? db.getPedidos() : []);
+
+    let meus = [];
+    if (meusIds.length > 0) {
+        const setIds = new Set(meusIds.map(v => Number(v)));
+        meus = (pedidosBase || []).filter(p => setIds.has(Number(p && p.id)));
+    } else {
+        const telNorm = normalizarTelefone(telefone);
+        meus = (pedidosBase || []).filter(p => normalizarTelefone(p && p.clienteTelefone) === telNorm);
+    }
+
     meus.sort((a, b) => {
         const ta = new Date(a.dataCriacao || a.data || a.timestamp || 0).getTime();
         const tb = new Date(b.dataCriacao || b.data || b.timestamp || 0).getTime();
