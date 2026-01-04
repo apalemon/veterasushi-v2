@@ -299,7 +299,17 @@ class Database {
     if (categoria) {
       produtos = produtos.filter(p => p.categoria === categoria);
     }
-    return produtos;
+    // Normalizar imagem (evita 414 e garante exibição consistente)
+    try {
+      return (produtos || []).map(p => {
+        if (!p || typeof p !== 'object') return p;
+        if (!p.imagem) return p;
+        const img = this._normalizarImagemUrl(p.imagem);
+        return img === p.imagem ? p : { ...p, imagem: img };
+      });
+    } catch (e) {
+      return produtos;
+    }
   }
 
   getProduto(id) {

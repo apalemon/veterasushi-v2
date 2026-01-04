@@ -908,6 +908,40 @@
     <script src="/js/security.js"></script>
     <script src="/js/gestor.js"></script>
 
+    <div id="modal-imagem-editor" style="display:none; position:fixed; inset:0; background: rgba(0,0,0,0.65); z-index: 99999; align-items:center; justify-content:center; padding: 16px;">
+        <div style="width: min(980px, 96vw); background: #0f0f12; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; overflow: hidden; box-shadow: 0 24px 80px rgba(0,0,0,0.55);">
+            <div style="display:flex; align-items:center; justify-content:space-between; padding: 14px 16px; border-bottom: 1px solid rgba(255,255,255,0.08);">
+                <div style="font-weight: 700; color: var(--texto-claro);">Ajustar imagem</div>
+                <button type="button" class="btn btn-secondary" onclick="window.fecharEditorImagemProdutoGestor()" style="padding: 8px 12px;">Fechar</button>
+            </div>
+            <div style="display:grid; grid-template-columns: 1.25fr 0.75fr; gap: 14px; padding: 16px; align-items:start;">
+                <div>
+                    <div style="color: var(--texto-medio); font-size: 0.9rem; margin-bottom: 10px;">Arraste para posicionar. Use o zoom para ajustar.</div>
+                    <div style="background: #0b0b0e; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 12px;">
+                        <canvas id="produto-editor-canvas" width="900" height="540" style="width: 100%; height: auto; border-radius: 10px; cursor: grab; touch-action: none; display:block; background: #111115;"></canvas>
+                    </div>
+                    <div style="display:flex; align-items:center; gap: 12px; margin-top: 12px;">
+                        <div style="color: var(--texto-medio); font-size: 0.9rem; min-width: 44px;">Zoom</div>
+                        <input id="produto-editor-zoom" type="range" min="1" max="3" step="0.01" value="1" style="width: 100%;">
+                    </div>
+                </div>
+                <div>
+                    <div style="color: var(--texto-medio); font-size: 0.9rem; margin-bottom: 10px;">Preview no site</div>
+                    <div style="background: #0b0b0e; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 12px;">
+                        <div style="width: 100%; aspect-ratio: 5/3; border-radius: 14px; overflow: hidden; background: #15151a; border: 1px solid rgba(255,255,255,0.08);">
+                            <img id="produto-editor-preview" alt="Preview" style="width: 100%; height: 100%; object-fit: cover; display:block;" />
+                        </div>
+                        <div style="margin-top: 10px; display:flex; gap: 10px;">
+                            <button type="button" class="btn btn-secondary" onclick="window.resetarEditorImagemProdutoGestor()" style="flex:1;">Resetar</button>
+                            <button type="button" class="btn btn-primary" onclick="window.aplicarEditorImagemProdutoGestor()" style="flex:1;">Aplicar</button>
+                        </div>
+                    </div>
+                    <div style="color: var(--texto-medio); font-size: 0.85rem; margin-top: 10px; line-height: 1.35;">Dica: a imagem será salva já recortada e leve, para carregar rápido.</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
         <script>
 
         // Renderizar formas de pagamento no gestor (apenas se configuradas)
@@ -967,6 +1001,14 @@
     <script>
         // Preview de imagem no gestor
         let produtoImagemBase64Gestor = ''
+        let _produtoEditorImg = null;
+        let _produtoEditorImgDataUrl = '';
+        let _produtoEditorScale = 1;
+        let _produtoEditorOffsetX = 0;
+        let _produtoEditorOffsetY = 0;
+        let _produtoEditorDragging = false;
+        let _produtoEditorDragStart = { x: 0, y: 0 };
+        let _produtoEditorOffsetStart = { x: 0, y: 0 };
 
         function isFileOrigin() {
             try {
@@ -976,14 +1018,154 @@
             }
         }
 
+        function _produtoEditorGetEls() {
+            return {
+                modal: document.getElementById('modal-imagem-editor'),
+                canvas: document.getElementById('produto-editor-canvas'),
+                zoom: document.getElementById('produto-editor-zoom'),
+                preview: document.getElementById('produto-editor-preview')
+            };
+        }
+
+        function _produtoEditorRender() {
+            const { canvas, preview } = _produtoEditorGetEls();
+            if (!canvas || !_produtoEditorImg) return;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) return;
+            const cw = canvas.width;
+            const ch = canvas.height;
+
+            ctx.clearRect(0, 0, cw, ch);
+            ctx.fillStyle = '#111115';
+            ctx.fillRect(0, 0, cw, ch);
+
+            const iw = _produtoEditorImg.naturalWidth || _produtoEditorImg.width;
+            const ih = _produtoEditorImg.naturalHeight || _produtoEditorImg.height;
+            if (!iw || !ih) return;
+
+            const coverScale = Math.max(cw / iw, ch / ih);
+            const s = coverScale * _produtoEditorScale;
+            const dw = iw * s;
+            const dh = ih * s;
+            const dx = (cw - dw) / 2 + _produtoEditorOffsetX;
+            const dy = (ch - dh) / 2 + _produtoEditorOffsetY;
+
+            ctx.drawImage(_produtoEditorImg, dx, dy, dw, dh);
+
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.86);
+            if (preview) preview.src = dataUrl;
+        }
+
+        function _produtoEditorFitToCenter() {
+            _produtoEditorScale = 1;
+            _produtoEditorOffsetX = 0;
+            _produtoEditorOffsetY = 0;
+            const { zoom } = _produtoEditorGetEls();
+            if (zoom) zoom.value = '1';
+            _produtoEditorRender();
+        }
+
+        window.abrirEditorImagemProdutoGestor = function(dataUrl) {
+            const { modal, canvas, zoom } = _produtoEditorGetEls();
+            if (!modal || !canvas) return;
+
+            _produtoEditorImgDataUrl = dataUrl || '';
+            _produtoEditorImg = new Image();
+            _produtoEditorImg.onload = function() {
+                _produtoEditorFitToCenter();
+            };
+            _produtoEditorImg.src = _produtoEditorImgDataUrl;
+
+            if (zoom) {
+                zoom.oninput = function() {
+                    _produtoEditorScale = parseFloat(zoom.value || '1') || 1;
+                    _produtoEditorRender();
+                };
+            }
+
+            const getPoint = function(ev) {
+                const rect = canvas.getBoundingClientRect();
+                const cx = ev.touches && ev.touches[0] ? ev.touches[0].clientX : ev.clientX;
+                const cy = ev.touches && ev.touches[0] ? ev.touches[0].clientY : ev.clientY;
+                return { x: cx - rect.left, y: cy - rect.top };
+            };
+
+            const onDown = function(ev) {
+                ev.preventDefault();
+                _produtoEditorDragging = true;
+                canvas.style.cursor = 'grabbing';
+                const p = getPoint(ev);
+                _produtoEditorDragStart = { x: p.x, y: p.y };
+                _produtoEditorOffsetStart = { x: _produtoEditorOffsetX, y: _produtoEditorOffsetY };
+            };
+            const onMove = function(ev) {
+                if (!_produtoEditorDragging) return;
+                ev.preventDefault();
+                const p = getPoint(ev);
+                const dx = p.x - _produtoEditorDragStart.x;
+                const dy = p.y - _produtoEditorDragStart.y;
+                _produtoEditorOffsetX = _produtoEditorOffsetStart.x + dx;
+                _produtoEditorOffsetY = _produtoEditorOffsetStart.y + dy;
+                _produtoEditorRender();
+            };
+            const onUp = function() {
+                _produtoEditorDragging = false;
+                canvas.style.cursor = 'grab';
+            };
+
+            canvas.onmousedown = onDown;
+            canvas.onmousemove = onMove;
+            canvas.onmouseup = onUp;
+            canvas.onmouseleave = onUp;
+            canvas.ontouchstart = onDown;
+            canvas.ontouchmove = onMove;
+            canvas.ontouchend = onUp;
+            canvas.ontouchcancel = onUp;
+
+            modal.style.display = 'flex';
+        };
+
+        window.fecharEditorImagemProdutoGestor = function() {
+            const { modal, canvas } = _produtoEditorGetEls();
+            if (modal) modal.style.display = 'none';
+            if (canvas) {
+                canvas.onmousedown = null;
+                canvas.onmousemove = null;
+                canvas.onmouseup = null;
+                canvas.onmouseleave = null;
+                canvas.ontouchstart = null;
+                canvas.ontouchmove = null;
+                canvas.ontouchend = null;
+                canvas.ontouchcancel = null;
+            }
+            _produtoEditorDragging = false;
+        };
+
+        window.resetarEditorImagemProdutoGestor = function() {
+            _produtoEditorFitToCenter();
+        };
+
+        window.aplicarEditorImagemProdutoGestor = function() {
+            const { canvas } = _produtoEditorGetEls();
+            if (!canvas) return;
+            const finalUrl = canvas.toDataURL('image/jpeg', 0.86);
+            produtoImagemBase64Gestor = finalUrl;
+            const preview = document.getElementById('produto-imagem-preview');
+            if (preview) preview.innerHTML = '<img src="' + produtoImagemBase64Gestor + '" alt="Preview" style="width: 100%; height: 100%; object-fit: cover; border-radius: 8px;">';
+            const removerBtn = document.getElementById('produto-remover-foto');
+            if (removerBtn) removerBtn.style.display = 'inline-block';
+            window.fecharEditorImagemProdutoGestor();
+        };
+
         window.previewImagemProdutoGestor = function(event) {
             const file = event.target.files[0];
             if (file) {
                 const reader = new FileReader();
                 reader.onload = function(e) {
-                    produtoImagemBase64Gestor = e.target.result;
-                    const preview = document.getElementById('produto-imagem-preview');
-                    preview.innerHTML = '<img src="' + produtoImagemBase64Gestor + '" alt="Preview">';
+                    const dataUrl = e.target.result;
+                    if (dataUrl) {
+                        window.abrirEditorImagemProdutoGestor(dataUrl);
+                    }
                 };
                 reader.readAsDataURL(file);
             }
