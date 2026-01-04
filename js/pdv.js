@@ -219,7 +219,7 @@ function atualizarDetalhesPedido(pedido) {
                     // Buscar produto para obter imagem
                     const produto = db.getProduto(item.produtoId);
                     let imagem = produto?.imagem || null;
-                    if (imagem && !imagem.startsWith('http') && !imagem.startsWith('/')) {
+                    if (imagem && !imagem.startsWith('http') && !imagem.startsWith('/') && !imagem.startsWith('data:')) {
                         imagem = '/Fotos/' + imagem;
                     } else if (!imagem) {
                         imagem = '/Fotos/produto-' + item.produtoId + '.png';
