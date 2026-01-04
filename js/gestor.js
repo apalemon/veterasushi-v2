@@ -647,12 +647,17 @@ function mostrarSecao(secao) {
         'categorias': 'Categorias',
         'usuarios': 'Usuários',
         'configuracoes': 'Configurações',
-        'pagamentos': 'Pagamentos'
+        'pagamentos': 'Pagamentos',
+        'entradas': 'Entradas'
     };
     
     // Se for a seção de ocultos, renderizar pedidos ocultos
     if (secao === 'ocultos') {
         renderizarPedidosOcultos();
+    }
+
+    if (secao === 'entradas') {
+        try { carregarEntradasDoServidor(); } catch (e) {}
     }
     const nomeSecao = nomesSecoes[secao] || secao;
     
@@ -665,6 +670,69 @@ function mostrarSecao(secao) {
 
 // Tornar função global
 window.mostrarSecao = mostrarSecao;
+
+async function carregarEntradasDoServidor() {
+    try {
+        const response = await fetch(window.location.origin + '/api/entradas?limit=200');
+        if (response.ok) {
+            const entradas = await response.json();
+            if (!db.data) db.data = {};
+            db.data.entradas = Array.isArray(entradas) ? entradas : [];
+            db.saveData();
+        }
+    } catch (e) {
+        // mantém local
+    }
+    try { renderizarEntradasGestor(); } catch (e) {}
+}
+
+function renderizarEntradasGestor() {
+    const container = document.getElementById('entradas-grid');
+    if (!container) return;
+
+    const entradas = (db.data && Array.isArray(db.data.entradas)) ? db.data.entradas : [];
+    if (!entradas || entradas.length === 0) {
+        container.innerHTML = '<div style="text-align:center; color: var(--texto-medio); padding: 2rem;">Nenhuma entrada registrada ainda.</div>';
+        return;
+    }
+
+    const fmt = (d) => {
+        try {
+            if (!d) return '';
+            const dt = (typeof d === 'string' || typeof d === 'number') ? new Date(d) : d;
+            if (!(dt instanceof Date) || isNaN(dt.getTime())) return String(d);
+            return dt.toLocaleString('pt-BR');
+        } catch (e) {
+            return String(d || '');
+        }
+    };
+
+    container.innerHTML = entradas.map(ent => {
+        const dia = ent.dia || '';
+        const ipHash = ent.ipHash ? String(ent.ipHash) : '';
+        const device = ent.device || ent.userAgent || '';
+        const teveCarrinho = ent.teveCarrinho === true;
+        const firstSeen = fmt(ent.firstSeenAt);
+        const lastSeen = fmt(ent.lastSeenAt);
+        return `
+            <div style="display:flex; flex-direction:column; gap:6px; padding:14px; border-radius:12px; background: rgba(0,0,0,0.25); border: 1px solid rgba(220,38,38,0.12); margin-bottom: 12px;">
+                <div style="display:flex; justify-content:space-between; gap:10px; flex-wrap:wrap;">
+                    <div style="color:#fff; font-weight:700;">${dia}</div>
+                    <div style="color: var(--texto-medio); font-size: 12px;">IP: ${ipHash || '-'}</div>
+                </div>
+                <div style="color: var(--texto-medio); font-size: 12px;">Dispositivo: ${String(device).replace(/[<>]/g, '')}</div>
+                <div style="display:flex; gap:12px; flex-wrap:wrap; color: var(--texto-medio); font-size: 12px;">
+                    <div>Primeira: <span style="color:#fff; font-weight:600;">${firstSeen || '-'}</span></div>
+                    <div>Última: <span style="color:#fff; font-weight:600;">${lastSeen || '-'}</span></div>
+                    <div>Carrinho: <span style="color:${teveCarrinho ? 'var(--sucesso)' : 'var(--texto-medio)'}; font-weight:700;">${teveCarrinho ? 'SIM' : 'NÃO'}</span></div>
+                </div>
+            </div>
+        `;
+    }).join('');
+}
+
+window.carregarEntradasDoServidor = carregarEntradasDoServidor;
+window.renderizarEntradasGestor = renderizarEntradasGestor;
 
 // Filtrar por status
 function filtrarPorStatus(status) {
@@ -4339,13 +4407,13 @@ async function carregarHorariosDoServidor() {
                 // Garantir estrutura mínima
                 if (!horarios.dias || typeof horarios.dias !== 'object') {
                     horarios.dias = {
-                        domingo: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                        segunda: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                        terca: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                        quarta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                        quinta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                        sexta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                        sabado: { aberto: true, abertura: '18:30', fechamento: '23:00' }
+                        domingo: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                        segunda: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                        terca: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                        quarta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                        quinta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                        sexta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                        sabado: { aberto: true, abertura: '18:30', fechamento: '23:30' }
                     };
                 }
                 db.data.horarios = horarios;
@@ -4394,13 +4462,13 @@ function inicializarHorarios() {
             fuso: 'America/Sao_Paulo',
             statusManual: null, // null = usar horários automáticos, true/false = status manual
             dias: {
-                domingo: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                segunda: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                terca: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                quarta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                quinta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                sexta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                sabado: { aberto: true, abertura: '18:30', fechamento: '23:00' }
+                domingo: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                segunda: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                terca: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                quarta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                quinta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                sexta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                sabado: { aberto: true, abertura: '18:30', fechamento: '23:30' }
             }
         };
         db.saveData();
@@ -4411,13 +4479,13 @@ function inicializarHorarios() {
     const diasPadrao = ['domingo','segunda','terca','quarta','quinta','sexta','sabado'];
     diasPadrao.forEach(d => {
         if (!db.data.horarios.dias[d] || typeof db.data.horarios.dias[d] !== 'object') {
-            db.data.horarios.dias[d] = { aberto: true, abertura: '18:30', fechamento: '23:00' };
+            db.data.horarios.dias[d] = { aberto: true, abertura: '18:30', fechamento: '23:30' };
         } else {
             // garantir chaves individuais
             const cd = db.data.horarios.dias[d];
             if (typeof cd.aberto !== 'boolean') cd.aberto = true;
             if (!cd.abertura) cd.abertura = '18:30';
-            if (!cd.fechamento) cd.fechamento = '23:00';
+            if (!cd.fechamento) cd.fechamento = '23:30';
         }
     });
     db.saveData();
@@ -4455,7 +4523,7 @@ function renderizarHorarios() {
     
     // Renderizar campos para cada dia
     container.innerHTML = dias.map(dia => {
-        const config = horarios?.dias?.[dia] ?? { aberto: true, abertura: '18:30', fechamento: '23:00' };
+        const config = horarios?.dias?.[dia] ?? { aberto: true, abertura: '18:30', fechamento: '23:30' };
         return `
             <div style="display: grid; grid-template-columns: 200px 1fr 1fr 1fr; gap: 15px; align-items: center; padding: 15px; background: var(--bg-secondary); border-radius: 8px;">
                 <div style="font-weight: 600; color: var(--text-primary);">${getNomeDia(dia)}</div>
@@ -4469,7 +4537,7 @@ function renderizarHorarios() {
                 </div>
                 <div>
                     <label class="form-label" style="font-size: 12px; margin-bottom: 5px;">Fechamento</label>
-                    <input type="time" class="form-input" id="horario-${dia}-fechamento" value="${config.fechamento || '23:00'}" ${!config.aberto ? 'disabled' : ''} onchange="atualizarStatusHorarios()">
+                    <input type="time" class="form-input" id="horario-${dia}-fechamento" value="${config.fechamento || '23:30'}" ${!config.aberto ? 'disabled' : ''} onchange="atualizarStatusHorarios()">
                 </div>
             </div>
         `;

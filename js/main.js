@@ -5,6 +5,69 @@
 let categoriaSelecionada = 'Todas';
 let cupomAplicado = null;
 
+function _entradasIsFileOrigin() {
+    try {
+        return window.location.protocol === 'file:' || window.location.origin === 'null';
+    } catch (e) {
+        return false;
+    }
+}
+
+function _entradasGetSessionId() {
+    try {
+        const k = 'vetera_entradas_session_id';
+        let v = localStorage.getItem(k);
+        if (v && String(v).length > 8) return v;
+        v = Date.now().toString(36) + Math.random().toString(36).slice(2) + Date.now().toString(36);
+        localStorage.setItem(k, v);
+        return v;
+    } catch (e) {
+        return Date.now().toString(36) + Math.random().toString(36).slice(2);
+    }
+}
+
+function _entradasGetDevice() {
+    try {
+        return navigator.userAgent || '';
+    } catch (e) {
+        return '';
+    }
+}
+
+async function registrarEntradaSite(payload) {
+    try {
+        if (_entradasIsFileOrigin()) return;
+        const body = payload || {};
+        body.sessionId = body.sessionId || _entradasGetSessionId();
+        body.device = body.device || _entradasGetDevice();
+        body.teveCarrinho = body.teveCarrinho === true;
+
+        await fetch(window.location.origin + '/api/entradas', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+    } catch (e) {
+        // ignora (não pode quebrar o site)
+    }
+}
+
+function _entradasMarcarCarrinhoSeNecessario() {
+    try {
+        const raw = localStorage.getItem('vetera_carrinho');
+        const itens = raw ? JSON.parse(raw) : [];
+        const tem = Array.isArray(itens) && itens.some(i => i && (i.quantidade || 0) > 0);
+        if (!tem) return;
+        const k = 'vetera_entradas_teve_carrinho';
+        const ja = localStorage.getItem(k);
+        if (ja === '1') return;
+        localStorage.setItem(k, '1');
+        registrarEntradaSite({ teveCarrinho: true });
+    } catch (e) {
+        // ignora
+    }
+}
+
 function _getPedidosStatusCacheCliente() {
     try {
         const raw = localStorage.getItem('vetera_pedidos_status_cache');
@@ -79,6 +142,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     await inicializarCardapio();
 
+    // Registrar entrada (leve) e depois marcar se colocou algo no carrinho
+    registrarEntradaSite({ teveCarrinho: false });
+    _entradasMarcarCarrinhoSeNecessario();
+
     // Monitorar atualizações de status dos pedidos do cliente
     iniciarMonitoramentoStatusPedidosCliente();
     
@@ -91,6 +158,11 @@ document.addEventListener('DOMContentLoaded', async () => {
         await carregarHorariosDoServidorMain();
         atualizarStatusLojaIndicador();
     }, 30000); // A cada 30 segundos
+
+    // Monitorar carrinho para marcar teveCarrinho sem pesar
+    setInterval(() => {
+        _entradasMarcarCarrinhoSeNecessario();
+    }, 5000);
 });
 
 function iniciarMonitoramentoStatusPedidosCliente() {
@@ -157,7 +229,7 @@ function atualizarStatusLojaIndicador() {
             indicador.innerHTML = `
                 <div style="width: 10px; height: 10px; background: var(--sucesso); border-radius: 50%; animation: pulse 2s infinite;"></div>
                 <span style="color: var(--sucesso); font-weight: 600; font-size: 14px;">Loja Aberta</span>
-                <span style="color: var(--texto-medio); font-size: 12px;">• Fecha às ${status.proximoFechamento || '23:00'}</span>
+                <span style="color: var(--texto-medio); font-size: 12px;">• Fecha às ${status.proximoFechamento || '23:30'}</span>
             `;
             indicador.style.background = 'rgba(34, 197, 94, 0.1)';
             indicador.style.borderColor = 'rgba(34, 197, 94, 0.3)';
@@ -672,7 +744,7 @@ function mostrarCarrinhoDetalhado() {
         const subtotal = item.preco * item.quantidade;
         // Usar imagem do item (se salva) ou do produto ou fallback
         let imagem = item.imagem || produto?.imagem || null;
-        if (imagem && !imagem.startsWith('http') && !imagem.startsWith('/')) {
+        if (imagem && !imagem.startsWith('http') && !imagem.startsWith('/') && !imagem.startsWith('data:')) {
             imagem = '/Fotos/' + imagem;
         } else if (!imagem) {
             imagem = '/Fotos/produto-' + item.produtoId + '.png';
@@ -1766,13 +1838,13 @@ function inicializarHorarios() {
             fuso: 'America/Sao_Paulo',
             statusManual: null,
             dias: {
-                domingo: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                segunda: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                terca: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                quarta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                quinta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                sexta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                sabado: { aberto: true, abertura: '18:30', fechamento: '23:00' }
+                domingo: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                segunda: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                terca: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                quarta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                quinta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                sexta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                sabado: { aberto: true, abertura: '18:30', fechamento: '23:30' }
             }
         };
         db.saveData();
@@ -1782,12 +1854,12 @@ function inicializarHorarios() {
     const diasPadrao = ['domingo','segunda','terca','quarta','quinta','sexta','sabado'];
     diasPadrao.forEach(d => {
         if (!db.data.horarios.dias[d] || typeof db.data.horarios.dias[d] !== 'object') {
-            db.data.horarios.dias[d] = { aberto: true, abertura: '18:30', fechamento: '23:00' };
+            db.data.horarios.dias[d] = { aberto: true, abertura: '18:30', fechamento: '23:30' };
         } else {
             const cd = db.data.horarios.dias[d];
             if (typeof cd.aberto !== 'boolean') cd.aberto = true;
             if (!cd.abertura) cd.abertura = '18:30';
-            if (!cd.fechamento) cd.fechamento = '23:00';
+            if (!cd.fechamento) cd.fechamento = '23:30';
         }
     });
     db.saveData();
@@ -1808,13 +1880,13 @@ async function carregarHorariosDoServidorMain() {
                 // Garantir que a estrutura mínima exista
                 if (!horarios.dias || typeof horarios.dias !== 'object') {
                     horarios.dias = {
-                        domingo: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                        segunda: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                        terca: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                        quarta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                        quinta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                        sexta: { aberto: true, abertura: '18:30', fechamento: '23:00' },
-                        sabado: { aberto: true, abertura: '18:30', fechamento: '23:00' }
+                        domingo: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                        segunda: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                        terca: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                        quarta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                        quinta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                        sexta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                        sabado: { aberto: true, abertura: '18:30', fechamento: '23:30' }
                     };
                 }
                 db.data.horarios = horarios;

@@ -48,13 +48,11 @@ class Auth {
       const session = localStorage.getItem('vetera_session');
       if (session) {
         const data = JSON.parse(session);
-        // Verificar se token ainda é válido (24 horas)
-        if (Date.now() - data.timestamp < 86400000) {
+        // NÃO expirar automaticamente: manter sessão até logout manual
+        if (data && data.user && data.token) {
           this.currentUser = data.user;
           this.sessionToken = data.token;
           return true;
-        } else {
-          this.logout();
         }
       }
     } catch (error) {
