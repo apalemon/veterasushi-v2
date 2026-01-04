@@ -13,6 +13,7 @@ module.exports = async (req, res) => {
         const produtosCollection = await getCollection('produtos');
         const cuponsCollection = await getCollection('cupons');
         const configuracoesCollection = await getCollection('configuracoes');
+        const categoriasCollection = await getCollection('categorias');
 
         const produtos = await produtosCollection.find({}).toArray();
         const cupons = await cuponsCollection.find({ ativo: { $ne: false } }).toArray();
@@ -31,13 +32,28 @@ module.exports = async (req, res) => {
             delete configuracoes._id;
         }
 
-        const categorias = [...new Set(produtos.map(p => p.categoria).filter(Boolean))];
+        let categoriasDetalhadas = [];
+        try {
+            categoriasDetalhadas = await categoriasCollection.find({}).toArray();
+        } catch (e) {
+            categoriasDetalhadas = [];
+        }
+        // Compatibilidade: categorias como array de nomes
+        const categorias = (categoriasDetalhadas && categoriasDetalhadas.length > 0)
+            ? categoriasDetalhadas.map(c => c.nome).filter(Boolean)
+            : [...new Set(produtos.map(p => p.categoria).filter(Boolean))];
 
         console.log(`[DATABASE] 📦 Produtos: ${produtos.length}, Cupons: ${cupons.length}, Categorias: ${categorias.length}`);
 
         const dadosPublicos = {
             produtos: produtos || [],
             categorias: categorias || [],
+            categoriasDetalhadas: (categoriasDetalhadas || []).map(c => {
+                if (!c) return c;
+                const cc = { ...c };
+                delete cc._id;
+                return cc;
+            }),
             cupons: cupons || [],
             configuracoes: {
                 chavePix: configuracoes.chavePix || '',

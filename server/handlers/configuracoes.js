@@ -32,6 +32,13 @@ module.exports = async (req, res) => {
                     taxaEntrega: 0,
                     tempoPreparo: 30
                 };
+
+                // Persistir defaults no servidor (fonte de verdade)
+                try {
+                    await collection.updateOne({ _id: 'main' }, { $set: { ...config } }, { upsert: true });
+                } catch (e) {
+                    // best-effort
+                }
             } else {
                 delete config._id;
             }

@@ -35,6 +35,13 @@ module.exports = async (req, res) => {
                         sabado: { aberto: true, abertura: '18:30', fechamento: '23:00' }
                     }
                 };
+
+                // Persistir no servidor como fonte de verdade
+                try {
+                    await coll.updateOne({ _id: 'main' }, { $set: { ...doc } }, { upsert: true });
+                } catch (e) {
+                    // best-effort
+                }
             }
 
             // Remove internal _id before returning
@@ -63,11 +70,28 @@ module.exports = async (req, res) => {
     if (req.method === 'POST') {
         try {
             const horarios = req.body;
-            if (!Array.isArray(horarios)) return res.status(400).json({ error: 'Horários inválidos' });
             const coll = await getCollection('horarios');
-            await coll.deleteMany({});
-            if (horarios.length > 0) await coll.insertMany(horarios.map(h => ({ ...h })));
-            return res.status(200).json({ success: true, total: horarios.length });
+
+            // Compatibilidade: se vier array, manter comportamento legado
+            if (Array.isArray(horarios)) {
+                await coll.deleteMany({});
+                if (horarios.length > 0) await coll.insertMany(horarios.map(h => ({ ...h })));
+                return res.status(200).json({ success: true, total: horarios.length });
+            }
+
+            // Novo: aceitar objeto e persistir como documento único
+            if (!horarios || typeof horarios !== 'object') {
+                return res.status(400).json({ error: 'Horários inválidos' });
+            }
+
+            const docToSave = { ...horarios };
+            // Garantir que não persista _id enviado pelo cliente
+            if (docToSave._id) delete docToSave._id;
+            await coll.updateOne({ _id: 'main' }, { $set: docToSave }, { upsert: true });
+
+            const saved = await coll.findOne({ _id: 'main' });
+            if (saved && saved._id) delete saved._id;
+            return res.status(200).json(saved);
         } catch (err) {
             console.error('[HORARIOS] ❌', err.message);
             return res.status(500).json({ error: 'Erro ao salvar horários', detalhes: err.message });

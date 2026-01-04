@@ -176,6 +176,165 @@ function iniciarMonitoramentoStatusPedidosCliente() {
     }
 }
 
+function _getPedidoPreparoPopupCacheCliente() {
+    try {
+        const raw = localStorage.getItem('vetera_pedidos_popup_preparo');
+        const parsed = raw ? JSON.parse(raw) : {};
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function _setPedidoPreparoPopupCacheCliente(cache) {
+    try {
+        localStorage.setItem('vetera_pedidos_popup_preparo', JSON.stringify(cache || {}));
+    } catch (e) {
+        // ignora
+    }
+}
+
+function _jaMostrouPopupPreparo(pedidoId) {
+    const cache = _getPedidoPreparoPopupCacheCliente();
+    return cache && cache[String(pedidoId)] === true;
+}
+
+function _marcarPopupPreparoMostrado(pedidoId) {
+    const cache = _getPedidoPreparoPopupCacheCliente();
+    cache[String(pedidoId)] = true;
+    _setPedidoPreparoPopupCacheCliente(cache);
+}
+
+function mostrarModalPedidoEmPreparo(pedido) {
+    try {
+        const existing = document.getElementById('modal-pedido-preparo');
+        if (existing) existing.remove();
+
+        const numeroWhats = '+55 51 984149137';
+        const numeroWhatsDigits = '5551984149137';
+        const pedidoId = pedido && pedido.id ? pedido.id : '';
+        const mensagem = 'Seu pedido está em preparo: o gestor aprovou seu pedido.';
+        const textoWhats = encodeURIComponent('Olá! Meu pedido #' + pedidoId + ' foi aprovado e está em preparo.');
+        const linkWhats = 'https://wa.me/' + numeroWhatsDigits + '?text=' + textoWhats;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'modal-pedido-preparo';
+        overlay.style.position = 'fixed';
+        overlay.style.inset = '0';
+        overlay.style.zIndex = '99999';
+        overlay.style.display = 'flex';
+        overlay.style.alignItems = 'center';
+        overlay.style.justifyContent = 'center';
+        overlay.style.padding = '18px';
+        overlay.style.background = 'rgba(0,0,0,0.65)';
+
+        const card = document.createElement('div');
+        card.style.width = 'min(560px, 94vw)';
+        card.style.borderRadius = '14px';
+        card.style.overflow = 'hidden';
+        card.style.background = '#0f0f12';
+        card.style.border = '1px solid rgba(255,255,255,0.10)';
+        card.style.boxShadow = '0 24px 80px rgba(0,0,0,0.55)';
+
+        const header = document.createElement('div');
+        header.style.display = 'flex';
+        header.style.alignItems = 'center';
+        header.style.justifyContent = 'space-between';
+        header.style.padding = '14px 16px';
+        header.style.borderBottom = '1px solid rgba(255,255,255,0.08)';
+
+        const title = document.createElement('div');
+        title.textContent = 'Pedido aprovado';
+        title.style.fontWeight = '800';
+        title.style.color = '#fff';
+
+        const btnClose = document.createElement('button');
+        btnClose.type = 'button';
+        btnClose.textContent = 'Fechar';
+        btnClose.style.background = 'rgba(255,255,255,0.08)';
+        btnClose.style.border = '1px solid rgba(255,255,255,0.12)';
+        btnClose.style.color = '#fff';
+        btnClose.style.padding = '8px 12px';
+        btnClose.style.borderRadius = '10px';
+        btnClose.style.cursor = 'pointer';
+
+        header.appendChild(title);
+        header.appendChild(btnClose);
+
+        const body = document.createElement('div');
+        body.style.padding = '16px';
+
+        const p1 = document.createElement('div');
+        p1.textContent = mensagem;
+        p1.style.color = 'rgba(255,255,255,0.92)';
+        p1.style.fontSize = '16px';
+        p1.style.lineHeight = '1.4';
+
+        const p2 = document.createElement('div');
+        p2.textContent = 'Caso queira falar conosco, contacte nosso WhatsApp: ' + numeroWhats;
+        p2.style.color = 'rgba(255,255,255,0.78)';
+        p2.style.marginTop = '10px';
+        p2.style.fontSize = '14px';
+        p2.style.lineHeight = '1.35';
+
+        const actions = document.createElement('div');
+        actions.style.display = 'flex';
+        actions.style.gap = '10px';
+        actions.style.marginTop = '14px';
+
+        const btnWhats = document.createElement('a');
+        btnWhats.href = linkWhats;
+        btnWhats.target = '_blank';
+        btnWhats.rel = 'noopener noreferrer';
+        btnWhats.textContent = 'Falar no WhatsApp';
+        btnWhats.style.flex = '1';
+        btnWhats.style.textAlign = 'center';
+        btnWhats.style.textDecoration = 'none';
+        btnWhats.style.background = 'rgba(34, 197, 94, 0.15)';
+        btnWhats.style.border = '1px solid rgba(34, 197, 94, 0.35)';
+        btnWhats.style.color = '#4ade80';
+        btnWhats.style.padding = '10px 12px';
+        btnWhats.style.borderRadius = '10px';
+        btnWhats.style.fontWeight = '700';
+
+        const btnOk = document.createElement('button');
+        btnOk.type = 'button';
+        btnOk.textContent = 'Entendi';
+        btnOk.style.flex = '1';
+        btnOk.style.background = 'rgba(255,255,255,0.10)';
+        btnOk.style.border = '1px solid rgba(255,255,255,0.12)';
+        btnOk.style.color = '#fff';
+        btnOk.style.padding = '10px 12px';
+        btnOk.style.borderRadius = '10px';
+        btnOk.style.fontWeight = '700';
+        btnOk.style.cursor = 'pointer';
+
+        actions.appendChild(btnWhats);
+        actions.appendChild(btnOk);
+
+        body.appendChild(p1);
+        body.appendChild(p2);
+        body.appendChild(actions);
+
+        card.appendChild(header);
+        card.appendChild(body);
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+
+        const close = () => {
+            try { overlay.remove(); } catch (e) {}
+        };
+        btnClose.addEventListener('click', close);
+        btnOk.addEventListener('click', close);
+        overlay.addEventListener('click', (ev) => {
+            if (ev.target === overlay) close();
+        });
+    } catch (e) {
+        // fallback: toast
+        try { mostrarAvisoPedidoCliente('Seu pedido está em preparo: o gestor aprovou seu pedido.'); } catch (e2) {}
+    }
+}
+
 async function verificarAtualizacoesStatusPedidosCliente() {
     try {
         const ids = (typeof getPedidoIdsClienteLocal === 'function') ? getPedidoIdsClienteLocal() : [];
@@ -199,7 +358,14 @@ async function verificarAtualizacoesStatusPedidosCliente() {
 
             // Aceito / em preparo
             if (statusAtual === 'em_preparo' && statusAnterior !== 'em_preparo') {
-                mostrarAvisoPedidoCliente('O seu pedido já foi aceito, e estamos fazendo ele.');
+                // Abrir GUI (uma vez por pedido)
+                if (!_jaMostrouPopupPreparo(id)) {
+                    _marcarPopupPreparoMostrado(id);
+                    mostrarModalPedidoEmPreparo(p);
+                } else {
+                    // fallback: toast
+                    try { mostrarAvisoPedidoCliente('Seu pedido está em preparo: o gestor aprovou seu pedido.'); } catch (e) {}
+                }
             }
 
             cache[id] = statusAtual;

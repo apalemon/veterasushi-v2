@@ -1981,6 +1981,19 @@ function excluirProdutoGestor(id) {
     if (db.data.produtos) {
         db.data.produtos = db.data.produtos.filter(function(p) { return p.id !== id; });
         db.saveData();
+        // Persistir no servidor
+        (async () => {
+            try {
+                await fetch(window.location.origin + '/api/produtos', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(db.data.produtos || [])
+                });
+                try { await db.fetchInitialData(); } catch (e) {}
+            } catch (e) {
+                // Servidor pode estar indisponível; mantém local
+            }
+        })();
         renderizarProdutos();
     }
 }
@@ -2052,6 +2065,19 @@ function abrirModalCategoria() {
     
     db.data.categorias.push(nomeCategoria);
     db.saveData();
+    // Persistir no servidor
+    (async () => {
+        try {
+            await fetch(window.location.origin + '/api/categorias', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(db.data.categorias || [])
+            });
+            try { await db.fetchInitialData(); } catch (e) {}
+        } catch (e) {
+            // Servidor pode estar indisponível; mantém local
+        }
+    })();
     renderizarCategorias();
 }
 
@@ -2061,6 +2087,19 @@ function excluirCategoria(nome) {
     if (db.data.categorias) {
         db.data.categorias = db.data.categorias.filter(function(c) { return c !== nome; });
         db.saveData();
+        // Persistir no servidor
+        (async () => {
+            try {
+                await fetch(window.location.origin + '/api/categorias', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(db.data.categorias || [])
+                });
+                try { await db.fetchInitialData(); } catch (e) {}
+            } catch (e) {
+                // Servidor pode estar indisponível; mantém local
+            }
+        })();
         renderizarCategorias();
     }
 }
@@ -2120,6 +2159,18 @@ function abrirModalUsuario() {
         });
         
         db.saveData();
+        // Persistir no servidor (usuarios admin)
+        (async () => {
+            try {
+                await fetch(window.location.origin + '/api/usuarios-admin', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(db.data.usuarios || [])
+                });
+            } catch (e) {
+                // Servidor pode estar indisponível; mantém local
+            }
+        })();
         renderizarUsuarios();
     } else {
         // Editar usuário
@@ -2144,6 +2195,18 @@ function editarUsuarioGestor(id) {
     usuario.ativo = novoAtivo;
     
     db.saveData();
+    // Persistir no servidor (usuarios admin)
+    (async () => {
+        try {
+            await fetch(window.location.origin + '/api/usuarios-admin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(db.data.usuarios || [])
+            });
+        } catch (e) {
+            // Servidor pode estar indisponível; mantém local
+        }
+    })();
     renderizarUsuarios();
 }
 
@@ -3453,9 +3516,9 @@ async function fazerBackup() {
             // Erro ao carregar produtos
         }
         
-        // Buscar usuários do servidor (se disponível)
+        // Buscar usuários do painel (admin/gerente) do servidor (se disponível)
         try {
-            const responseUsuarios = await fetch(window.location.origin + '/api/usuarios');
+            const responseUsuarios = await fetch(window.location.origin + '/api/usuarios-admin');
             if (responseUsuarios.ok) {
                 const usuarios = await responseUsuarios.json();
                 if (Array.isArray(usuarios)) {
@@ -3570,6 +3633,19 @@ if (formConfig) {
             taxaEntrega: parseFloat(document.getElementById('config-taxa').value) || 0,
             tempoPreparo: parseInt(document.getElementById('config-tempo').value) || 30
         });
+        // Persistir no servidor
+        (async () => {
+            try {
+                await fetch(window.location.origin + '/api/configuracoes', {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(db.getConfiguracoes() || {})
+                });
+                try { await db.fetchInitialData(); } catch (e) {}
+            } catch (e) {
+                // Servidor pode estar indisponível; mantém local
+            }
+        })();
         alert('Configurações salvas!');
         atualizarStatusBanco();
 
@@ -3820,6 +3896,19 @@ async function salvarPagamentoFromForm() {
     pagamentos.push({ id: String(id), nome, key, tipo, descricao, opcoesEntrega: opcoes });
     const updated = db.atualizarConfiguracoes({ pagamentos });
     try { db.saveData(); } catch (e) { console.warn('[GESTOR] falha ao salvar DB localmente:', e); }
+    // Persistir no servidor
+    (async () => {
+        try {
+            await fetch(window.location.origin + '/api/configuracoes', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(db.getConfiguracoes() || {})
+            });
+            try { await db.fetchInitialData(); } catch (e) {}
+        } catch (e) {
+            // Servidor pode estar indisponível; mantém local
+        }
+    })();
     console.log('[GESTOR] Método de pagamento salvo:', { id, nome, key, tipo, descricao, opcoesEntrega: opcoes });
     alert('Método salvo!');
     carregarPagamentos();
@@ -4664,15 +4753,21 @@ window.salvarHorarios = async function(event) {
         };
     });
     
-    db.data.horarios = horarios;
-    db.saveData();
-    
-    // Salvar no servidor
-    await salvarHorariosNoServidor(horarios);
-    
-    atualizarStatusHorarios();
-    atualizarBotoesAbrirFechar();
-    alert('Horários salvos com sucesso!');
+    // Salvar no servidor (fonte de verdade)
+    const ok = await salvarHorariosNoServidor(horarios);
+
+    if (ok) {
+        atualizarStatusHorarios();
+        atualizarBotoesAbrirFechar();
+        alert('Horários salvos com sucesso!');
+    } else {
+        // Manter fallback local, mas avisar que não persistiu no servidor
+        try {
+            db.data.horarios = horarios;
+            db.saveData();
+        } catch (e) {}
+        alert('⚠️ Horários salvos localmente, mas não foi possível salvar no servidor. Tente novamente.');
+    }
 };
 
 // Salvar horários no servidor
@@ -4685,6 +4780,23 @@ async function salvarHorariosNoServidor(horarios) {
         });
         
         if (response.ok) {
+            // Preferir usar o documento retornado pelo servidor quando disponível
+            try {
+                const doc = await response.json();
+                if (doc && typeof doc === 'object') {
+                    if (!db.data) db.data = {};
+                    db.data.horarios = doc;
+                    db.saveData();
+                } else {
+                    if (!db.data) db.data = {};
+                    db.data.horarios = horarios;
+                    db.saveData();
+                }
+            } catch (e) {
+                if (!db.data) db.data = {};
+                db.data.horarios = horarios;
+                db.saveData();
+            }
             console.log('[HORARIOS] ✅ Horários salvos no servidor');
             return true;
         } else if (response.status === 503) {

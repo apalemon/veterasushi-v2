@@ -14,6 +14,7 @@ module.exports = async (req, res) => {
         const produtos = req.body;
         if (!Array.isArray(produtos)) return res.status(400).json({ error: 'Produtos deve ser um array' });
         const produtosCollection = await getCollection('produtos');
+        const categoriasColl = await getCollection('categorias');
 
         produtos.forEach((p, idx) => {
             p.ordem = typeof p.ordem !== 'undefined' ? p.ordem : idx;
@@ -36,11 +37,21 @@ module.exports = async (req, res) => {
         if (produtosUnicos.length > 0) await produtosCollection.insertMany(produtosUnicos);
 
         try {
-            const categorias = [...new Set(produtos.map(p => p.categoria).filter(Boolean))];
-            const categoriasColl = await getCollection('categorias');
+            const mapa = new Map();
+            for (const p of produtosUnicos) {
+                const nomeCat = (p && typeof p.categoria === 'string') ? p.categoria.trim() : '';
+                if (!nomeCat) continue;
+                if (!mapa.has(nomeCat)) mapa.set(nomeCat, []);
+                mapa.get(nomeCat).push(p.id);
+            }
+            const docs = Array.from(mapa.entries()).map(([nome, ids]) => ({
+                nome,
+                produtos: ids,
+                updatedAt: new Date().toISOString()
+            }));
+
             await categoriasColl.deleteMany({});
-            if (categorias.length > 0) {
-                const docs = categorias.map(c => ({ nome: c }));
+            if (docs.length > 0) {
                 await categoriasColl.insertMany(docs);
             }
         } catch (catErr) {

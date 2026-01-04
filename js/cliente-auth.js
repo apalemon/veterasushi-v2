@@ -155,78 +155,26 @@ class ClienteAuth {
       
       db.data.clientes.push(novoCliente);
       console.log('[CLIENTE-AUTH] ✅ Cliente adicionado ao array. Total de clientes:', db.data.clientes.length);
-      
-      // Salvar no database - FORÇAR salvamento DIRETO no localStorage
+
+      // Persistir no servidor (fonte de verdade)
       try {
-        // Garantir que db.data existe
-        if (!db.data) {
-          db.data = {};
-        }
-        if (!db.data.clientes) {
-          db.data.clientes = [];
-        }
-        
-        // Salvar DIRETAMENTE no localStorage
-        const databaseAtual = localStorage.getItem('vetera_database');
-        let dbData = databaseAtual ? JSON.parse(databaseAtual) : { clientes: [] };
-        
-        if (!dbData.clientes) {
-          dbData.clientes = [];
-        }
-        
-        // Verificar se já existe
-        const indexExistente = dbData.clientes.findIndex(c => c.id === novoCliente.id || c.telefone === novoCliente.telefone);
-        if (indexExistente >= 0) {
-          dbData.clientes[indexExistente] = novoCliente;
-          console.log('[CLIENTE-AUTH] Cliente atualizado no localStorage');
-        } else {
-          dbData.clientes.push(novoCliente);
-          console.log('[CLIENTE-AUTH] Cliente adicionado ao localStorage');
-        }
-        
-        // Salvar no localStorage
-        localStorage.setItem('vetera_database', JSON.stringify(dbData));
-        console.log('[CLIENTE-AUTH] ✅ Cliente salvo DIRETAMENTE no localStorage!');
-        
-        // Atualizar db.data também
-        db.data = dbData;
-        
-        // Verificar se foi salvo
-        const verificar = localStorage.getItem('vetera_database');
-        if (verificar) {
-          const parsed = JSON.parse(verificar);
-          const clientesSalvos = parsed.clientes || [];
-          console.log('[CLIENTE-AUTH] ✅ Verificação: Total de clientes no localStorage:', clientesSalvos.length);
-          const clienteEncontrado = clientesSalvos.find(c => c.id === novoCliente.id);
-          if (clienteEncontrado) {
-            console.log('[CLIENTE-AUTH] ✅ Cliente confirmado no localStorage!');
-          } else {
-            console.error('[CLIENTE-AUTH] ❌ Cliente NÃO encontrado no localStorage após salvar!');
-          }
+        const response = await fetch('/api/usuarios', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify([novoCliente])
+        });
+        if (!response.ok) {
+          const errorText = await response.text().catch(() => '');
+          console.error('[CLIENTE-AUTH] ❌ Erro ao salvar cliente no servidor:', response.status, errorText);
+          return { success: false, message: 'Erro ao salvar no servidor. Tente novamente.' };
         }
       } catch (error) {
-        console.error('[CLIENTE-AUTH] ❌ ERRO ao salvar no localStorage:', error);
-        console.error('[CLIENTE-AUTH] ❌ Stack:', error.stack);
+        console.error('[CLIENTE-AUTH] ❌ Erro ao salvar cliente no servidor:', error);
+        return { success: false, message: 'Erro ao conectar com servidor. Tente novamente.' };
       }
-      
-      // Também usar db.saveData se disponível
-      if (typeof db.saveData === 'function') {
-        try {
-          db.saveData();
-          console.log('[CLIENTE-AUTH] ✅ Também salvo via db.saveData()');
-        } catch (e) {
-          console.warn('[CLIENTE-AUTH] ⚠️ Erro ao usar db.saveData:', e);
-        }
-      }
-      
-      // Salvar também em usuarios.json - AGUARDAR para garantir que foi salvo
-      try {
-        await salvarUsuarioEmArquivo(novoCliente);
-        console.log('[CLIENTE-AUTH] ✅ Cliente salvo em usuarios.json');
-      } catch (error) {
-        console.error('[CLIENTE-AUTH] ⚠️ Erro ao salvar em usuarios.json:', error);
-        // Continuar mesmo se falhar, pois já foi salvo no db
-      }
+
+      // Cache local (não é fonte de verdade)
+      try { if (typeof db.saveData === 'function') db.saveData(); } catch (e) {}
 
       const { senha: _, ...clienteSafe } = novoCliente;
       
@@ -446,7 +394,18 @@ class ClienteAuth {
         ...db.data.clientes[index],
         ...dados
       };
-      db.saveData();
+
+      // Persistir no servidor (fonte de verdade)
+      try {
+        fetch('/api/usuarios', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify([db.data.clientes[index]])
+        }).catch(() => {});
+      } catch (e) {}
+
+      // Cache local (não é fonte de verdade)
+      try { db.saveData(); } catch (e) {}
 
       const { senha: _, ...clienteSafe } = db.data.clientes[index];
       this.saveSession(clienteSafe);
@@ -497,8 +456,7 @@ async function salvarUsuarioEmArquivo(cliente) {
             console.log('[USUARIOS] Novo usuário adicionado. Total:', usuarios.length);
         }
         
-        // SALVAR NO ARQUIVO usuarios.json
-        // Tentar via API primeiro (mas não bloquear se falhar)
+        // Persistir no servidor (fonte de verdade)
         let salvoViaAPI = false;
         try {
             console.log('[USUARIOS] 🔵 Tentando salvar via API...');
@@ -518,56 +476,14 @@ async function salvarUsuarioEmArquivo(cliente) {
             }
         } catch (e) {
             console.warn('[USUARIOS] ⚠️ API não disponível ou erro:', e.message);
-            console.warn('[USUARIOS] ⚠️ Continuando com salvamento local...');
         }
-        
-        // SEMPRE salvar no localStorage também (não apenas como último recurso)
-        try {
-            localStorage.setItem('vetera_usuarios_json', JSON.stringify(usuarios, null, 2));
-            console.log('[USUARIOS] ✅ Salvo no localStorage! Total:', usuarios.length);
-            
-            // Verificar se foi salvo
-            const verificar = localStorage.getItem('vetera_usuarios_json');
-            if (verificar) {
-                const parsed = JSON.parse(verificar);
-                console.log('[USUARIOS] ✅ Verificação: Total no localStorage:', parsed.length);
-            }
-        } catch (error) {
-            console.error('[USUARIOS] ❌ Erro ao salvar no localStorage:', error);
-        }
-        
+
         if (!salvoViaAPI) {
-            console.log('[USUARIOS] ⚠️ API não disponível, mas salvo no localStorage');
+            console.log('[USUARIOS] ⚠️ Não foi possível salvar no servidor');
         }
         
     } catch (error) {
         console.error('[USUARIOS] ❌ ERRO:', error);
-        // Último recurso: salvar no localStorage
-        try {
-            let usuarios = [];
-            const stored = localStorage.getItem('vetera_usuarios_json');
-            if (stored) usuarios = JSON.parse(stored);
-            if (!Array.isArray(usuarios)) usuarios = [];
-            
-            const existe = usuarios.find(u => u.id === cliente.id || u.telefone === cliente.telefone);
-            if (!existe) {
-                usuarios.push({
-                    id: cliente.id,
-                    nome: cliente.nome,
-                    telefone: cliente.telefone,
-                    email: cliente.email || '',
-                    endereco: cliente.endereco || '',
-                    bairro: cliente.bairro || '',
-                    cep: cliente.cep || '',
-                    dataCadastro: cliente.dataCadastro,
-                    tipo: 'cliente'
-                });
-                localStorage.setItem('vetera_usuarios_json', JSON.stringify(usuarios, null, 2));
-                console.log('[USUARIOS] ✅ Salvo no localStorage como último recurso');
-            }
-        } catch (e2) {
-            console.error('[USUARIOS] ❌ Erro crítico:', e2);
-        }
         throw error;
     }
 }

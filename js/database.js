@@ -338,7 +338,14 @@ class Database {
       }
       return [];
     }
-    
+
+    // Compatibilidade: permitir categorias como array de objetos ({nome,...})
+    try {
+      if (Array.isArray(this.data.categorias) && this.data.categorias.length > 0 && typeof this.data.categorias[0] === 'object') {
+        return this.data.categorias.map(c => c?.nome).filter(Boolean);
+      }
+    } catch (e) {}
+
     return this.data.categorias;
   }
 
@@ -588,6 +595,15 @@ class Database {
 
     this.data.clientes.push(novoCliente);
     this.saveData();
+
+    // Persistir no servidor (fonte de verdade) - não bloquear o fluxo
+    try {
+      fetch(window.location.origin + '/api/usuarios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify([novoCliente])
+      }).catch(() => {});
+    } catch (e) {}
     return novoCliente;
   }
 
@@ -601,6 +617,15 @@ class Database {
         ...atualizacoes
       };
       this.saveData();
+
+      // Persistir no servidor (fonte de verdade) - não bloquear o fluxo
+      try {
+        fetch(window.location.origin + '/api/usuarios', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify([this.data.clientes[index]])
+        }).catch(() => {});
+      } catch (e) {}
       return this.data.clientes[index];
     }
     return null;
