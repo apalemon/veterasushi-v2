@@ -1671,7 +1671,7 @@ function renderizarProdutos() {
         let html = '<div class="produto-card-admin">';
         
         if (produto.imagem) {
-            const imagemUrl = produto.imagem.startsWith('http') || produto.imagem.startsWith('/') ? produto.imagem : '/Fotos/' + produto.imagem;
+            const imagemUrl = (produto.imagem.startsWith('data:') || produto.imagem.startsWith('http') || produto.imagem.startsWith('/')) ? produto.imagem : '/Fotos/' + produto.imagem;
             html += '<div style="width: 100%; height: 150px; border-radius: 10px; overflow: hidden; margin-bottom: 1rem; background: var(--cinza-escuro); position: relative;">';
             html += '<img src="' + imagemUrl + '" alt="' + produto.nome + '" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">';
             html += '<div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-size: 1rem; color: var(--texto-medio);">Sem imagem</div>';

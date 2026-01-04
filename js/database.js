@@ -8,6 +8,23 @@ class Database {
     this.loadData();
   }
 
+  _normalizarImagemUrl(valor) {
+    try {
+      if (!valor || typeof valor !== 'string') return valor;
+      const v = valor.trim();
+      if (!v) return v;
+      if (v.startsWith('data:') || v.startsWith('http') || v.startsWith('/')) return v;
+      // Se for um base64 "puro" (sem prefixo), converter para data URL
+      // Heurística: grande e composto só por chars de base64
+      if (v.length > 200 && /^[A-Za-z0-9+/=]+$/.test(v)) {
+        return 'data:image/png;base64,' + v;
+      }
+      return v;
+    } catch (e) {
+      return valor;
+    }
+  }
+
   // Carregar dados do JSON
   loadData() {
     try {
@@ -246,12 +263,12 @@ class Database {
       if (!this.data || !this.data.produtos) {
         this.data = {
           produtos: this.data?.produtos || [],
-          categorias: this.data?.categorias || [],
-          pedidos: this.data?.pedidos || [],
-          clientes: this.data?.clientes || [],
-          cupons: this.data?.cupons || [],
-          configuracoes: this.data?.configuracoes || {},
-          usuarios: this.data?.usuarios || []
+            categorias: this.data?.categorias || [],
+            pedidos: this.data?.pedidos || [],
+            clientes: this.data?.clientes || [],
+            cupons: this.data?.cupons || [],
+            configuracoes: this.data?.configuracoes || {},
+            usuarios: this.data?.usuarios || []
         };
       }
     }
@@ -287,7 +304,15 @@ class Database {
 
   getProduto(id) {
     if (!this.data || !this.data.produtos) return null;
-    return this.data.produtos.find(p => p.id === id);
+    const p = this.data.produtos.find(p => p.id === id);
+    if (!p) return null;
+    try {
+      if (!p.imagem) return p;
+      const img = this._normalizarImagemUrl(p.imagem);
+      return img === p.imagem ? p : { ...p, imagem: img };
+    } catch (e) {
+      return p;
+    }
   }
 
   getCategorias() {
