@@ -288,7 +288,10 @@ class Database {
         }
       }
     } catch (error) {
-      console.error('[DATABASE] Erro ao buscar dados:', error);
+      try {
+        console.error('[DATABASE] Erro ao buscar dados:', error);
+        console.error('[DATABASE] Debug fetchInitialData url:', (window.location.origin + '/api/database'));
+      } catch (e) {}
       
       // Se erro de rede ou qualquer outro, usar dados do localStorage
       if (this.data && this.data.produtos && this.data.produtos.length > 0) {
