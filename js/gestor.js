@@ -32,6 +32,26 @@ window.carregarMinhaLojaConfig = async function() {
         if (taxaEl) taxaEl.value = cfg.taxaEntrega || '';
         if (tempoEl) tempoEl.value = cfg.tempoPreparo || '';
         if (logoEl) logoEl.value = cfg.logoUrl || '';
+        
+        // Taxa por KM
+        const kmIntervaloEl = document.getElementById('minha-loja-km-intervalo');
+        const kmValorEl = document.getElementById('minha-loja-km-valor');
+        const kmAtivoEl = document.getElementById('minha-loja-km-ativo');
+        if (kmIntervaloEl) kmIntervaloEl.value = cfg.taxaPorKm?.intervalo || '';
+        if (kmValorEl) kmValorEl.value = cfg.taxaPorKm?.valor || '';
+        if (kmAtivoEl) kmAtivoEl.checked = cfg.taxaPorKm?.ativo || false;
+        
+        // Atualizar preview da logo
+        const logoPreview = document.getElementById('logo-preview');
+        if (logoPreview && cfg.logoUrl) {
+            logoPreview.src = cfg.logoUrl;
+        }
+
+        // Configurar upload de logo
+        _configurarUploadLogo();
+        
+        // Exibir URLs da loja se houver slug
+        _exibirUrlsLoja(cfg.slug || '');
 
         // Cores do tema
         const cores = [
@@ -56,6 +76,95 @@ window.carregarMinhaLojaConfig = async function() {
         // ignora
     }
 };
+
+// Variável global para armazenar logo em base64 temporariamente
+let _logoBase64Temp = null;
+
+function _exibirUrlsLoja(slug) {
+    const container = document.getElementById('urls-loja-container');
+    const lista = document.getElementById('urls-loja-lista');
+    if (!container || !lista) return;
+    
+    if (!slug) {
+        container.style.display = 'none';
+        return;
+    }
+    
+    const baseUrl = window.location.origin;
+    const urls = [
+        { nome: 'Cardápio', url: `${baseUrl}/${slug}/cardapio` },
+        { nome: 'Gestor', url: `${baseUrl}/${slug}/gestor` },
+        { nome: 'Link direto', url: `${baseUrl}/${slug}` }
+    ];
+    
+    lista.innerHTML = urls.map(u => `
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="color: var(--texto-medio); min-width: 80px;">${u.nome}:</span>
+            <a href="${u.url}" target="_blank" style="color: var(--vermelho-claro); word-break: break-all;">${u.url}</a>
+            <button type="button" onclick="navigator.clipboard.writeText('${u.url}'); this.innerHTML='<i class=\\'fas fa-check\\'></i>'; setTimeout(() => this.innerHTML='<i class=\\'fas fa-copy\\'></i>', 1500)" 
+                    style="background: none; border: none; color: var(--texto-medio); cursor: pointer; padding: 4px;" title="Copiar">
+                <i class="fas fa-copy"></i>
+            </button>
+        </div>
+    `).join('');
+    
+    container.style.display = 'block';
+}
+
+function _configurarUploadLogo() {
+    const fileInput = document.getElementById('minha-loja-logo-file');
+    const urlInput = document.getElementById('minha-loja-logo');
+    const preview = document.getElementById('logo-preview');
+    
+    if (!fileInput) return;
+    
+    // Evitar múltiplos listeners
+    if (fileInput.dataset.configured) return;
+    fileInput.dataset.configured = 'true';
+    
+    fileInput.addEventListener('change', async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        
+        // Validar tipo
+        if (!file.type.startsWith('image/')) {
+            alert('Por favor, selecione uma imagem válida.');
+            return;
+        }
+        
+        // Validar tamanho (max 2MB)
+        if (file.size > 2 * 1024 * 1024) {
+            alert('A imagem deve ter no máximo 2MB.');
+            return;
+        }
+        
+        // Converter para base64
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const base64 = event.target.result;
+            _logoBase64Temp = base64;
+            
+            // Atualizar preview
+            if (preview) preview.src = base64;
+            
+            // Limpar campo URL (base64 tem prioridade)
+            if (urlInput) urlInput.value = '';
+        };
+        reader.readAsDataURL(file);
+    });
+    
+    // Quando URL é digitada, atualizar preview
+    if (urlInput && !urlInput.dataset.configured) {
+        urlInput.dataset.configured = 'true';
+        urlInput.addEventListener('input', () => {
+            const url = urlInput.value.trim();
+            if (url && preview) {
+                preview.src = url;
+                _logoBase64Temp = null; // URL tem prioridade sobre upload pendente
+            }
+        });
+    }
+}
 
 function _configurarColorPickers() {
     const pares = [
@@ -130,7 +239,27 @@ window.salvarMinhaLojaConfig = async function(event) {
         const endereco = document.getElementById('minha-loja-endereco')?.value?.trim() || '';
         const taxaEntrega = parseFloat(document.getElementById('minha-loja-taxa')?.value) || 0;
         const tempoPreparo = parseInt(document.getElementById('minha-loja-tempo')?.value) || 30;
-        const logoUrl = document.getElementById('minha-loja-logo')?.value?.trim() || '';
+        
+        // Logo: prioridade para upload base64, depois URL digitada
+        let logoUrl = '';
+        if (_logoBase64Temp) {
+            logoUrl = _logoBase64Temp;
+        } else {
+            logoUrl = document.getElementById('minha-loja-logo')?.value?.trim() || '';
+        }
+        
+        // Gerar slug a partir do nome
+        const slug = nome ? nome.toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-|-$/g, '') : '';
+        
+        // Taxa por KM
+        const taxaPorKm = {
+            intervalo: parseFloat(document.getElementById('minha-loja-km-intervalo')?.value) || 0,
+            valor: parseFloat(document.getElementById('minha-loja-km-valor')?.value) || 0,
+            ativo: document.getElementById('minha-loja-km-ativo')?.checked || false
+        };
 
         // Cores do tema
         const tema = {
@@ -147,14 +276,19 @@ window.salvarMinhaLojaConfig = async function(event) {
         const payload = {
             ...(db && typeof db.getConfiguracoes === 'function' ? (db.getConfiguracoes() || {}) : {}),
             nomeEstabelecimento: nome,
+            slug: slug,
             telefone: telefone,
             chavePix: chavePix,
             endereco: endereco,
             taxaEntrega: taxaEntrega,
+            taxaPorKm: taxaPorKm,
             tempoPreparo: tempoPreparo,
             logoUrl: logoUrl,
             tema: tema
         };
+        
+        // Limpar logo temporário após salvar
+        _logoBase64Temp = null;
 
         const resp = await fetch(window.location.origin + '/api/configuracoes', {
             method: 'PUT',
@@ -174,12 +308,286 @@ window.salvarMinhaLojaConfig = async function(event) {
                 db.saveData();
             }
         } catch (e) {}
+        
+        // Atualizar URLs da loja com o novo slug
+        _exibirUrlsLoja(slug);
+        
+        // Atualizar nome em toda a interface
+        if (typeof aplicarBrandingLoja === 'function') {
+            aplicarBrandingLoja();
+        }
 
         alert('✅ Configurações salvas com sucesso!');
     } catch (e) {
         alert('Erro ao salvar configurações: ' + (e && e.message ? e.message : e));
     }
 };
+
+// ============================================
+// PAGAMENTOS (simplificado)
+// ============================================
+
+window.carregarPagamentosConfig = async function() {
+    try {
+        const resp = await fetch(window.location.origin + '/api/configuracoes');
+        if (!resp.ok) return;
+        const cfg = await resp.json();
+        const metodos = cfg.metodosPagamento || {};
+        
+        document.getElementById('pag-pix').checked = metodos.pix || false;
+        document.getElementById('pag-credito').checked = metodos.credito || false;
+        document.getElementById('pag-debito').checked = metodos.debito || false;
+        document.getElementById('pag-dinheiro').checked = metodos.dinheiro || false;
+        document.getElementById('pag-vale').checked = metodos.vale || false;
+        document.getElementById('pag-dinheiro-troco').checked = metodos.dinheiroTroco || false;
+        
+        // Mostrar/ocultar opção de troco
+        const trocoContainer = document.getElementById('troco-container');
+        if (trocoContainer) {
+            trocoContainer.style.display = metodos.dinheiro ? 'block' : 'none';
+        }
+        
+        // Listener para mostrar/ocultar troco
+        const dinheiroCheckbox = document.getElementById('pag-dinheiro');
+        if (dinheiroCheckbox) {
+            dinheiroCheckbox.addEventListener('change', () => {
+                if (trocoContainer) {
+                    trocoContainer.style.display = dinheiroCheckbox.checked ? 'block' : 'none';
+                }
+            });
+        }
+    } catch (e) {
+        console.error('[PAGAMENTOS] Erro ao carregar:', e);
+    }
+};
+
+window.salvarPagamentosConfig = async function(event) {
+    try {
+        if (event) event.preventDefault();
+        
+        const metodos = {
+            pix: document.getElementById('pag-pix')?.checked || false,
+            credito: document.getElementById('pag-credito')?.checked || false,
+            debito: document.getElementById('pag-debito')?.checked || false,
+            dinheiro: document.getElementById('pag-dinheiro')?.checked || false,
+            dinheiroTroco: document.getElementById('pag-dinheiro-troco')?.checked || false,
+            vale: document.getElementById('pag-vale')?.checked || false
+        };
+        
+        const cfgAtual = db && typeof db.getConfiguracoes === 'function' ? (db.getConfiguracoes() || {}) : {};
+        const payload = { ...cfgAtual, metodosPagamento: metodos };
+        
+        const resp = await fetch(window.location.origin + '/api/configuracoes', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (!resp.ok) throw new Error('Erro ao salvar: ' + resp.status);
+        
+        const saved = await resp.json();
+        if (db && db.data) {
+            db.data.configuracoes = saved;
+            db.saveData();
+        }
+        
+        alert('✅ Pagamentos salvos com sucesso!');
+    } catch (e) {
+        alert('Erro ao salvar pagamentos: ' + (e && e.message ? e.message : e));
+    }
+};
+
+// Inicializar form de pagamentos
+document.addEventListener('DOMContentLoaded', () => {
+    const formPag = document.getElementById('form-pagamentos-config');
+    if (formPag) {
+        formPag.addEventListener('submit', salvarPagamentosConfig);
+    }
+});
+
+// ============================================
+// USUÁRIOS
+// ============================================
+
+window.carregarUsuarios = async function() {
+    try {
+        const resp = await fetch(window.location.origin + '/api/usuarios');
+        if (!resp.ok) return;
+        const usuarios = await resp.json();
+        
+        const lista = document.getElementById('usuarios-lista');
+        if (!lista) return;
+        
+        if (!usuarios || usuarios.length === 0) {
+            lista.innerHTML = '<div style="text-align: center; color: var(--texto-medio); padding: 40px;">Nenhum usuário cadastrado</div>';
+            return;
+        }
+        
+        lista.innerHTML = usuarios.map(u => `
+            <div style="background: var(--bg-primary); border: 1px solid var(--borda); border-radius: 10px; padding: 16px; display: flex; align-items: center; gap: 16px;">
+                <div style="width: 48px; height: 48px; background: var(--accent); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: bold; color: #fff;">
+                    ${(u.nome || 'U').charAt(0).toUpperCase()}
+                </div>
+                <div style="flex: 1;">
+                    <div style="font-weight: 600; color: var(--text-primary);">${u.nome || 'Sem nome'}</div>
+                    <div style="font-size: 13px; color: var(--texto-medio);">@${u.login || u.usuario || 'sem-login'}</div>
+                    <div style="font-size: 12px; color: var(--accent); margin-top: 4px;">
+                        ${u.nivel === 'admin' ? '👑 Administrador' : u.nivel === 'gerente' ? '📊 Gerente' : '👤 Funcionário'}
+                    </div>
+                </div>
+                <div style="display: flex; gap: 8px;">
+                    <button class="btn btn-secondary" onclick="editarUsuario('${u.id || u._id}')" style="padding: 8px 12px;">
+                        <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-secondary" onclick="excluirUsuario('${u.id || u._id}')" style="padding: 8px 12px; color: var(--erro);">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    } catch (e) {
+        console.error('[USUARIOS] Erro ao carregar:', e);
+    }
+};
+
+window.abrirModalUsuario = function() {
+    document.getElementById('modal-usuario-titulo').textContent = 'Novo Usuário';
+    document.getElementById('form-usuario').reset();
+    document.getElementById('usuario-id').value = '';
+    document.getElementById('usuario-senha').required = true;
+    document.getElementById('modal-usuario').style.display = 'flex';
+    _atualizarPermissoesPorNivel();
+};
+
+window.fecharModalUsuario = function() {
+    document.getElementById('modal-usuario').style.display = 'none';
+};
+
+window.editarUsuario = async function(id) {
+    try {
+        const resp = await fetch(window.location.origin + '/api/usuarios');
+        if (!resp.ok) return;
+        const usuarios = await resp.json();
+        const u = usuarios.find(x => (x.id || x._id) === id);
+        if (!u) return;
+        
+        document.getElementById('modal-usuario-titulo').textContent = 'Editar Usuário';
+        document.getElementById('usuario-id').value = id;
+        document.getElementById('usuario-nome').value = u.nome || '';
+        document.getElementById('usuario-login').value = u.login || u.usuario || '';
+        document.getElementById('usuario-senha').value = '';
+        document.getElementById('usuario-senha').required = false;
+        document.getElementById('usuario-nivel').value = u.nivel || 'funcionario';
+        
+        // Permissões
+        const perms = u.permissoes || {};
+        document.getElementById('perm-pedidos').checked = perms.pedidos !== false;
+        document.getElementById('perm-produtos').checked = perms.produtos || false;
+        document.getElementById('perm-pagamentos').checked = perms.pagamentos || false;
+        document.getElementById('perm-configuracoes').checked = perms.configuracoes || false;
+        document.getElementById('perm-usuarios').checked = perms.usuarios || false;
+        
+        document.getElementById('modal-usuario').style.display = 'flex';
+    } catch (e) {
+        console.error('[USUARIOS] Erro ao editar:', e);
+    }
+};
+
+window.salvarUsuario = async function(event) {
+    try {
+        event.preventDefault();
+        
+        const id = document.getElementById('usuario-id').value;
+        const nome = document.getElementById('usuario-nome').value.trim();
+        const login = document.getElementById('usuario-login').value.trim();
+        const senha = document.getElementById('usuario-senha').value;
+        const nivel = document.getElementById('usuario-nivel').value;
+        
+        const permissoes = {
+            pedidos: document.getElementById('perm-pedidos').checked,
+            produtos: document.getElementById('perm-produtos').checked,
+            pagamentos: document.getElementById('perm-pagamentos').checked,
+            configuracoes: document.getElementById('perm-configuracoes').checked,
+            usuarios: document.getElementById('perm-usuarios').checked
+        };
+        
+        if (!nome || !login) {
+            alert('Preencha nome e login');
+            return;
+        }
+        
+        if (!id && !senha) {
+            alert('Senha é obrigatória para novos usuários');
+            return;
+        }
+        
+        const payload = { nome, login, nivel, permissoes };
+        if (senha) payload.senha = senha;
+        if (id) payload.id = id;
+        
+        const resp = await fetch(window.location.origin + '/api/usuarios', {
+            method: id ? 'PUT' : 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+        
+        if (!resp.ok) {
+            const t = await resp.text().catch(() => '');
+            throw new Error('Erro: ' + resp.status + ' ' + t);
+        }
+        
+        fecharModalUsuario();
+        carregarUsuarios();
+        alert('✅ Usuário salvo com sucesso!');
+    } catch (e) {
+        alert('Erro ao salvar usuário: ' + (e && e.message ? e.message : e));
+    }
+};
+
+window.excluirUsuario = async function(id) {
+    if (!confirm('Tem certeza que deseja excluir este usuário?')) return;
+    
+    try {
+        const resp = await fetch(window.location.origin + '/api/usuarios?id=' + id, {
+            method: 'DELETE'
+        });
+        
+        if (!resp.ok) throw new Error('Erro ao excluir');
+        
+        carregarUsuarios();
+        alert('✅ Usuário excluído!');
+    } catch (e) {
+        alert('Erro ao excluir: ' + (e && e.message ? e.message : e));
+    }
+};
+
+function _atualizarPermissoesPorNivel() {
+    const nivelSelect = document.getElementById('usuario-nivel');
+    if (!nivelSelect) return;
+    
+    nivelSelect.addEventListener('change', () => {
+        const nivel = nivelSelect.value;
+        if (nivel === 'admin') {
+            document.getElementById('perm-pedidos').checked = true;
+            document.getElementById('perm-produtos').checked = true;
+            document.getElementById('perm-pagamentos').checked = true;
+            document.getElementById('perm-configuracoes').checked = true;
+            document.getElementById('perm-usuarios').checked = true;
+        } else if (nivel === 'gerente') {
+            document.getElementById('perm-pedidos').checked = true;
+            document.getElementById('perm-produtos').checked = true;
+            document.getElementById('perm-pagamentos').checked = true;
+            document.getElementById('perm-configuracoes').checked = false;
+            document.getElementById('perm-usuarios').checked = false;
+        } else {
+            document.getElementById('perm-pedidos').checked = true;
+            document.getElementById('perm-produtos').checked = false;
+            document.getElementById('perm-pagamentos').checked = false;
+            document.getElementById('perm-configuracoes').checked = false;
+            document.getElementById('perm-usuarios').checked = false;
+        }
+    });
+}
 
 // ============================================
 // MINHA LOJA (BACKUP / RESET)
@@ -898,6 +1306,12 @@ function mostrarSecao(secao) {
 
     if (secao === 'minha-loja') {
         try { window.carregarMinhaLojaConfig(); } catch (e) {}
+    }
+    if (secao === 'pagamentos') {
+        try { window.carregarPagamentosConfig(); } catch (e) {}
+    }
+    if (secao === 'usuarios') {
+        try { window.carregarUsuarios(); } catch (e) {}
     }
     // Atualizar item ativo no menu
     const nomesSecoes = {
@@ -1706,14 +2120,14 @@ async function gerarNotaFiscal(pedidoId) {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(24);
             doc.setTextColor(0, 0, 0);
-            doc.text(config.nomeEstabelecimento || 'VETERA SUSHI', 40, y + 7, {align:'center'});
+            doc.text(config.nomeEstabelecimento || 'MINHA LOJA', 40, y + 7, {align:'center'});
             y += 12;
         }
     } else {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(24);
         doc.setTextColor(0, 0, 0);
-        doc.text(config.nomeEstabelecimento || 'VETERA SUSHI', 40, y + 7, {align:'center'});
+        doc.text(config.nomeEstabelecimento || 'MINHA LOJA', 40, y + 7, {align:'center'});
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
         if (config.endereco) {
@@ -3081,14 +3495,14 @@ async function gerarNotaFiscalPDV() {
             doc.setFont('helvetica', 'bold');
             doc.setFontSize(24);
             doc.setTextColor(0, 0, 0);
-            doc.text(config.nomeEstabelecimento || 'VETERA SUSHI', 40, y + 7, {align:'center'});
+            doc.text(config.nomeEstabelecimento || 'MINHA LOJA', 40, y + 7, {align:'center'});
             y += 12;
         }
     } else {
         doc.setFont('helvetica', 'bold');
         doc.setFontSize(24);
         doc.setTextColor(0, 0, 0);
-        doc.text(config.nomeEstabelecimento || 'VETERA SUSHI', 40, y + 7, {align:'center'});
+        doc.text(config.nomeEstabelecimento || 'MINHA LOJA', 40, y + 7, {align:'center'});
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
         if (config.endereco) {

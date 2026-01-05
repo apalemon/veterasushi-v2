@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Gestor de Pedidos - Vetera Sushi</title>
+    <title>Gestor de Pedidos</title>
     <link rel="stylesheet" href="/css/style.css">
     <link rel="stylesheet" href="/css/gestor.css">
     <link rel="icon" type="image/png" href="/logo.png">
@@ -20,8 +20,8 @@
     <header>
         <div class="header-container">
             <a href="index.html" class="logo" style="display: flex; align-items: center; gap: 10px;">
-                <img src="/logo.png" alt="Vetera Sushi" style="height: 40px; width: auto;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
-                <span style="display: none;">Vetera Sushi</span>
+                <img id="header-logo" src="/logo.png" alt="Logo" style="height: 40px; width: auto;" onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                <span id="header-nome-loja" style="display: none;">Minha Loja</span>
             </a>
             <nav>
                 <ul class="nav-menu">
@@ -39,7 +39,7 @@
         <!-- SIDEBAR ESQUERDA -->
         <aside class="gestor-sidebar">
             <div class="sidebar-header">
-                <h2>Vetera Sushi</h2>
+                <h2 id="sidebar-nome-loja">Minha Loja</h2>
                 <div class="db-status" id="db-status">
                     <span class="status-indicator"></span>
                     <span></span>
@@ -85,6 +85,9 @@
                 </a>
                 <a href="#" class="nav-item" onclick="mostrarSecao('minha-loja'); return false;">
                     <span>Minha Loja</span>
+                </a>
+                <a href="#" class="nav-item" onclick="mostrarSecao('usuarios'); return false;">
+                    <span>Usuários</span>
                 </a>
             </nav>
         </aside>
@@ -221,7 +224,7 @@
                         <form id="form-minha-loja-info">
                             <div class="form-group">
                                 <label class="form-label">Nome do Estabelecimento</label>
-                                <input type="text" class="form-input" id="minha-loja-nome" placeholder="Ex: Vetera Sushi">
+                                <input type="text" class="form-input" id="minha-loja-nome" placeholder="Ex: Minha Loja">
                             </div>
                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                                 <div class="form-group">
@@ -239,7 +242,7 @@
                             </div>
                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                                 <div class="form-group">
-                                    <label class="form-label">Taxa de Entrega (R$)</label>
+                                    <label class="form-label">Taxa de Entrega Base (R$)</label>
                                     <input type="number" step="0.01" class="form-input" id="minha-loja-taxa" placeholder="0.00">
                                 </div>
                                 <div class="form-group">
@@ -247,7 +250,43 @@
                                     <input type="number" class="form-input" id="minha-loja-tempo" placeholder="30">
                                 </div>
                             </div>
+                            
+                            <!-- Taxa por KM -->
+                            <div style="background: var(--bg-primary); border: 1px solid var(--borda); border-radius: 8px; padding: 14px; margin-top: 12px;">
+                                <div style="font-size: 13px; color: var(--texto-medio); margin-bottom: 10px;">
+                                    <i class="fas fa-route" style="color: var(--accent);"></i> Taxa adicional por distância
+                                </div>
+                                <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; align-items: end;">
+                                    <div class="form-group" style="margin: 0;">
+                                        <label class="form-label" style="font-size: 12px;">A cada</label>
+                                        <input type="number" step="0.5" class="form-input" id="minha-loja-km-intervalo" placeholder="2" style="font-size: 14px;">
+                                    </div>
+                                    <div class="form-group" style="margin: 0;">
+                                        <label class="form-label" style="font-size: 12px;">km, adicionar R$</label>
+                                        <input type="number" step="0.50" class="form-input" id="minha-loja-km-valor" placeholder="2.00" style="font-size: 14px;">
+                                    </div>
+                                    <div class="form-group" style="margin: 0;">
+                                        <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; height: 38px;">
+                                            <input type="checkbox" id="minha-loja-km-ativo" style="accent-color: var(--accent);">
+                                            <span style="font-size: 13px; color: var(--text-secondary);">Ativar</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div style="font-size: 11px; color: var(--texto-medio); margin-top: 8px;">
+                                    Exemplo: A cada 2km, adicionar R$ 2,00 na taxa de entrega
+                                </div>
+                            </div>
                         </form>
+                        
+                        <!-- URLs da Loja -->
+                        <div id="urls-loja-container" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--borda); display: none;">
+                            <div style="font-size: 13px; color: var(--texto-medio); margin-bottom: 8px;">
+                                <i class="fas fa-link"></i> URLs da sua loja
+                            </div>
+                            <div id="urls-loja-lista" style="display: flex; flex-direction: column; gap: 6px; font-size: 13px;">
+                                <!-- Preenchido via JS -->
+                            </div>
+                        </div>
                     </div>
 
                     <!-- DIVISÓRIA -->
@@ -260,8 +299,19 @@
                         </div>
                         <form id="form-minha-loja-aparencia">
                             <div class="form-group">
-                                <label class="form-label">Logo URL</label>
-                                <input class="form-input" id="minha-loja-logo" placeholder="/logo.png ou https://...">
+                                <label class="form-label">Logo</label>
+                                <div style="display: flex; gap: 12px; align-items: flex-start;">
+                                    <div id="logo-preview-container" style="width: 80px; height: 80px; border: 2px dashed var(--borda); border-radius: 8px; display: flex; align-items: center; justify-content: center; overflow: hidden; background: var(--bg-primary);">
+                                        <img id="logo-preview" src="/logo.png" alt="Logo" style="max-width: 100%; max-height: 100%; object-fit: contain;">
+                                    </div>
+                                    <div style="flex: 1;">
+                                        <input type="file" id="minha-loja-logo-file" accept="image/*" style="display: none;">
+                                        <button type="button" class="btn btn-secondary" onclick="document.getElementById('minha-loja-logo-file').click()" style="margin-bottom: 8px; width: 100%;">
+                                            <i class="fas fa-upload"></i> Fazer upload
+                                        </button>
+                                        <input class="form-input" id="minha-loja-logo" placeholder="ou cole URL aqui..." style="font-size: 13px;">
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- CORES COM COLOR PICKER -->
@@ -697,65 +747,169 @@
                 <div class="section-header">
                     <h1>Pagamentos</h1>
                 </div>
-                <div class="config-container">
-                    <div style="display:flex; justify-content: space-between; align-items:center; margin-bottom: 1rem;">
-                        <div>
-                            <p style="margin:0; color: var(--texto-medio);">Cadastre e configure os métodos de pagamento que aparecerão no checkout.</p>
+                <div class="config-container" style="max-width: 700px;">
+                    <p style="margin: 0 0 20px 0; color: var(--texto-medio);">Selecione as formas de pagamento aceitas pela sua loja.</p>
+                    
+                    <form id="form-pagamentos-config">
+                        <!-- PIX -->
+                        <div style="background: var(--bg-primary); border: 1px solid var(--borda); border-radius: 10px; padding: 16px; margin-bottom: 12px;">
+                            <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
+                                <input type="checkbox" id="pag-pix" style="width: 20px; height: 20px; accent-color: var(--accent);">
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; color: var(--text-primary);">
+                                        <i class="fas fa-qrcode" style="color: var(--accent); margin-right: 8px;"></i> PIX
+                                    </div>
+                                    <div style="font-size: 13px; color: var(--texto-medio);">Pagamento via QR Code PIX (usa a chave PIX configurada)</div>
+                                </div>
+                            </label>
                         </div>
-                        <div>
-                            <button class="btn btn-primary" id="btn-toggle-pagamento">Adicionar Método</button>
+                        
+                        <!-- Cartão de Crédito -->
+                        <div style="background: var(--bg-primary); border: 1px solid var(--borda); border-radius: 10px; padding: 16px; margin-bottom: 12px;">
+                            <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
+                                <input type="checkbox" id="pag-credito" style="width: 20px; height: 20px; accent-color: var(--accent);">
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; color: var(--text-primary);">
+                                        <i class="fas fa-credit-card" style="color: var(--accent); margin-right: 8px;"></i> Cartão de Crédito
+                                    </div>
+                                    <div style="font-size: 13px; color: var(--texto-medio);">Pagamento na entrega com máquina de cartão</div>
+                                </div>
+                            </label>
                         </div>
-                    </div>
+                        
+                        <!-- Cartão de Débito -->
+                        <div style="background: var(--bg-primary); border: 1px solid var(--borda); border-radius: 10px; padding: 16px; margin-bottom: 12px;">
+                            <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
+                                <input type="checkbox" id="pag-debito" style="width: 20px; height: 20px; accent-color: var(--accent);">
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; color: var(--text-primary);">
+                                        <i class="fas fa-credit-card" style="color: var(--accent); margin-right: 8px;"></i> Cartão de Débito
+                                    </div>
+                                    <div style="font-size: 13px; color: var(--texto-medio);">Pagamento na entrega com máquina de cartão</div>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <!-- Dinheiro -->
+                        <div style="background: var(--bg-primary); border: 1px solid var(--borda); border-radius: 10px; padding: 16px; margin-bottom: 12px;">
+                            <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
+                                <input type="checkbox" id="pag-dinheiro" style="width: 20px; height: 20px; accent-color: var(--accent);">
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; color: var(--text-primary);">
+                                        <i class="fas fa-money-bill-wave" style="color: var(--accent); margin-right: 8px;"></i> Dinheiro
+                                    </div>
+                                    <div style="font-size: 13px; color: var(--texto-medio);">Pagamento em espécie na entrega</div>
+                                </div>
+                            </label>
+                            <div id="troco-container" style="margin-top: 12px; padding-left: 32px; display: none;">
+                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                                    <input type="checkbox" id="pag-dinheiro-troco" style="accent-color: var(--accent);">
+                                    <span style="font-size: 13px; color: var(--texto-medio);">Perguntar se precisa de troco</span>
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <!-- Vale Alimentação/Refeição -->
+                        <div style="background: var(--bg-primary); border: 1px solid var(--borda); border-radius: 10px; padding: 16px; margin-bottom: 20px;">
+                            <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
+                                <input type="checkbox" id="pag-vale" style="width: 20px; height: 20px; accent-color: var(--accent);">
+                                <div style="flex: 1;">
+                                    <div style="font-weight: 600; color: var(--text-primary);">
+                                        <i class="fas fa-utensils" style="color: var(--accent); margin-right: 8px;"></i> Vale Alimentação/Refeição
+                                    </div>
+                                    <div style="font-size: 13px; color: var(--texto-medio);">Pagamento na entrega com cartão benefício</div>
+                                </div>
+                            </label>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary" style="width: 100%;">
+                            <i class="fas fa-save"></i> Salvar Pagamentos
+                        </button>
+                    </form>
+                </div>
+            </section>
 
-                    <!-- Inline editor para métodos de pagamento (não usar modal) -->
-                    <div id="pagamento-editor" style="display:none; margin-bottom:12px; background:var(--bg-primary); padding:12px; border-radius:8px; border:1px solid var(--borda);">
-                        <form id="form-pagamento-inline">
-                            <input type="hidden" id="pagamento-id-inline">
-                            <div class="form-grid">
-                                <div class="form-group">
-                                    <label class="form-label">Nome do Método *</label>
-                                    <input type="text" class="form-input" id="pagamento-nome-inline" required>
-                                </div>
-                                <div class="form-group" id="pagamento-key-inline-info">
-                                    <label class="form-label">Chave/ID</label>
-                                    <div style="color: var(--texto-medio);">Usa a chave PIX que está em <strong>Configurações → Chave PIX</strong>. Para outros tipos será usada uma chave automática baseada no tipo.</div>
-                                </div>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Tipo</label>
-                                <select class="form-select" id="pagamento-tipo-inline">
-                                    <option value="pix_manual">PIX manual (aprovação manual)</option>
-                                    <option value="pagamento_na_entrega">Pagamento na entrega (mostrar opções)</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Descrição</label>
-                                <input type="text" class="form-input" id="pagamento-descricao-inline">
-                            </div>
-                            <div class="form-group" id="pagamento-opcoes-entrega-inline">
-                                <label class="form-label">Formas de Pagamento Aceitas *</label>
-                                <div style="display: flex; flex-wrap: wrap; gap: 12px;">
-                                    <label><input type="checkbox" id="aceita_pix_inline"> PIX</label>
-                                    <label><input type="checkbox" id="aceita_debito_inline"> Débito</label>
-                                    <label><input type="checkbox" id="aceita_credito_inline"> Crédito</label>
-                                    <label><input type="checkbox" id="aceita_dinheiro_inline"> Dinheiro</label>
-                                    <label><input type="checkbox" id="aceita_ted_inline"> TED</label>
-                                    <label><input type="checkbox" id="aceita_boleto_inline"> Boleto</label>
-                                </div>
-                                <small style="color: var(--texto-medio); font-size: 0.85rem; display: block; margin-top: 5px;">Selecione pelo menos uma forma de pagamento que aparecerá no checkout.</small>
-                            </div>
-                            <div style="display:flex; gap:8px; margin-top:12px;">
-                                <button type="submit" class="btn btn-primary">Salvar</button>
-                                <button type="button" class="btn btn-secondary" id="btn-cancelar-pagamento">Cancelar</button>
-                            </div>
-                        </form>
+            <!-- SEÇÃO USUÁRIOS -->
+            <section id="sec-usuarios" class="gestor-section">
+                <div class="section-header">
+                    <h1>Usuários</h1>
+                    <button class="btn btn-primary" onclick="abrirModalUsuario()">
+                        <i class="fas fa-plus"></i> Novo Usuário
+                    </button>
+                </div>
+                <div class="config-container" style="max-width: 900px;">
+                    <p style="margin: 0 0 20px 0; color: var(--texto-medio);">Gerencie os usuários e funcionários que têm acesso ao sistema.</p>
+                    
+                    <div id="usuarios-lista" style="display: grid; gap: 12px;">
+                        <!-- Lista de usuários será preenchida via JS -->
                     </div>
-
-                    <div id="pagamentos-lista"></div>
                 </div>
             </section>
 
         </main>
+    </div>
+
+    <!-- MODAL NOVO USUÁRIO -->
+    <div class="modal-overlay" id="modal-usuario" style="display: none;">
+        <div class="modal" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-usuario-titulo">Novo Usuário</h2>
+                <button class="modal-close" onclick="fecharModalUsuario()"><i class="fas fa-times"></i></button>
+            </div>
+            <form id="form-usuario" onsubmit="salvarUsuario(event)">
+                <input type="hidden" id="usuario-id">
+                <div class="form-group">
+                    <label class="form-label">Nome completo *</label>
+                    <input type="text" class="form-input" id="usuario-nome" required>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Login/Usuário *</label>
+                    <input type="text" class="form-input" id="usuario-login" required autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Senha *</label>
+                    <input type="password" class="form-input" id="usuario-senha" autocomplete="new-password">
+                    <small style="color: var(--texto-medio);">Deixe em branco para manter a senha atual (ao editar)</small>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Nível de acesso *</label>
+                    <select class="form-select" id="usuario-nivel">
+                        <option value="funcionario">Funcionário (apenas Gestor/PDV)</option>
+                        <option value="gerente">Gerente (Gestor + Pagamentos)</option>
+                        <option value="admin">Administrador (acesso total)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Permissões específicas</label>
+                    <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;">
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="perm-pedidos" checked style="accent-color: var(--accent);">
+                            <span style="color: var(--text-secondary);">Ver e gerenciar pedidos</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="perm-produtos" style="accent-color: var(--accent);">
+                            <span style="color: var(--text-secondary);">Gerenciar produtos e categorias</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="perm-pagamentos" style="accent-color: var(--accent);">
+                            <span style="color: var(--text-secondary);">Configurar pagamentos</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="perm-configuracoes" style="accent-color: var(--accent);">
+                            <span style="color: var(--text-secondary);">Configurações da loja</span>
+                        </label>
+                        <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+                            <input type="checkbox" id="perm-usuarios" style="accent-color: var(--accent);">
+                            <span style="color: var(--text-secondary);">Gerenciar usuários</span>
+                        </label>
+                    </div>
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="submit" class="btn btn-primary" style="flex: 1;">Salvar</button>
+                    <button type="button" class="btn btn-secondary" onclick="fecharModalUsuario()">Cancelar</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- MODAL DETALHES DO PEDIDO -->

@@ -153,7 +153,7 @@ module.exports = async (req, res) => {
                 {
                     $set: {
                         chavePix: '',
-                        nomeEstabelecimento: 'Vetera Sushi',
+                        nomeEstabelecimento: 'Minha Loja',
                         telefone: '',
                         endereco: '',
                         taxaEntrega: 0,

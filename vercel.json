@@ -23,6 +23,18 @@
     {
       "source": "/api/:path*",
       "destination": "/api/router"
+    },
+    {
+      "source": "/:slug/cardapio",
+      "destination": "/index.html"
+    },
+    {
+      "source": "/:slug/gestor",
+      "destination": "/gestor.html"
+    },
+    {
+      "source": "/:slug",
+      "destination": "/index.html"
     }
   ],
   "redirects": []

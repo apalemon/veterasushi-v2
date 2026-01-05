@@ -32,7 +32,7 @@ module.exports = async (req, res) => {
         if (!configuracoes) {
             configuracoes = {
                 chavePix: '',
-                nomeEstabelecimento: 'Vetera Sushi',
+                nomeEstabelecimento: 'Minha Loja',
                 telefone: '',
                 endereco: '',
                 taxaEntrega: 0,
@@ -77,7 +77,7 @@ module.exports = async (req, res) => {
             cupons: cupons || [],
             configuracoes: {
                 chavePix: configuracoes.chavePix || '',
-                nomeEstabelecimento: configuracoes.nomeEstabelecimento || 'Vetera Sushi',
+                nomeEstabelecimento: configuracoes.nomeEstabelecimento || 'Minha Loja',
                 telefone: configuracoes.telefone || '',
                 endereco: configuracoes.endereco || '',
                 taxaEntrega: configuracoes.taxaEntrega || 0,
@@ -104,7 +104,7 @@ module.exports = async (req, res) => {
             cupons: [],
             configuracoes: {
                 chavePix: '',
-                nomeEstabelecimento: 'Vetera Sushi',
+                nomeEstabelecimento: 'Minha Loja',
                 telefone: '',
                 endereco: '',
                 taxaEntrega: 0,

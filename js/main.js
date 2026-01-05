@@ -13,6 +13,35 @@ function _entradasIsFileOrigin() {
     }
 }
 
+// Função auxiliar: converter hex para rgba
+function _hexToRgba(hex, alpha) {
+    try {
+        const h = hex.replace('#', '');
+        const r = parseInt(h.substring(0, 2), 16);
+        const g = parseInt(h.substring(2, 4), 16);
+        const b = parseInt(h.substring(4, 6), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+    } catch (e) {
+        return hex;
+    }
+}
+
+// Função auxiliar: escurecer cor
+function _darkenColor(hex, percent) {
+    try {
+        const h = hex.replace('#', '');
+        let r = parseInt(h.substring(0, 2), 16);
+        let g = parseInt(h.substring(2, 4), 16);
+        let b = parseInt(h.substring(4, 6), 16);
+        r = Math.max(0, Math.floor(r * (100 - percent) / 100));
+        g = Math.max(0, Math.floor(g * (100 - percent) / 100));
+        b = Math.max(0, Math.floor(b * (100 - percent) / 100));
+        return `#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`;
+    } catch (e) {
+        return hex;
+    }
+}
+
 function aplicarBrandingLoja() {
     try {
         if (typeof db === 'undefined' || !db || typeof db.getConfiguracoes !== 'function') return;
@@ -20,29 +49,67 @@ function aplicarBrandingLoja() {
         const tema = cfg.tema || {};
         const root = document.documentElement;
 
+        // Aplicar cores base
         if (tema.bg) root.style.setProperty('--bg', tema.bg);
         if (tema.bgSecondary) root.style.setProperty('--bg-secondary', tema.bgSecondary);
         if (tema.accent) root.style.setProperty('--accent', tema.accent);
         if (tema.accentHover) root.style.setProperty('--accent-hover', tema.accentHover);
         if (tema.textPrimary) root.style.setProperty('--text-primary', tema.textPrimary);
         if (tema.textSecondary) root.style.setProperty('--text-secondary', tema.textSecondary);
-        if (tema.accent) root.style.setProperty('--vermelho-claro', tema.accent);
-        if (tema.accentHover) root.style.setProperty('--vermelho-escuro', tema.accentHover);
-        if (tema.accentHover) root.style.setProperty('--vermelho-hover', tema.accentHover);
+        
+        // Aplicar cor accent em todas as variáveis de cor relacionadas
+        if (tema.accent) {
+            root.style.setProperty('--vermelho-claro', tema.accent);
+            root.style.setProperty('--accent-light', _hexToRgba(tema.accent, 0.1));
+            root.style.setProperty('--borda', _hexToRgba(tema.accent, 0.2));
+            root.style.setProperty('--borda-hover', _hexToRgba(tema.accent, 0.4));
+            root.style.setProperty('--vermelho-glow', _hexToRgba(tema.accent, 0.4));
+            root.style.setProperty('--sombra-vermelha', _hexToRgba(tema.accent, 0.3));
+            root.style.setProperty('--sombra-card-hover', `0 8px 30px ${_hexToRgba(tema.accent, 0.2)}`);
+        }
+        if (tema.accentHover) {
+            root.style.setProperty('--vermelho-escuro', tema.accentHover);
+            root.style.setProperty('--vermelho-hover', tema.accentHover);
+        }
+        // Gradientes dinâmicos
+        if (tema.accent && tema.accentHover) {
+            root.style.setProperty('--gradient-primary', `linear-gradient(135deg, ${tema.accent} 0%, ${tema.accentHover} 100%)`);
+            root.style.setProperty('--gradient-hover', `linear-gradient(135deg, ${tema.accentHover} 0%, ${_darkenColor(tema.accentHover, 20)} 100%)`);
+        }
 
-        const nome = cfg.nomeEstabelecimento || 'Vetera Sushi';
+        const nome = cfg.nomeEstabelecimento || 'Minha Loja';
         try { document.title = nome + ' - Cardápio Online'; } catch (e) {}
 
         const logoUrl = cfg.logoUrl || '/logo.png';
         const faviconUrl = cfg.faviconUrl || logoUrl || '/logo.png';
+        
+        // Atualizar nome da loja em todos os lugares
         try {
+            // Header logo e nome
+            const headerLogo = document.getElementById('header-logo');
+            if (headerLogo && logoUrl) {
+                headerLogo.src = logoUrl;
+                headerLogo.alt = nome;
+            }
+            const headerNome = document.getElementById('header-nome-loja');
+            if (headerNome) headerNome.textContent = nome;
+            
+            // Título principal da página (cardápio)
+            const tituloLoja = document.getElementById('titulo-loja');
+            if (tituloLoja) tituloLoja.textContent = nome.toUpperCase();
+            
+            // Sidebar do gestor
+            const sidebarNome = document.getElementById('sidebar-nome-loja');
+            if (sidebarNome) sidebarNome.textContent = nome;
+            
+            // Fallback para seletores antigos
             const logoImg = document.querySelector('a.logo img');
-            if (logoImg && logoUrl) {
+            if (logoImg && logoUrl && !logoImg.id) {
                 logoImg.src = logoUrl;
                 logoImg.alt = nome;
             }
             const logoText = document.querySelector('a.logo span');
-            if (logoText) logoText.textContent = nome;
+            if (logoText && !logoText.id) logoText.textContent = nome;
         } catch (e) {}
 
         // Atualizar favicon
@@ -1842,7 +1909,8 @@ function mostrarQRCodePix(pedido) {
     if (!modal || !container) return;
     
     // Renderizar QR Code
-    pixPayment.renderizarQRCode('pix-container', chavePixFixa, pedido.total, `Pedido #${pedido.id} - Vetera Sushi`);
+    const nomeLoja = (typeof db !== 'undefined' && db.getConfiguracoes) ? (db.getConfiguracoes().nomeEstabelecimento || 'Minha Loja') : 'Minha Loja';
+    pixPayment.renderizarQRCode('pix-container', chavePixFixa, pedido.total, `Pedido #${pedido.id} - ${nomeLoja}`);
     
     // Adicionar mensagem de aprovação manual após o QR Code
     setTimeout(() => {

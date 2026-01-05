@@ -26,7 +26,7 @@ module.exports = async (req, res) => {
             if (!config) {
                 config = {
                     chavePix: '',
-                    nomeEstabelecimento: 'Vetera Sushi',
+                    nomeEstabelecimento: 'Minha Loja',
                     telefone: '',
                     endereco: '',
                     taxaEntrega: 0,

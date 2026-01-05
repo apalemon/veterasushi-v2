@@ -357,7 +357,7 @@ function imprimirNota(pedidoId) {
     
     const nota = `
         ====================================
-        ${config.nomeEstabelecimento || 'Vetera Sushi'}
+        ${config.nomeEstabelecimento || 'Minha Loja'}
         ====================================
         Pedido #${pedido.id}
         Data: ${new Date(pedido.data).toLocaleString('pt-BR')}

@@ -760,7 +760,7 @@ class Database {
     if (!this.data || !this.data.configuracoes) {
       return {
         chavePix: '',
-        nomeEstabelecimento: 'Vetera Sushi',
+        nomeEstabelecimento: 'Minha Loja',
         telefone: '',
         endereco: '',
         taxaEntrega: 0,
