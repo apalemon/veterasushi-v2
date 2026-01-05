@@ -20,7 +20,9 @@ module.exports = async (req, res) => {
             if (!p || typeof p !== 'object') return p;
             const img = p.imagem;
             if (typeof img === 'string' && img.startsWith('data:image')) {
-                return { ...p, imagem: '' };
+                // Não enviar base64 no /api/database (evita payload gigante / NetworkError)
+                // Em vez disso, retorna uma URL que entrega a imagem separadamente.
+                return { ...p, imagem: `/api/produto-imagem?id=${encodeURIComponent(String(p.id || ''))}` };
             }
             return p;
         });
