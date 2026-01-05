@@ -17,6 +17,10 @@ module.exports = async (req, res) => {
         const categoriasColl = await getCollection('categorias');
 
         produtos.forEach((p, idx) => {
+            // Evitar salvar base64 (data URL) no Mongo: isso explode o payload do /api/database
+            if (p && typeof p.imagem === 'string' && p.imagem.startsWith('data:image')) {
+                p.imagem = '';
+            }
             p.ordem = typeof p.ordem !== 'undefined' ? p.ordem : idx;
             if (p._id) delete p._id;
             if (typeof p.id === 'undefined' || p.id === null) {

@@ -16,6 +16,14 @@ module.exports = async (req, res) => {
         const categoriasCollection = await getCollection('categorias');
 
         const produtos = await produtosCollection.find({}).toArray();
+        const produtosLimpos = (produtos || []).map(p => {
+            if (!p || typeof p !== 'object') return p;
+            const img = p.imagem;
+            if (typeof img === 'string' && img.startsWith('data:image')) {
+                return { ...p, imagem: '' };
+            }
+            return p;
+        });
         const cupons = await cuponsCollection.find({ ativo: { $ne: false } }).toArray();
 
         let configuracoes = await configuracoesCollection.findOne({ _id: 'main' });
@@ -56,7 +64,7 @@ module.exports = async (req, res) => {
         console.log(`[DATABASE] 📦 Produtos: ${produtos.length}, Cupons: ${cupons.length}, Categorias: ${categorias.length}`);
 
         const dadosPublicos = {
-            produtos: produtos || [],
+            produtos: produtosLimpos || [],
             categorias: categorias || [],
             categoriasDetalhadas: (categoriasDetalhadas || []).map(c => {
                 if (!c) return c;
