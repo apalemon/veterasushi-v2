@@ -51,7 +51,17 @@ window.carregarMinhaLojaConfig = async function() {
         _configurarUploadLogo();
         
         // Exibir URLs da loja se houver slug
-        _exibirUrlsLoja(cfg.slug || '');
+        const slugAtual = cfg.slug || '';
+        _exibirUrlsLoja(slugAtual);
+
+        // Atualizar links do header (para não perder /{slug}/...)
+        try {
+            const slugUsar = slugAtual || 'vetera';
+            const linkCardapioGestor = document.getElementById('link-cardapio-gestor');
+            if (linkCardapioGestor) linkCardapioGestor.href = '/' + slugUsar + '/cardapio';
+            const menuLinkCardapioGestor = document.getElementById('menu-link-cardapio-gestor');
+            if (menuLinkCardapioGestor) menuLinkCardapioGestor.href = '/' + slugUsar + '/cardapio';
+        } catch (e) {}
 
         // Cores do tema
         const cores = [
@@ -411,11 +421,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
 window.carregarUsuarios = async function() {
     try {
-        const resp = await fetch(window.location.origin + '/api/usuarios');
-        if (!resp.ok) return;
-        const usuarios = await resp.json();
-        
         const lista = document.getElementById('usuarios-lista');
+        if (lista) {
+            lista.innerHTML = '<div style="text-align: center; color: var(--texto-medio); padding: 40px;">Carregando usuários...</div>';
+        }
+
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
+
+        const resp = await fetch(window.location.origin + '/api/usuarios-admin', {
+            headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+        });
+
+        if (!resp.ok) {
+            if (lista) {
+                lista.innerHTML = '<div style="text-align: center; color: var(--texto-medio); padding: 40px;">Não foi possível carregar usuários (faça login novamente).</div>';
+            }
+            return;
+        }
+
+        const usuarios = await resp.json();
+
         if (!lista) return;
         
         if (!usuarios || usuarios.length === 0) {
@@ -465,7 +492,12 @@ window.fecharModalUsuario = function() {
 
 window.editarUsuario = async function(id) {
     try {
-        const resp = await fetch(window.location.origin + '/api/usuarios');
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
+        const resp = await fetch(window.location.origin + '/api/usuarios-admin', {
+            headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+        });
         if (!resp.ok) return;
         const usuarios = await resp.json();
         const u = usuarios.find(x => (x.id || x._id) === id);
@@ -521,14 +553,52 @@ window.salvarUsuario = async function(event) {
             return;
         }
         
-        const payload = { nome, login, nivel, permissoes };
-        if (senha) payload.senha = senha;
-        if (id) payload.id = id;
+        // Buscar lista atual de usuários
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
+
+        const respGet = await fetch(window.location.origin + '/api/usuarios-admin', {
+            headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+        });
+        let usuariosAtuais = [];
+        if (respGet.ok) {
+            usuariosAtuais = await respGet.json() || [];
+        }
         
-        const resp = await fetch(window.location.origin + '/api/usuarios', {
-            method: id ? 'PUT' : 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
+        // Criar novo usuário ou atualizar existente
+        const novoUsuario = {
+            id: id || Date.now().toString(36) + Math.random().toString(36).slice(2),
+            usuario: login,
+            nome: nome,
+            nivel: nivel,
+            permissoes: permissoes,
+            ativo: true
+        };
+        if (senha) novoUsuario.senha = senha;
+        
+        if (id) {
+            // Atualizar existente
+            const idx = usuariosAtuais.findIndex(u => (u.id || u._id) === id);
+            if (idx >= 0) {
+                // Manter senha antiga se não foi digitada nova
+                if (!senha && usuariosAtuais[idx].senha) {
+                    novoUsuario.senha = usuariosAtuais[idx].senha;
+                }
+                usuariosAtuais[idx] = novoUsuario;
+            } else {
+                usuariosAtuais.push(novoUsuario);
+            }
+        } else {
+            // Adicionar novo
+            usuariosAtuais.push(novoUsuario);
+        }
+        
+        // Enviar array completo
+        const resp = await fetch(window.location.origin + '/api/usuarios-admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) },
+            body: JSON.stringify(usuariosAtuais)
         });
         
         if (!resp.ok) {
@@ -548,8 +618,27 @@ window.excluirUsuario = async function(id) {
     if (!confirm('Tem certeza que deseja excluir este usuário?')) return;
     
     try {
-        const resp = await fetch(window.location.origin + '/api/usuarios?id=' + id, {
-            method: 'DELETE'
+        // Buscar lista atual
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
+
+        const respGet = await fetch(window.location.origin + '/api/usuarios-admin', {
+            headers: token ? { 'Authorization': 'Bearer ' + token } : {}
+        });
+        let usuariosAtuais = [];
+        if (respGet.ok) {
+            usuariosAtuais = await respGet.json() || [];
+        }
+        
+        // Remover usuário da lista
+        usuariosAtuais = usuariosAtuais.filter(u => (u.id || u._id) !== id);
+        
+        // Enviar lista atualizada
+        const resp = await fetch(window.location.origin + '/api/usuarios-admin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(token ? { 'Authorization': 'Bearer ' + token } : {}) },
+            body: JSON.stringify(usuariosAtuais)
         });
         
         if (!resp.ok) throw new Error('Erro ao excluir');
@@ -2807,7 +2896,8 @@ function renderizarUsuarios() {
     }).join('');
 }
 
-function abrirModalUsuario() {
+// Funções legadas (prompt) foram desativadas para não sobrescrever a UI nova de usuários.
+function _abrirModalUsuarioLegacy() {
     const id = prompt('ID do usuário (deixe vazio para novo):');
     if (id === null) return;
     
@@ -2857,7 +2947,7 @@ function abrirModalUsuario() {
     }
 }
 
-function editarUsuarioGestor(id) {
+function _editarUsuarioGestorLegacy(id) {
     const usuario = (db.data.usuarios || []).find(function(u) { return u.id === id; });
     if (!usuario) return;
     
@@ -2892,8 +2982,9 @@ function editarUsuarioGestor(id) {
 // Tornar funções globais
 window.abrirModalCategoria = abrirModalCategoria;
 window.excluirCategoria = excluirCategoria;
-window.abrirModalUsuario = abrirModalUsuario;
-window.editarUsuarioGestor = editarUsuarioGestor;
+// NÃO expor funções legadas de usuário no window (evita sobrescrever a UI nova)
+// window.abrirModalUsuario = _abrirModalUsuarioLegacy;
+// window.editarUsuarioGestor = _editarUsuarioGestorLegacy;
 // Destaques (gestor)
 function abrirModalDestaque(destaque = null) {
     console.log('[GESTOR] abrirModalDestaque init', destaque);

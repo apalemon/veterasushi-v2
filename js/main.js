@@ -102,6 +102,16 @@ function aplicarBrandingLoja() {
             const sidebarNome = document.getElementById('sidebar-nome-loja');
             if (sidebarNome) sidebarNome.textContent = nome;
             
+            // Atualizar link do gestor com slug
+            const slug = cfg.slug || 'vetera';
+            const linkGestor = document.getElementById('link-gestor');
+            if (linkGestor) linkGestor.href = '/' + slug + '/gestor';
+
+            const linkCardapio = document.getElementById('link-cardapio');
+            if (linkCardapio) linkCardapio.href = '/' + slug + '/cardapio';
+            const menuLinkCardapio = document.getElementById('menu-link-cardapio');
+            if (menuLinkCardapio) menuLinkCardapio.href = '/' + slug + '/cardapio';
+            
             // Fallback para seletores antigos
             const logoImg = document.querySelector('a.logo img');
             if (logoImg && logoUrl && !logoImg.id) {
@@ -519,8 +529,8 @@ function atualizarStatusLojaIndicador() {
             if (mensagemFechada) mensagemFechada.style.display = 'none';
             
             indicador.innerHTML = `
-                <div style="width: 10px; height: 10px; background: var(--sucesso); border-radius: 50%; animation: pulse 2s infinite;"></div>
-                <span style="color: var(--sucesso); font-weight: 600; font-size: 14px;">Loja Aberta</span>
+                <div style="width: 10px; height: 10px; background: var(--status-aberta); border-radius: 50%; animation: pulse 2s infinite;"></div>
+                <span style="color: var(--status-aberta); font-weight: 600; font-size: 14px;">Loja Aberta</span>
                 <span style="color: var(--texto-medio); font-size: 12px;">• Fecha às ${status.proximoFechamento || '23:30'}</span>
             `;
             indicador.style.background = 'rgba(34, 197, 94, 0.1)';
@@ -535,19 +545,19 @@ function atualizarStatusLojaIndicador() {
             }
             
             indicador.innerHTML = `
-                <div style="width: 10px; height: 10px; background: var(--vermelho-claro); border-radius: 50%;"></div>
-                <span style="color: var(--vermelho-claro); font-weight: 600; font-size: 14px;">Loja Fechada</span>
+                <div style="width: 10px; height: 10px; background: var(--status-fechada); border-radius: 50%;"></div>
+                <span style="color: var(--status-fechada); font-weight: 600; font-size: 14px;">Loja Fechada</span>
             `;
-            indicador.style.background = 'rgba(220, 38, 38, 0.1)';
-            indicador.style.borderColor = 'rgba(220, 38, 38, 0.3)';
+            indicador.style.background = 'rgba(239, 68, 68, 0.1)';
+            indicador.style.borderColor = 'rgba(239, 68, 68, 0.3)';
         }
     } else {
         // Esconder mensagem se não conseguir verificar
         if (mensagemFechada) mensagemFechada.style.display = 'none';
         
         indicador.innerHTML = `
-            <div style="width: 10px; height: 10px; background: var(--sucesso); border-radius: 50%;"></div>
-            <span style="color: var(--sucesso); font-weight: 600; font-size: 14px;">Loja Aberta</span>
+            <div style="width: 10px; height: 10px; background: var(--status-aberta); border-radius: 50%;"></div>
+            <span style="color: var(--status-aberta); font-weight: 600; font-size: 14px;">Loja Aberta</span>
         `;
     }
 }

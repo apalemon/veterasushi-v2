@@ -37,5 +37,11 @@
       "destination": "/index.html"
     }
   ],
-  "redirects": []
+  "redirects": [
+    {
+      "source": "/",
+      "destination": "/vetera/cardapio",
+      "permanent": false
+    }
+  ]
 }

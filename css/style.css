@@ -27,6 +27,8 @@
   --sucesso: #22c55e;
   --aviso: #f59e0b;
   --erro: #ef4444;
+  --status-aberta: #22c55e;
+  --status-fechada: #ef4444;
   --sombra: rgba(0, 0, 0, 0.8);
   --sombra-vermelha: rgba(220, 38, 38, 0.3);
   --sombra-card: 0 4px 20px rgba(0, 0, 0, 0.4);

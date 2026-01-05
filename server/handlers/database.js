@@ -16,15 +16,26 @@ module.exports = async (req, res) => {
         const categoriasCollection = await getCollection('categorias');
 
         const produtos = await produtosCollection.find({}).toArray();
+        // Otimizar produtos: remover campos desnecessários e compactar imagens
         const produtosLimpos = (produtos || []).map(p => {
             if (!p || typeof p !== 'object') return p;
-            const img = p.imagem;
+            const prod = { ...p };
+            delete prod._id; // Remover _id do MongoDB
+            
+            // Compactar imagem base64 para URL
+            const img = prod.imagem;
             if (typeof img === 'string' && img.startsWith('data:image')) {
-                // Não enviar base64 no /api/database (evita payload gigante / NetworkError)
-                // Em vez disso, retorna uma URL que entrega a imagem separadamente.
-                return { ...p, imagem: `/api/produto-imagem?id=${encodeURIComponent(String(p.id || ''))}` };
+                prod.imagem = `/api/produto-imagem?id=${encodeURIComponent(String(p.id || ''))}`;
             }
-            return p;
+            
+            // Remover campos vazios para economizar bytes
+            if (!prod.descricao) delete prod.descricao;
+            if (!prod.opcoes || prod.opcoes.length === 0) delete prod.opcoes;
+            if (!prod.adicionais || prod.adicionais.length === 0) delete prod.adicionais;
+            if (prod.ativo === true) delete prod.ativo; // true é default
+            if (prod.destaque === false) delete prod.destaque; // false é default
+            
+            return prod;
         });
         const cupons = await cuponsCollection.find({ ativo: { $ne: false } }).toArray();
 
