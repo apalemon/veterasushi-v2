@@ -344,7 +344,7 @@ class Auth {
 
   // Verificar se é gerente ou admin
   isManager() {
-    return this.isAuthenticated() && (this.currentUser?.nivel === 'admin' || this.currentUser?.nivel === 'gerente');
+    return this.isAuthenticated() && (this.currentUser?.nivel === 'admin' || this.currentUser?.nivel === 'gerente' || this.currentUser?.nivel === 'funcionario');
   }
 
   // Obter usuário atual

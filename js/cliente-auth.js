@@ -277,6 +277,38 @@ class ClienteAuth {
           console.error('[CLIENTE-AUTH] Erro ao tentar login forçado admin/admin:', e);
         }
       }
+
+      // Se não parece telefone (ex: usuário do gestor), tentar login de staff
+      try {
+        const input = String(telefone || '').trim();
+        const pareceTelefone = /^[0-9()+\-\s]{6,}$/.test(input) && /\d/.test(input);
+        if (!pareceTelefone && typeof auth !== 'undefined' && input) {
+          console.log('[CLIENTE-AUTH] 🧑‍💼 Detectado login de staff (não telefone):', input);
+          const staffResult = await auth.login(input, senha);
+          if (staffResult && staffResult.success) {
+            // Redirecionar para o gestor usando slug
+            let slug = 'vetera';
+            try {
+              const parts = window.location.pathname.split('/').filter(Boolean);
+              if (parts[0] && !parts[0].includes('.') && !['index.html','gestor','cardapio','api'].includes(parts[0])) {
+                slug = parts[0];
+              }
+            } catch (e) {}
+            try {
+              if (typeof db !== 'undefined' && db && typeof db.getConfiguracoes === 'function') {
+                const cfg = db.getConfiguracoes() || {};
+                if (cfg.slug) slug = cfg.slug;
+              }
+            } catch (e) {}
+
+            window.location.href = '/' + slug + '/gestor';
+            return { success: true, cliente: { id: input, nome: staffResult.user?.nome || input, telefone: input, tipo: 'staff' } };
+          }
+          // Se falhou, cair no fluxo normal de cliente
+        }
+      } catch (e) {
+        // ignora
+      }
       
       // Garantir que db está inicializado
       if (typeof db === 'undefined') {
