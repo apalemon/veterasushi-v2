@@ -440,6 +440,9 @@
             if (typeof window.clienteAuth !== 'undefined') {
                 window.clienteAuth.logout();
             }
+            if (typeof window.auth !== 'undefined' && typeof window.auth.logout === 'function') {
+                window.auth.logout();
+            }
             atualizarMenuCliente();
             location.reload();
         }
@@ -451,18 +454,26 @@
             const gestorItem = document.getElementById('gestor-menu-item');
             
             // Verificar se é admin/staff
-            const isAdmin = typeof window.auth !== 'undefined' && window.auth.isAuthenticated();
+            const isStaff = typeof window.auth !== 'undefined' && typeof window.auth.isAuthenticated === 'function' && window.auth.isAuthenticated();
             if (gestorItem) {
-                gestorItem.style.display = isAdmin ? 'block' : 'none';
+                gestorItem.style.display = isStaff ? 'block' : 'none';
             }
-            
-            if (typeof window.clienteAuth !== 'undefined' && window.clienteAuth.isAuthenticated()) {
-                const cliente = window.clienteAuth.getCurrentCliente();
-                if (cliente) {
-                    if (loginItem) loginItem.style.display = 'none';
-                    if (clienteLogado) clienteLogado.style.display = 'flex';
-                    if (nomeHeader) nomeHeader.textContent = cliente.nome;
+
+            const isCliente = typeof window.clienteAuth !== 'undefined' && typeof window.clienteAuth.isAuthenticated === 'function' && window.clienteAuth.isAuthenticated();
+            if (isCliente || isStaff) {
+                if (loginItem) loginItem.style.display = 'none';
+                if (clienteLogado) clienteLogado.style.display = 'flex';
+
+                let nome = '';
+                if (isCliente) {
+                    const cliente = window.clienteAuth.getCurrentCliente();
+                    nome = cliente && cliente.nome ? cliente.nome : '';
                 }
+                if (!nome && isStaff && typeof window.auth.getCurrentUser === 'function') {
+                    const u = window.auth.getCurrentUser();
+                    nome = (u && (u.nome || u.usuario)) ? (u.nome || u.usuario) : '';
+                }
+                if (nomeHeader) nomeHeader.textContent = nome || 'Usuário';
             } else {
                 if (loginItem) loginItem.style.display = 'block';
                 if (clienteLogado) clienteLogado.style.display = 'none';

@@ -1250,19 +1250,27 @@
     <script>
         (function() {
             try {
+                var parts = (window.location && window.location.pathname ? window.location.pathname.split('/') : []).filter(Boolean);
+                var slug = (parts && parts.length > 0) ? parts[0] : 'vetera';
                 var session = localStorage.getItem('vetera_session');
                 if (!session) {
-                    window.location.href = 'index.html';
+                    window.location.href = '/' + slug + '/cardapio';
                     return;
                 }
                 var data = JSON.parse(session);
-                if (!data || !data.user || (data.user.nivel !== 'admin' && data.user.nivel !== 'gerente')) {
-                    window.location.href = 'index.html';
+                if (!data || !data.user || (data.user.nivel !== 'admin' && data.user.nivel !== 'gerente' && data.user.nivel !== 'funcionario')) {
+                    window.location.href = '/' + slug + '/cardapio';
                     return;
                 }
                 // Sessão válida, continuar carregamento
             } catch (e) {
-                window.location.href = 'index.html';
+                try {
+                    var parts2 = (window.location && window.location.pathname ? window.location.pathname.split('/') : []).filter(Boolean);
+                    var slug2 = (parts2 && parts2.length > 0) ? parts2[0] : 'vetera';
+                    window.location.href = '/' + slug2 + '/cardapio';
+                } catch (e2) {
+                    window.location.href = '/vetera/cardapio';
+                }
             }
         })();
     </script>
@@ -1746,7 +1754,13 @@
 
         function fazerLogout() {
             auth.logout();
-            window.location.href = 'index.html';
+            try {
+                var parts = (window.location && window.location.pathname ? window.location.pathname.split('/') : []).filter(Boolean);
+                var slug = (parts && parts.length > 0) ? parts[0] : 'vetera';
+                window.location.href = '/' + slug + '/cardapio';
+            } catch (e) {
+                window.location.href = '/vetera/cardapio';
+            }
         }
     </script>
 </body>

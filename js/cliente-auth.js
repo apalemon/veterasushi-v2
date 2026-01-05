@@ -301,8 +301,18 @@ class ClienteAuth {
               }
             } catch (e) {}
 
-            window.location.href = '/' + slug + '/gestor';
-            return { success: true, cliente: { id: input, nome: staffResult.user?.nome || input, telefone: input, tipo: 'staff' } };
+            const staffCliente = { id: input, nome: staffResult.user?.nome || input, telefone: input, tipo: 'staff' };
+            try {
+              this.saveSession(staffCliente);
+            } catch (e) {}
+            try {
+              if (typeof window.atualizarMenuCliente === 'function') {
+                window.atualizarMenuCliente();
+              }
+            } catch (e) {}
+
+            window.location.href = '/' + slug + '/cardapio';
+            return { success: true, cliente: staffCliente };
           }
           // Se falhou, cair no fluxo normal de cliente
         }
