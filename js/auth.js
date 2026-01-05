@@ -87,6 +87,25 @@ class Auth {
           const isApi = typeof url === 'string' && (url.startsWith('/api/') || url.includes('/api/'));
           if (!isApi) return originalFetch(input, init);
 
+          // Não enviar Authorization em endpoints públicos (evita preflight/bloqueios)
+          const urlLower = String(url).toLowerCase();
+          const method = String((init && init.method) ? init.method : (input && input.method ? input.method : 'GET')).toUpperCase();
+          if (urlLower.includes('/api/database')) {
+            return originalFetch(input, init);
+          }
+          if (method === 'GET') {
+            if (
+              urlLower.includes('/api/configuracoes') ||
+              urlLower.includes('/api/horarios') ||
+              urlLower.includes('/api/cupons') ||
+              urlLower.includes('/api/destaques') ||
+              urlLower.includes('/api/categorias') ||
+              urlLower.includes('/api/condicionais')
+            ) {
+              return originalFetch(input, init);
+            }
+          }
+
           const nextInit = init ? { ...init } : {};
           const headers = new Headers(nextInit.headers || (input && input.headers) || {});
           if (!headers.has('Authorization')) {
