@@ -16,27 +16,92 @@ window.carregarMinhaLojaConfig = async function() {
         const cfg = await resp.json();
         if (!cfg || typeof cfg !== 'object') return;
 
+        // Informações do estabelecimento
         const nomeEl = document.getElementById('minha-loja-nome');
+        const telefoneEl = document.getElementById('minha-loja-telefone');
+        const pixEl = document.getElementById('minha-loja-pix');
+        const enderecoEl = document.getElementById('minha-loja-endereco');
+        const taxaEl = document.getElementById('minha-loja-taxa');
+        const tempoEl = document.getElementById('minha-loja-tempo');
         const logoEl = document.getElementById('minha-loja-logo');
-        const accEl = document.getElementById('minha-loja-accent');
-        const accHEl = document.getElementById('minha-loja-accent-hover');
-        const bgEl = document.getElementById('minha-loja-bg');
-        const bg2El = document.getElementById('minha-loja-bg-secondary');
-        const tpEl = document.getElementById('minha-loja-text-primary');
-        const tsEl = document.getElementById('minha-loja-text-secondary');
 
         if (nomeEl) nomeEl.value = cfg.nomeEstabelecimento || '';
+        if (telefoneEl) telefoneEl.value = cfg.telefone || '';
+        if (pixEl) pixEl.value = cfg.chavePix || '';
+        if (enderecoEl) enderecoEl.value = cfg.endereco || '';
+        if (taxaEl) taxaEl.value = cfg.taxaEntrega || '';
+        if (tempoEl) tempoEl.value = cfg.tempoPreparo || '';
         if (logoEl) logoEl.value = cfg.logoUrl || '';
-        if (accEl) accEl.value = cfg.tema?.accent || '';
-        if (accHEl) accHEl.value = cfg.tema?.accentHover || '';
-        if (bgEl) bgEl.value = cfg.tema?.bg || '';
-        if (bg2El) bg2El.value = cfg.tema?.bgSecondary || '';
-        if (tpEl) tpEl.value = cfg.tema?.textPrimary || '';
-        if (tsEl) tsEl.value = cfg.tema?.textSecondary || '';
+
+        // Cores do tema
+        const cores = [
+            { id: 'minha-loja-accent', valor: cfg.tema?.accent || '#dc2626' },
+            { id: 'minha-loja-accent-hover', valor: cfg.tema?.accentHover || '#b91c1c' },
+            { id: 'minha-loja-bg', valor: cfg.tema?.bg || '#0a0a0a' },
+            { id: 'minha-loja-bg-secondary', valor: cfg.tema?.bgSecondary || '#111111' },
+            { id: 'minha-loja-text-primary', valor: cfg.tema?.textPrimary || '#ffffff' },
+            { id: 'minha-loja-text-secondary', valor: cfg.tema?.textSecondary || '#a3a3a3' }
+        ];
+
+        cores.forEach(c => {
+            const inputText = document.getElementById(c.id);
+            const inputColor = document.getElementById(c.id + '-picker');
+            if (inputText) inputText.value = c.valor;
+            if (inputColor) inputColor.value = c.valor;
+        });
+
+        // Configurar sincronização entre color picker e input texto
+        _configurarColorPickers();
     } catch (e) {
         // ignora
     }
 };
+
+function _configurarColorPickers() {
+    const pares = [
+        'minha-loja-accent',
+        'minha-loja-accent-hover',
+        'minha-loja-bg',
+        'minha-loja-bg-secondary',
+        'minha-loja-text-primary',
+        'minha-loja-text-secondary'
+    ];
+
+    pares.forEach(id => {
+        const inputText = document.getElementById(id);
+        const inputColor = document.getElementById(id + '-picker');
+        if (!inputText || !inputColor) return;
+
+        // Sincronizar: color picker -> texto
+        inputColor.addEventListener('input', () => {
+            inputText.value = inputColor.value;
+        });
+
+        // Sincronizar: texto -> color picker
+        inputText.addEventListener('input', () => {
+            const val = inputText.value.trim();
+            if (/^#[0-9A-Fa-f]{6}$/.test(val)) {
+                inputColor.value = val;
+            }
+        });
+    });
+
+    // Configurar botões de preset
+    document.querySelectorAll('.color-preset').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const cor = btn.dataset.color;
+            if (!cor) return;
+
+            // Descobrir qual input é o alvo
+            const parent = btn.closest('.form-group');
+            if (!parent) return;
+            const inputText = parent.querySelector('input.form-input');
+            const inputColor = parent.querySelector('input[type="color"]');
+            if (inputText) inputText.value = cor;
+            if (inputColor) inputColor.value = cor;
+        });
+    });
+}
 
 function _aplicarTemaLocalPreview(tema) {
     try {
@@ -56,17 +121,25 @@ function _aplicarTemaLocalPreview(tema) {
 
 window.salvarMinhaLojaConfig = async function(event) {
     try {
-        event.preventDefault();
+        if (event) event.preventDefault();
 
+        // Informações do estabelecimento
         const nome = document.getElementById('minha-loja-nome')?.value?.trim() || '';
+        const telefone = document.getElementById('minha-loja-telefone')?.value?.trim() || '';
+        const chavePix = document.getElementById('minha-loja-pix')?.value?.trim() || '';
+        const endereco = document.getElementById('minha-loja-endereco')?.value?.trim() || '';
+        const taxaEntrega = parseFloat(document.getElementById('minha-loja-taxa')?.value) || 0;
+        const tempoPreparo = parseInt(document.getElementById('minha-loja-tempo')?.value) || 30;
         const logoUrl = document.getElementById('minha-loja-logo')?.value?.trim() || '';
+
+        // Cores do tema
         const tema = {
-            accent: document.getElementById('minha-loja-accent')?.value?.trim() || '',
-            accentHover: document.getElementById('minha-loja-accent-hover')?.value?.trim() || '',
-            bg: document.getElementById('minha-loja-bg')?.value?.trim() || '',
-            bgSecondary: document.getElementById('minha-loja-bg-secondary')?.value?.trim() || '',
-            textPrimary: document.getElementById('minha-loja-text-primary')?.value?.trim() || '',
-            textSecondary: document.getElementById('minha-loja-text-secondary')?.value?.trim() || ''
+            accent: document.getElementById('minha-loja-accent')?.value?.trim() || '#dc2626',
+            accentHover: document.getElementById('minha-loja-accent-hover')?.value?.trim() || '#b91c1c',
+            bg: document.getElementById('minha-loja-bg')?.value?.trim() || '#0a0a0a',
+            bgSecondary: document.getElementById('minha-loja-bg-secondary')?.value?.trim() || '#111111',
+            textPrimary: document.getElementById('minha-loja-text-primary')?.value?.trim() || '#ffffff',
+            textSecondary: document.getElementById('minha-loja-text-secondary')?.value?.trim() || '#a3a3a3'
         };
 
         _aplicarTemaLocalPreview(tema);
@@ -74,6 +147,11 @@ window.salvarMinhaLojaConfig = async function(event) {
         const payload = {
             ...(db && typeof db.getConfiguracoes === 'function' ? (db.getConfiguracoes() || {}) : {}),
             nomeEstabelecimento: nome,
+            telefone: telefone,
+            chavePix: chavePix,
+            endereco: endereco,
+            taxaEntrega: taxaEntrega,
+            tempoPreparo: tempoPreparo,
             logoUrl: logoUrl,
             tema: tema
         };
@@ -97,9 +175,9 @@ window.salvarMinhaLojaConfig = async function(event) {
             }
         } catch (e) {}
 
-        alert('✅ Branding salvo com sucesso!');
+        alert('✅ Configurações salvas com sucesso!');
     } catch (e) {
-        alert('Erro ao salvar branding: ' + (e && e.message ? e.message : e));
+        alert('Erro ao salvar configurações: ' + (e && e.message ? e.message : e));
     }
 };
 
@@ -3776,74 +3854,12 @@ async function fazerBackup() {
 
 window.fazerBackup = fazerBackup;
 
-// Carregar configurações
+// Carregar configurações (agora usa a aba Minha Loja unificada)
 function carregarConfiguracoes() {
-    const config = db.getConfiguracoes();
-    const nomeEl = document.getElementById('config-nome');
-    const pixEl = document.getElementById('config-pix');
-    const telefoneEl = document.getElementById('config-telefone');
-    const enderecoEl = document.getElementById('config-endereco');
-    const taxaEl = document.getElementById('config-taxa');
-    const tempoEl = document.getElementById('config-tempo');
-    
-    if (nomeEl) nomeEl.value = config.nomeEstabelecimento || '';
-    if (pixEl) pixEl.value = config.chavePix || '';
-    if (telefoneEl) telefoneEl.value = config.telefone || '';
-    if (enderecoEl) enderecoEl.value = config.endereco || '';
-    if (taxaEl) taxaEl.value = config.taxaEntrega || 0;
-    if (tempoEl) tempoEl.value = config.tempoPreparo || 30;
-
-    // Mostrar URLs públicas se já houver slug
-    const urlsList = document.getElementById('config-urls-list');
-    const urlsWrap = document.getElementById('config-urls');
-    if (urlsList && urlsWrap) {
-        const slug = config.slug || '';
-        // Sempre mostrar links fixos, nunca com slug
-        urlsList.innerHTML = `<div style="display:flex; flex-direction:column; gap:6px;"><div><strong>Cardápio:</strong> <a href="cardapio.html" target="_blank">cardapio.html</a></div><div><strong>Gestor:</strong> <a href="gestor.html" target="_blank">gestor.html</a></div></div>`;
-        urlsWrap.style.display = 'block';
+    // Redirecionar para a função unificada de Minha Loja
+    if (typeof window.carregarMinhaLojaConfig === 'function') {
+        window.carregarMinhaLojaConfig();
     }
-}
-
-// Salvar configurações
-const formConfig = document.getElementById('form-config');
-if (formConfig) {
-    formConfig.addEventListener('submit', function(e) {
-        e.preventDefault();
-        const nomeLoja = document.getElementById('config-nome').value.trim();
-        const slug = (typeof window.slugify === 'function' ? window.slugify(nomeLoja) : nomeLoja.toLowerCase().replace(/[^a-z0-9]+/g,'-')) || '';
-        db.atualizarConfiguracoes({
-            nomeEstabelecimento: nomeLoja,
-            slug: slug,
-            chavePix: document.getElementById('config-pix').value,
-            telefone: document.getElementById('config-telefone').value,
-            endereco: document.getElementById('config-endereco').value,
-            taxaEntrega: parseFloat(document.getElementById('config-taxa').value) || 0,
-            tempoPreparo: parseInt(document.getElementById('config-tempo').value) || 30
-        });
-        // Persistir no servidor
-        (async () => {
-            try {
-                await fetch(window.location.origin + '/api/configuracoes', {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(db.getConfiguracoes() || {})
-                });
-                try { await db.fetchInitialData(); } catch (e) {}
-            } catch (e) {
-                // Servidor pode estar indisponível; mantém local
-            }
-        })();
-        alert('Configurações salvas!');
-        atualizarStatusBanco();
-
-        // Atualizar UI e mostrar URLs
-        carregarConfiguracoes();
-        const urlsList = document.getElementById('config-urls-list');
-        if (urlsList) {
-            urlsList.innerHTML = `<div style="display:flex; flex-direction:column; gap:6px;"><div><strong>Cardápio:</strong> <a href="cardapio.html" target="_blank">cardapio.html</a></div><div><strong>Gestor:</strong> <a href="gestor.html" target="_blank">gestor.html</a></div></div>`;
-            document.getElementById('config-urls').style.display = 'block';
-        }
-    });
 }
 
 // === PAGAMENTOS (gestor) ===

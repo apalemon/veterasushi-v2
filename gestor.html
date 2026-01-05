@@ -74,9 +74,6 @@
                 <a href="#" class="nav-item" onclick="mostrarSecao('horarios'); return false;">
                     <span>Horários</span>
                 </a>
-                <a href="#" class="nav-item" onclick="mostrarSecao('configuracoes'); return false;">
-                    <span>Configs.</span>
-                </a>
                 <a href="#" class="nav-item" onclick="mostrarSecao('pagamentos'); return false;">
                     <span>Pagamentos</span>
                 </a>
@@ -208,68 +205,206 @@
                 </div>
             </section>
 
-            <!-- SEÇÃO MINHA LOJA -->
+            <!-- SEÇÃO MINHA LOJA (unificada com Configurações) -->
             <section id="sec-minha-loja" class="gestor-section">
                 <div class="section-header">
                     <h1>Minha Loja</h1>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr; gap: 20px; max-width: 820px;">
+                    
+                    <!-- INFORMAÇÕES DO ESTABELECIMENTO -->
                     <div style="background: var(--bg-secondary); border: 1px solid var(--borda); border-radius: 12px; padding: 18px;">
-                        <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 10px;">Branding</div>
-                        <form onsubmit="salvarMinhaLojaConfig(event)">
+                        <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-store" style="color: var(--vermelho-claro);"></i> Informações
+                        </div>
+                        <form id="form-minha-loja-info">
                             <div class="form-group">
-                                <label class="form-label">Nome da loja</label>
-                                <input class="form-input" id="minha-loja-nome" placeholder="Ex: Vetera Sushi">
+                                <label class="form-label">Nome do Estabelecimento</label>
+                                <input type="text" class="form-input" id="minha-loja-nome" placeholder="Ex: Vetera Sushi">
                             </div>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div class="form-group">
+                                    <label class="form-label">Telefone</label>
+                                    <input type="text" class="form-input" id="minha-loja-telefone" placeholder="(11) 99999-9999">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Chave PIX</label>
+                                    <input type="text" class="form-input" id="minha-loja-pix" placeholder="email@exemplo.com">
+                                </div>
+                            </div>
+                            <div class="form-group">
+                                <label class="form-label">Endereço</label>
+                                <input type="text" class="form-input" id="minha-loja-endereco" placeholder="Rua, número - Bairro">
+                            </div>
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                <div class="form-group">
+                                    <label class="form-label">Taxa de Entrega (R$)</label>
+                                    <input type="number" step="0.01" class="form-input" id="minha-loja-taxa" placeholder="0.00">
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Tempo de Preparo (min)</label>
+                                    <input type="number" class="form-input" id="minha-loja-tempo" placeholder="30">
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- DIVISÓRIA -->
+                    <div style="border-top: 1px solid var(--borda); margin: 4px 0;"></div>
+
+                    <!-- BRANDING / APARÊNCIA -->
+                    <div style="background: var(--bg-secondary); border: 1px solid var(--borda); border-radius: 12px; padding: 18px;">
+                        <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 14px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-palette" style="color: var(--vermelho-claro);"></i> Aparência
+                        </div>
+                        <form id="form-minha-loja-aparencia">
                             <div class="form-group">
                                 <label class="form-label">Logo URL</label>
                                 <input class="form-input" id="minha-loja-logo" placeholder="/logo.png ou https://...">
                             </div>
-                            <div class="form-group">
-                                <label class="form-label">Cor principal</label>
-                                <input class="form-input" id="minha-loja-accent" placeholder="#dc2626">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Cor principal (hover)</label>
-                                <input class="form-input" id="minha-loja-accent-hover" placeholder="#b91c1c">
-                            </div>
+
+                            <!-- CORES COM COLOR PICKER -->
+                            <div style="margin-top: 16px; margin-bottom: 8px; font-size: 13px; color: var(--texto-medio);">Cores do tema</div>
+                            
                             <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
                                 <div class="form-group">
+                                    <label class="form-label">Cor principal</label>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <input type="color" id="minha-loja-accent-picker" style="width: 44px; height: 36px; border: none; border-radius: 6px; cursor: pointer; padding: 0;">
+                                        <input class="form-input" id="minha-loja-accent" placeholder="#dc2626" style="flex: 1;">
+                                    </div>
+                                    <div style="display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap;" id="preset-accent">
+                                        <button type="button" class="color-preset" data-color="#dc2626" style="background:#dc2626;" title="#dc2626"></button>
+                                        <button type="button" class="color-preset" data-color="#ea580c" style="background:#ea580c;" title="#ea580c"></button>
+                                        <button type="button" class="color-preset" data-color="#ca8a04" style="background:#ca8a04;" title="#ca8a04"></button>
+                                        <button type="button" class="color-preset" data-color="#16a34a" style="background:#16a34a;" title="#16a34a"></button>
+                                        <button type="button" class="color-preset" data-color="#2563eb" style="background:#2563eb;" title="#2563eb"></button>
+                                        <button type="button" class="color-preset" data-color="#7c3aed" style="background:#7c3aed;" title="#7c3aed"></button>
+                                        <button type="button" class="color-preset" data-color="#db2777" style="background:#db2777;" title="#db2777"></button>
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label class="form-label">Cor principal (hover)</label>
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <input type="color" id="minha-loja-accent-hover-picker" style="width: 44px; height: 36px; border: none; border-radius: 6px; cursor: pointer; padding: 0;">
+                                        <input class="form-input" id="minha-loja-accent-hover" placeholder="#b91c1c" style="flex: 1;">
+                                    </div>
+                                    <div style="display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap;" id="preset-accent-hover">
+                                        <button type="button" class="color-preset" data-color="#b91c1c" style="background:#b91c1c;" title="#b91c1c"></button>
+                                        <button type="button" class="color-preset" data-color="#c2410c" style="background:#c2410c;" title="#c2410c"></button>
+                                        <button type="button" class="color-preset" data-color="#a16207" style="background:#a16207;" title="#a16207"></button>
+                                        <button type="button" class="color-preset" data-color="#15803d" style="background:#15803d;" title="#15803d"></button>
+                                        <button type="button" class="color-preset" data-color="#1d4ed8" style="background:#1d4ed8;" title="#1d4ed8"></button>
+                                        <button type="button" class="color-preset" data-color="#6d28d9" style="background:#6d28d9;" title="#6d28d9"></button>
+                                        <button type="button" class="color-preset" data-color="#be185d" style="background:#be185d;" title="#be185d"></button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+                                <div class="form-group">
                                     <label class="form-label">Fundo</label>
-                                    <input class="form-input" id="minha-loja-bg" placeholder="#0a0a0a">
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <input type="color" id="minha-loja-bg-picker" style="width: 44px; height: 36px; border: none; border-radius: 6px; cursor: pointer; padding: 0;">
+                                        <input class="form-input" id="minha-loja-bg" placeholder="#0a0a0a" style="flex: 1;">
+                                    </div>
+                                    <div style="display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap;">
+                                        <button type="button" class="color-preset" data-color="#0a0a0a" data-target="minha-loja-bg" style="background:#0a0a0a; border: 1px solid #333;" title="#0a0a0a"></button>
+                                        <button type="button" class="color-preset" data-color="#111111" data-target="minha-loja-bg" style="background:#111111; border: 1px solid #333;" title="#111111"></button>
+                                        <button type="button" class="color-preset" data-color="#1a1a1a" data-target="minha-loja-bg" style="background:#1a1a1a; border: 1px solid #333;" title="#1a1a1a"></button>
+                                        <button type="button" class="color-preset" data-color="#ffffff" data-target="minha-loja-bg" style="background:#ffffff;" title="#ffffff"></button>
+                                        <button type="button" class="color-preset" data-color="#f5f5f5" data-target="minha-loja-bg" style="background:#f5f5f5;" title="#f5f5f5"></button>
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Fundo secundário</label>
-                                    <input class="form-input" id="minha-loja-bg-secondary" placeholder="#111111">
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <input type="color" id="minha-loja-bg-secondary-picker" style="width: 44px; height: 36px; border: none; border-radius: 6px; cursor: pointer; padding: 0;">
+                                        <input class="form-input" id="minha-loja-bg-secondary" placeholder="#111111" style="flex: 1;">
+                                    </div>
+                                    <div style="display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap;">
+                                        <button type="button" class="color-preset" data-color="#111111" data-target="minha-loja-bg-secondary" style="background:#111111; border: 1px solid #333;" title="#111111"></button>
+                                        <button type="button" class="color-preset" data-color="#1a1a1a" data-target="minha-loja-bg-secondary" style="background:#1a1a1a; border: 1px solid #333;" title="#1a1a1a"></button>
+                                        <button type="button" class="color-preset" data-color="#222222" data-target="minha-loja-bg-secondary" style="background:#222222; border: 1px solid #333;" title="#222222"></button>
+                                        <button type="button" class="color-preset" data-color="#f0f0f0" data-target="minha-loja-bg-secondary" style="background:#f0f0f0;" title="#f0f0f0"></button>
+                                        <button type="button" class="color-preset" data-color="#e5e5e5" data-target="minha-loja-bg-secondary" style="background:#e5e5e5;" title="#e5e5e5"></button>
+                                    </div>
                                 </div>
                             </div>
-                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+
+                            <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
                                 <div class="form-group">
                                     <label class="form-label">Texto primário</label>
-                                    <input class="form-input" id="minha-loja-text-primary" placeholder="#ffffff">
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <input type="color" id="minha-loja-text-primary-picker" style="width: 44px; height: 36px; border: none; border-radius: 6px; cursor: pointer; padding: 0;">
+                                        <input class="form-input" id="minha-loja-text-primary" placeholder="#ffffff" style="flex: 1;">
+                                    </div>
+                                    <div style="display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap;">
+                                        <button type="button" class="color-preset" data-color="#ffffff" data-target="minha-loja-text-primary" style="background:#ffffff;" title="#ffffff"></button>
+                                        <button type="button" class="color-preset" data-color="#f5f5f5" data-target="minha-loja-text-primary" style="background:#f5f5f5;" title="#f5f5f5"></button>
+                                        <button type="button" class="color-preset" data-color="#171717" data-target="minha-loja-text-primary" style="background:#171717; border: 1px solid #333;" title="#171717"></button>
+                                        <button type="button" class="color-preset" data-color="#0a0a0a" data-target="minha-loja-text-primary" style="background:#0a0a0a; border: 1px solid #333;" title="#0a0a0a"></button>
+                                    </div>
                                 </div>
                                 <div class="form-group">
                                     <label class="form-label">Texto secundário</label>
-                                    <input class="form-input" id="minha-loja-text-secondary" placeholder="#a3a3a3">
+                                    <div style="display: flex; gap: 8px; align-items: center;">
+                                        <input type="color" id="minha-loja-text-secondary-picker" style="width: 44px; height: 36px; border: none; border-radius: 6px; cursor: pointer; padding: 0;">
+                                        <input class="form-input" id="minha-loja-text-secondary" placeholder="#a3a3a3" style="flex: 1;">
+                                    </div>
+                                    <div style="display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap;">
+                                        <button type="button" class="color-preset" data-color="#a3a3a3" data-target="minha-loja-text-secondary" style="background:#a3a3a3;" title="#a3a3a3"></button>
+                                        <button type="button" class="color-preset" data-color="#737373" data-target="minha-loja-text-secondary" style="background:#737373;" title="#737373"></button>
+                                        <button type="button" class="color-preset" data-color="#525252" data-target="minha-loja-text-secondary" style="background:#525252;" title="#525252"></button>
+                                        <button type="button" class="color-preset" data-color="#6b7280" data-target="minha-loja-text-secondary" style="background:#6b7280;" title="#6b7280"></button>
+                                    </div>
                                 </div>
                             </div>
-                            <button class="btn btn-primary" type="submit">Salvar Branding</button>
                         </form>
                     </div>
 
+                    <!-- BOTÃO SALVAR TUDO -->
+                    <button class="btn btn-primary" type="button" onclick="salvarMinhaLojaConfig(event)" style="max-width: 200px;">
+                        <i class="fas fa-save"></i> Salvar Configurações
+                    </button>
+
+                    <!-- DIVISÓRIA -->
+                    <div style="border-top: 1px solid var(--borda); margin: 4px 0;"></div>
+
+                    <!-- BACKUP -->
                     <div style="background: var(--bg-secondary); border: 1px solid var(--borda); border-radius: 12px; padding: 18px;">
-                        <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 10px;">Backup</div>
-                        <div style="color: var(--texto-medio); font-size: 14px; margin-bottom: 14px;">Baixe um arquivo com toda a sua loja (produtos, pedidos, clientes, configs). Também será criado um backup leve temporário no servidor.</div>
+                        <div style="font-weight: 700; color: var(--text-primary); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-download" style="color: var(--vermelho-claro);"></i> Backup
+                        </div>
+                        <div style="color: var(--texto-medio); font-size: 14px; margin-bottom: 14px;">Baixe um arquivo com toda a sua loja (produtos, pedidos, clientes, configs).</div>
                         <button class="btn btn-primary" type="button" onclick="baixarBackupMinhaLoja()">Baixar backup (.json)</button>
                     </div>
 
+                    <!-- RESET -->
                     <div style="background: rgba(220,38,38,0.08); border: 1px solid rgba(220,38,38,0.25); border-radius: 12px; padding: 18px;">
-                        <div style="font-weight: 800; color: var(--vermelho-claro); margin-bottom: 10px;">Resetar de fábrica</div>
+                        <div style="font-weight: 800; color: var(--vermelho-claro); margin-bottom: 10px; display: flex; align-items: center; gap: 8px;">
+                            <i class="fas fa-exclamation-triangle"></i> Resetar de fábrica
+                        </div>
                         <div style="color: var(--texto-medio); font-size: 14px; margin-bottom: 14px;">Apaga TUDO da loja (produtos, pedidos, clientes, cupons, etc). Você precisará configurar do zero.</div>
                         <button class="btn btn-secondary" type="button" onclick="abrirModalResetMinhaLoja()">Resetar de fábrica</button>
                     </div>
                 </div>
+
+                <style>
+                    .color-preset {
+                        width: 24px;
+                        height: 24px;
+                        border-radius: 4px;
+                        border: none;
+                        cursor: pointer;
+                        transition: transform 0.15s, box-shadow 0.15s;
+                    }
+                    .color-preset:hover {
+                        transform: scale(1.15);
+                        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+                    }
+                </style>
             </section>
 
             <!-- MODAL RESET MINHA LOJA -->
@@ -556,47 +691,6 @@
                 </div>
             </section>
 
-            <!-- SEÇÃO CONFIGURAÇÕES -->
-            <section id="sec-configuracoes" class="gestor-section">
-                <div class="section-header">
-                    <h1>Configurações</h1>
-                </div>
-                <div class="config-container">
-                    <form id="form-config">
-                        <div class="form-group">
-                            <label class="form-label">Nome do Estabelecimento</label>
-                            <input type="text" class="form-input" id="config-nome" required>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Chave PIX</label>
-                            <input type="text" class="form-input" id="config-pix" required>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Telefone</label>
-                            <input type="text" class="form-input" id="config-telefone">
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Endereço</label>
-                            <input type="text" class="form-input" id="config-endereco">
-                        </div>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label class="form-label">Taxa de Entrega (R$)</label>
-                                <input type="number" step="0.01" class="form-input" id="config-taxa">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Tempo de Preparo (min)</label>
-                                <input type="number" class="form-input" id="config-tempo">
-                            </div>
-                        </div>
-                        <button type="submit" class="btn btn-primary">Salvar</button>
-                    </form>
-                    <div id="config-urls" style="margin-top:12px; display:none;">
-                        <label class="form-label">URLs Públicas</label>
-                        <div id="config-urls-list" style="background: var(--bg-primary); padding:8px; border-radius:6px; border:1px solid var(--borda);"></div>
-                    </div>
-                </div>
-            </section>
 
             <!-- SEÇÃO PAGAMENTOS -->
             <section id="sec-pagamentos" class="gestor-section">
