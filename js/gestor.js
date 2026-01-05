@@ -822,12 +822,85 @@ let termoBusca = '';
 let menuItemsPDV = [];
 let orderPDV = [];
 
+// Atualizar header do gestor com nome do usuário e aplicar permissões
+window.atualizarHeaderGestor = function() {
+    try {
+        if (typeof auth !== 'undefined' && auth.isAuthenticated && auth.isAuthenticated()) {
+            const u = auth.getCurrentUser && auth.getCurrentUser();
+            if (u) {
+                const nome = u.nome || u.usuario || 'Usuário';
+                const el = document.getElementById('gestor-nome-header');
+                if (el) el.textContent = nome;
+                const item = document.getElementById('gestor-logged-in-item');
+                if (item) item.style.display = 'flex';
+            }
+        }
+    } catch (e) {}
+
+    // Aplicar permissões (esconder links e botões sem permissão)
+    try {
+        const perms = (() => {
+            if (typeof auth !== 'undefined' && auth.getCurrentUser) {
+                const u = auth.getCurrentUser();
+                return (u && u.permissoes) ? u.permissoes : {};
+            }
+            return {};
+        })();
+
+        // Sidebar links
+        const links = {
+            'nav-pedidos': perms.pedidos !== false,
+            'nav-produtos': !!perms.produtos,
+            'nav-pagamentos': !!perms.pagamentos,
+            'nav-configuracoes': !!perms.configuracoes,
+            'nav-usuarios': !!perms.usuarios
+        };
+        Object.keys(links).forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = links[id] ? '' : 'none';
+        });
+
+        // Botões de adicionar nas seções
+        const botoes = {
+            'btn-add-produto': !!perms.produtos,
+            'btn-add-cupom': !!perms.pagamentos,
+            'btn-add-categoria': !!perms.produtos,
+            'btn-add-usuario': !!perms.usuarios,
+            'btn-add-pagamento': !!perms.pagamentos,
+            'btn-add-destaque': !!perms.produtos
+        };
+        Object.keys(botoes).forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.style.display = botoes[id] ? '' : 'none';
+        });
+
+        // Seção de usuários: esconder se não tiver permissão
+        if (!perms.usuarios) {
+            const secUsuarios = document.getElementById('sec-usuarios');
+            if (secUsuarios) secUsuarios.style.display = 'none';
+            const navUsuarios = document.querySelector('a.nav-item[onclick*="usuarios"]');
+            if (navUsuarios) navUsuarios.style.display = 'none';
+        }
+
+        // Seção de configurações: esconder se não tiver permissão
+        if (!perms.configuracoes) {
+            const secConfig = document.getElementById('sec-minha-loja');
+            if (secConfig) secConfig.style.display = 'none';
+            const navConfig = document.querySelector('a.nav-item[onclick*="minha-loja"]');
+            if (navConfig) navConfig.style.display = 'none';
+        }
+    } catch (e) {}
+};
+
 // Inicializar gestor
 document.addEventListener('DOMContentLoaded', async function() {
     // Aguardar carregamento do db
     if (!db.data) {
         await db.fetchInitialData();
     }
+
+    // Atualizar header e aplicar permissões
+    window.atualizarHeaderGestor();
 
     // Garantir estrutura para produtos pausados (fallback)
     try {
@@ -1384,14 +1457,38 @@ function mostrarSecao(secao) {
     document.querySelectorAll('.gestor-section').forEach(function(sec) {
         sec.classList.remove('active');
     });
-    document.querySelectorAll('.nav-item').forEach(function(item) {
+    const target = document.getElementById('sec-' + secao);
+    if (target) {
+        target.classList.add('active');
+    }
+
+    // Atualizar item ativo no menu
+    const nomesSecoes = {
+        'nova-venda': 'Nova Venda',
+        'pedidos': 'Pedidos',
+        'ocultos': 'Pedidos Ocultos',
+        'detalhes': 'Detalhes de Vendas',
+        'produtos': 'Produtos',
+        'destaque': 'Destaque',
+        'cupons': 'Cupons',
+        'categorias': 'Categorias',
+        'pagamentos': 'Formas de Pagamento',
+        'minha-loja': 'Minha Loja',
+        'usuarios': 'Usuários',
+        'entradas': 'Entradas',
+        'condicionais': 'Regras Condicionais',
+        'horarios': 'Horários de Funcionamento'
+    };
+    document.querySelectorAll('.sidebar-nav a').forEach(function(item) {
         item.classList.remove('active');
     });
-
-    const secaoElement = document.getElementById('sec-' + secao);
-    if (secaoElement) {
-        secaoElement.classList.add('active');
+    const activeItem = document.querySelector('.sidebar-nav a[onclick*="' + secao + '"]');
+    if (activeItem) {
+        activeItem.classList.add('active');
     }
+
+    // Reaplicar permissões ao trocar seção
+    window.atualizarHeaderGestor();
 
     if (secao === 'minha-loja') {
         try { window.carregarMinhaLojaConfig(); } catch (e) {}
@@ -1402,38 +1499,6 @@ function mostrarSecao(secao) {
     if (secao === 'usuarios') {
         try { window.carregarUsuarios(); } catch (e) {}
     }
-    // Atualizar item ativo no menu
-    const nomesSecoes = {
-        'nova-venda': 'Nova Venda',
-        'pedidos': 'Pedidos',
-        'ocultos': 'Ocultos',
-        // ...
-        'detalhes': 'Detalhes',
-        'produtos': 'Produtos',
-        'cupons': 'Cupons',
-        'categorias': 'Categorias',
-        'usuarios': 'Usuários',
-        'configuracoes': 'Configurações',
-        'pagamentos': 'Pagamentos',
-        'entradas': 'Entradas',
-        'minha-loja': 'Minha Loja'
-    };
-    
-    // Se for a seção de ocultos, renderizar pedidos ocultos
-    if (secao === 'ocultos') {
-        renderizarPedidosOcultos();
-    }
-
-    if (secao === 'entradas') {
-        try { carregarEntradasDoServidor(); } catch (e) {}
-    }
-    const nomeSecao = nomesSecoes[secao] || secao;
-    
-    document.querySelectorAll('.nav-item').forEach(function(item) {
-        if (item.textContent && item.textContent.includes(nomeSecao)) {
-            item.classList.add('active');
-        }
-    });
 }
 
 // Tornar função global

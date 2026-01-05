@@ -26,6 +26,9 @@
             <nav>
                 <ul class="nav-menu">
                     <li><a id="menu-link-cardapio-gestor" href="/vetera/cardapio">Cardápio</a></li>
+                    <li id="gestor-logged-in-item" style="display: none; align-items: center; gap: 0.5rem;">
+                        <span style="color: var(--text-secondary); font-weight: 500;">Olá, <span id="gestor-nome-header"></span></span>
+                    </li>
                     <li>
                         <button class="btn-logout" onclick="fazerLogout()">Sair</button>
                     </li>
@@ -50,7 +53,7 @@
                 <a href="#" class="nav-item" onclick="mostrarSecao('nova-venda'); return false;">
                     <span>Nova venda</span>
                 </a>
-                <a href="#" class="nav-item active" onclick="mostrarSecao('pedidos'); return false;">
+                <a id="nav-pedidos" href="#" class="nav-item active" onclick="mostrarSecao('pedidos'); return false;">
                     <span>Pedidos</span>
                 </a>
                 <a href="#" class="nav-item" onclick="mostrarSecao('ocultos'); return false;">
@@ -59,7 +62,7 @@
                 <a href="#" class="nav-item" onclick="mostrarSecao('detalhes'); return false;">
                     <span>Detalhes</span>
                 </a>
-                <a href="#" class="nav-item" onclick="mostrarSecao('produtos'); return false;">
+                <a id="nav-produtos" href="#" class="nav-item" onclick="mostrarSecao('produtos'); return false;">
                     <span>Produtos</span>
                 </a>
                 <a href="#" class="nav-item" onclick="mostrarSecao('destaque'); return false;">
@@ -74,7 +77,7 @@
                 <a href="#" class="nav-item" onclick="mostrarSecao('horarios'); return false;">
                     <span>Horários</span>
                 </a>
-                <a href="#" class="nav-item" onclick="mostrarSecao('pagamentos'); return false;">
+                <a id="nav-pagamentos" href="#" class="nav-item" onclick="mostrarSecao('pagamentos'); return false;">
                     <span>Pagamentos</span>
                 </a>
                 <a href="#" class="nav-item" onclick="mostrarSecao('categorias'); return false;">
@@ -83,10 +86,10 @@
                 <a href="#" class="nav-item" onclick="mostrarSecao('entradas'); return false;">
                     <span>Entradas</span>
                 </a>
-                <a href="#" class="nav-item" onclick="mostrarSecao('minha-loja'); return false;">
+                <a id="nav-configuracoes" href="#" class="nav-item" onclick="mostrarSecao('minha-loja'); return false;">
                     <span>Minha Loja</span>
                 </a>
-                <a href="#" class="nav-item" onclick="mostrarSecao('usuarios'); return false;">
+                <a id="nav-usuarios" href="#" class="nav-item" onclick="mostrarSecao('usuarios'); return false;">
                     <span>Usuários</span>
                 </a>
             </nav>
@@ -580,7 +583,7 @@
             <section id="sec-produtos" class="gestor-section">
                 <div class="section-header">
                     <h1>Produtos</h1>
-                    <button class="btn btn-primary" onclick="window.abrirModalProduto()">+ Adicionar</button>
+                    <button id="btn-add-produto" class="btn btn-primary" onclick="window.abrirModalProduto()">+ Adicionar</button>
                 </div>
                 <div class="produtos-admin-grid" id="produtos-admin-grid">
                     <!-- Produtos serão inseridos aqui -->
@@ -591,7 +594,7 @@
             <section id="sec-destaque" class="gestor-section">
                 <div class="section-header">
                     <h1>DESTAQUE</h1>
-                    <button class="btn btn-primary" onclick="abrirModalDestaque()">+ Novo Destaque</button>
+                    <button id="btn-add-destaque" class="btn btn-primary" onclick="abrirModalDestaque()">+ Novo Destaque</button>
                 </div>
 
                 <div style="background: var(--cinza-medio); border-radius: 12px; padding: 20px;">
@@ -605,7 +608,7 @@
             <section id="sec-cupons" class="gestor-section">
                 <div class="section-header">
                     <h1>Cupons</h1>
-                    <button class="btn btn-primary" onclick="window.abrirModalCupomGestor()">+ Adicionar Cupom</button>
+                    <button id="btn-add-cupom" class="btn btn-primary" onclick="window.abrirModalCupomGestor()">+ Adicionar Cupom</button>
                 </div>
                 <div class="cupons-grid" id="cupons-grid">
                     <!-- Cupons serão inseridos aqui -->
@@ -616,7 +619,7 @@
             <section id="sec-categorias" class="gestor-section">
                 <div class="section-header">
                     <h1>Categorias</h1>
-                    <button class="btn btn-primary" onclick="abrirModalCategoria()">+ Adicionar Categoria</button>
+                    <button id="btn-add-categoria" class="btn btn-primary" onclick="abrirModalCategoria()">+ Adicionar Categoria</button>
                 </div>
                 <div class="categorias-list" id="categorias-list">
                     <!-- Categorias serão inseridas aqui -->
@@ -833,7 +836,7 @@
             <section id="sec-usuarios" class="gestor-section">
                 <div class="section-header">
                     <h1>Usuários</h1>
-                    <button class="btn btn-primary" onclick="abrirModalUsuario()">
+                    <button id="btn-add-usuario" class="btn btn-primary" onclick="abrirModalUsuario()">
                         <i class="fas fa-plus"></i> Novo Usuário
                     </button>
                 </div>
