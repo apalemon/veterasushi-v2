@@ -842,7 +842,18 @@ window.atualizarHeaderGestor = function() {
         const perms = (() => {
             if (typeof auth !== 'undefined' && auth.getCurrentUser) {
                 const u = auth.getCurrentUser();
-                return (u && u.permissoes) ? u.permissoes : {};
+                if (!u || !u.permissoes) return {};
+                // Admin tem acesso a TUDO, independente dos checkboxes
+                if (u.nivel === 'admin') {
+                    return {
+                        pedidos: true,
+                        produtos: true,
+                        pagamentos: true,
+                        configuracoes: true,
+                        usuarios: true
+                    };
+                }
+                return u.permissoes;
             }
             return {};
         })();
