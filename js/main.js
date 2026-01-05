@@ -13,6 +13,50 @@ function _entradasIsFileOrigin() {
     }
 }
 
+function aplicarBrandingLoja() {
+    try {
+        if (typeof db === 'undefined' || !db || typeof db.getConfiguracoes !== 'function') return;
+        const cfg = db.getConfiguracoes() || {};
+        const tema = cfg.tema || {};
+        const root = document.documentElement;
+
+        if (tema.bg) root.style.setProperty('--bg', tema.bg);
+        if (tema.bgSecondary) root.style.setProperty('--bg-secondary', tema.bgSecondary);
+        if (tema.accent) root.style.setProperty('--accent', tema.accent);
+        if (tema.accentHover) root.style.setProperty('--accent-hover', tema.accentHover);
+        if (tema.textPrimary) root.style.setProperty('--text-primary', tema.textPrimary);
+        if (tema.textSecondary) root.style.setProperty('--text-secondary', tema.textSecondary);
+        if (tema.accent) root.style.setProperty('--vermelho-claro', tema.accent);
+        if (tema.accentHover) root.style.setProperty('--vermelho-escuro', tema.accentHover);
+        if (tema.accentHover) root.style.setProperty('--vermelho-hover', tema.accentHover);
+
+        const nome = cfg.nomeEstabelecimento || 'Vetera Sushi';
+        try { document.title = nome + ' - Cardápio Online'; } catch (e) {}
+
+        const logoUrl = cfg.logoUrl || '/logo.png';
+        const faviconUrl = cfg.faviconUrl || logoUrl || '/logo.png';
+        try {
+            const logoImg = document.querySelector('a.logo img');
+            if (logoImg && logoUrl) {
+                logoImg.src = logoUrl;
+                logoImg.alt = nome;
+            }
+            const logoText = document.querySelector('a.logo span');
+            if (logoText) logoText.textContent = nome;
+        } catch (e) {}
+
+        // Atualizar favicon
+        try {
+            const links = document.querySelectorAll('link[rel="icon"], link[rel="shortcut icon"]');
+            links.forEach(l => {
+                try { l.href = faviconUrl; } catch (e) {}
+            });
+        } catch (e) {}
+    } catch (e) {
+        // ignora
+    }
+}
+
 function _entradasGetSessionId() {
     try {
         const k = 'vetera_entradas_session_id';
@@ -129,6 +173,22 @@ function salvarCupom() {
 
 // Inicializar página
 document.addEventListener('DOMContentLoaded', async () => {
+    // Opção B: no site público, não persistir banco/credenciais de admin no localStorage
+    try {
+        const path = String(window.location && window.location.pathname ? window.location.pathname : '').toLowerCase();
+        const isAdminUi = path.includes('gestor') || path.includes('pdv');
+        if (!isAdminUi) {
+            // Remover caches/credenciais que não devem ficar no cliente público
+            localStorage.removeItem('vetera_database');
+            localStorage.removeItem('vetera_usuarios_json');
+            localStorage.removeItem('vetera_session');
+            localStorage.removeItem('vetera_admin_token');
+            localStorage.removeItem('vetera_novo_pedido');
+        }
+    } catch (e) {
+        // ignora
+    }
+
     if (typeof db === 'undefined') {
         // Tentar novamente após um delay
         setTimeout(() => {
@@ -457,6 +517,10 @@ async function inicializarCardapio() {
             console.error('[MAIN] ❌ Erro ao buscar dados:', e);
             // Se falhar, usar dados do localStorage (já carregados)
         }
+
+        try {
+            aplicarBrandingLoja();
+        } catch (e) {}
         
         // Garantir que categorias existem (extrair de produtos se necessário)
         if (!db.data.categorias || db.data.categorias.length === 0) {
@@ -2573,15 +2637,13 @@ function aplicarMascaraCEP(input) {
 
 async function carregarPedidosClienteServidor() {
     try {
-        const resp = await fetch(window.location.origin + '/api/pedidos');
+        const ids = (typeof getPedidoIdsClienteLocal === 'function') ? (getPedidoIdsClienteLocal() || []) : [];
+        const idsLimpos = (ids || []).map(v => String(v)).filter(Boolean);
+        const qs = idsLimpos.length > 0 ? ('?ids=' + encodeURIComponent(idsLimpos.join(','))) : '';
+        const resp = await fetch(window.location.origin + '/api/pedidos' + qs);
         if (!resp.ok) return null;
-        const raw = await resp.json();
-        const pedidos = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.pedidos) ? raw.pedidos : []);
-        if (typeof db !== 'undefined') {
-            if (!db.data) db.data = {};
-            db.data.pedidos = pedidos;
-            if (typeof db.saveData === 'function') db.saveData();
-        }
+        const pedidos = await resp.json();
+        if (!Array.isArray(pedidos)) return null;
         return pedidos;
     } catch (e) {
         return null;

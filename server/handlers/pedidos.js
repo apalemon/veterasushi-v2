@@ -3,7 +3,7 @@ const { getCollection } = require('../mongodb');
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
     res.setHeader('Content-Type', 'application/json');
 
@@ -12,7 +12,43 @@ module.exports = async (req, res) => {
     if (req.method === 'GET') {
         try {
             const pedidosCollection = await getCollection('pedidos');
-            let pedidos = await pedidosCollection.find({}).toArray();
+
+            // Se o cliente informar ids, retornar somente esses pedidos (reduz tráfego e exposição)
+            let idsParam = null;
+            try {
+                const url = new URL(String(req.url || ''), 'http://localhost');
+                idsParam = url.searchParams.get('ids');
+            } catch (e) {
+                idsParam = null;
+            }
+
+            let pedidos = [];
+            if (idsParam && String(idsParam).trim()) {
+                const rawIds = String(idsParam)
+                    .split(',')
+                    .map(s => s.trim())
+                    .filter(Boolean)
+                    .slice(0, 60); // limite de segurança
+
+                // tentar números e strings
+                const idsNum = rawIds
+                    .map(v => {
+                        const n = Number(v);
+                        return Number.isFinite(n) ? n : null;
+                    })
+                    .filter(v => v !== null);
+
+                const idsStr = rawIds.map(v => String(v));
+
+                pedidos = await pedidosCollection.find({
+                    $or: [
+                        { id: { $in: idsNum } },
+                        { id: { $in: idsStr } }
+                    ]
+                }).toArray();
+            } else {
+                pedidos = await pedidosCollection.find({}).toArray();
+            }
             pedidos.sort((a, b) => {
                 const dataA = a.dataCriacao || a.data || a.timestamp || 0;
                 const dataB = b.dataCriacao || b.data || b.timestamp || 0;

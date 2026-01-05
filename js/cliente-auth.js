@@ -324,19 +324,14 @@ class ClienteAuth {
         // Se a senha estava em texto plano, atualizar para hash
         if (cliente.senha === senha) {
           cliente.senha = senhaHash;
-          
-          // Salvar atualização no localStorage
+
+          // Persistir atualização no servidor (fonte de verdade)
           try {
-            const databaseAtual = localStorage.getItem('vetera_database');
-            if (databaseAtual) {
-              const dbData = JSON.parse(databaseAtual);
-              const index = dbData.clientes.findIndex(c => c.id === cliente.id);
-              if (index >= 0) {
-                dbData.clientes[index].senha = senhaHash;
-                localStorage.setItem('vetera_database', JSON.stringify(dbData));
-              }
-            }
-            db.saveData();
+            fetch('/api/usuarios', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify([cliente])
+            }).catch(() => {});
           } catch (e) {
             // Erro silencioso
           }

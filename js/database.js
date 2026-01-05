@@ -5,6 +5,24 @@
 class Database {
   constructor() {
     this.data = null;
+    // Opção B: no site público, não persistir banco no localStorage.
+    // Somente telas administrativas (gestor/pdv) podem usar vetera_database como cache.
+    try {
+      const path = String(window.location && window.location.pathname ? window.location.pathname : '').toLowerCase();
+      const isAdminUi = path.includes('gestor') || path.includes('pdv');
+      this._useLocalStorage = !!isAdminUi;
+    } catch (e) {
+      this._useLocalStorage = false;
+    }
+
+    // Limpeza simples (não agressiva) do que não deve existir no cliente público
+    try {
+      if (!this._useLocalStorage) {
+        localStorage.removeItem('vetera_database');
+        localStorage.removeItem('vetera_usuarios_json');
+      }
+    } catch (e) {}
+
     this.loadData();
   }
 
@@ -28,30 +46,44 @@ class Database {
   // Carregar dados do JSON
   loadData() {
     try {
-      const stored = localStorage.getItem('vetera_database');
-      if (stored) {
-        try {
-          this.data = JSON.parse(stored);
-        } catch (parseError) {
-          // Se erro ao parsear, usar estrutura vazia
+      if (this._useLocalStorage) {
+        const stored = localStorage.getItem('vetera_database');
+        if (stored) {
+          try {
+            this.data = JSON.parse(stored);
+          } catch (parseError) {
+            // Se erro ao parsear, usar estrutura vazia
+            this.data = {
+              produtos: [],
+              categorias: [],
+              pedidos: [],
+              clientes: [],
+              cupons: [],
+              condicionais: [],
+              configuracoes: {},
+              usuarios: []
+            };
+          }
+        } else {
           this.data = {
             produtos: [],
             categorias: [],
             pedidos: [],
             clientes: [],
             cupons: [],
-            condicionais: [],
             configuracoes: {},
             usuarios: []
           };
         }
       } else {
+        // Site público: iniciar vazio e carregar do servidor.
         this.data = {
           produtos: [],
           categorias: [],
           pedidos: [],
           clientes: [],
           cupons: [],
+          condicionais: [],
           configuracoes: {},
           usuarios: []
         };
@@ -71,13 +103,17 @@ class Database {
       // SEMPRE recarregar do arquivo para garantir dados atualizados (async)
       this.fetchInitialData().catch((err) => {
         console.error('[DATABASE] Erro ao buscar dados iniciais:', err);
-        // Se falhar, manter dados do localStorage
+        // Se falhar, manter dados atuais em memória
       });
-      // SEMPRE carregar pedidos do servidor (fonte principal)
-      this.carregarPedidosServidor().catch((err) => {
-        console.error('[DATABASE] Erro ao carregar pedidos:', err);
-        // Se falhar, manter pedidos do localStorage
-      });
+
+      // No cliente público, pedidos são tratados via main.js (por IDs), para não baixar lista inteira.
+      if (this._useLocalStorage) {
+        // SEMPRE carregar pedidos do servidor (fonte principal)
+        this.carregarPedidosServidor().catch((err) => {
+          console.error('[DATABASE] Erro ao carregar pedidos:', err);
+          // Se falhar, manter pedidos do localStorage
+        });
+      }
     } catch (error) {
       // Em caso de erro, inicializar estrutura vazia
       this.data = {
@@ -91,7 +127,7 @@ class Database {
       };
       // Tentar carregar do servidor (sem bloquear)
       this.fetchInitialData().catch(() => {});
-      this.carregarPedidosServidor().catch(() => {});
+      if (this._useLocalStorage) this.carregarPedidosServidor().catch(() => {});
     }
   }
 
@@ -277,6 +313,7 @@ class Database {
   // Salvar dados no localStorage
   saveData() {
     try {
+      if (!this._useLocalStorage) return;
       localStorage.setItem('vetera_database', JSON.stringify(this.data));
     } catch (error) {
       console.error('Erro ao salvar dados:', error);

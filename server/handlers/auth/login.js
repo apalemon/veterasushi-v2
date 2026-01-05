@@ -1,5 +1,6 @@
 // Handler moved from api/auth/login.js
 const { getCollection } = require('../../mongodb');
+const { signJwt } = require('../../jwt');
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -13,6 +14,12 @@ module.exports = async (req, res) => {
     try {
         const { usuario, senha } = req.body || {};
         if (!usuario || !senha) return res.status(400).json({ error: 'Usuário e senha são obrigatórios' });
+
+        const jwtSecret = process.env.JWT_SECRET;
+        if (!jwtSecret) {
+            return res.status(500).json({ error: 'JWT não configurado', detalhes: 'Defina JWT_SECRET nas variáveis de ambiente (Vercel).' });
+        }
+
         const usuariosCollection = await getCollection('usuarios');
         const totalUsers = await usuariosCollection.countDocuments();
         console.log('[AUTH/LOGIN] total usuarios in DB:', totalUsers);
@@ -50,12 +57,14 @@ module.exports = async (req, res) => {
             if (allowOverride && String(usuario) === 'admin' && String(senha) === 'admin') {
                 console.warn('[AUTH/LOGIN] ALLOW_ADMIN_OVERRIDE enabled - granting admin login (admin/admin)');
                 const adminUser = { id: 'admin', usuario: 'admin', nome: 'Administrador (override)', nivel: 'admin', ativo: true };
-                return res.status(200).json({ success: true, user: adminUser });
+                const token = signJwt({ sub: 'admin', usuario: 'admin', nivel: 'admin', tipo: 'admin' }, jwtSecret, { expiresInSeconds: 7 * 24 * 60 * 60 });
+                return res.status(200).json({ success: true, user: adminUser, token });
             }
             if (totalUsers === 0 && String(usuario) === 'admin' && String(senha) === 'admin') {
                 console.warn('[AUTH/LOGIN] No users in DB - granting temporary admin login (admin/admin)');
                 const adminUser = { id: 'admin', usuario: 'admin', nome: 'Administrador (seed)', nivel: 'admin', ativo: true };
-                return res.status(200).json({ success: true, user: adminUser });
+                const token = signJwt({ sub: 'admin', usuario: 'admin', nivel: 'admin', tipo: 'admin' }, jwtSecret, { expiresInSeconds: 7 * 24 * 60 * 60 });
+                return res.status(200).json({ success: true, user: adminUser, token });
             }
             console.log('[AUTH/LOGIN] usuário não encontrado com usuario:', usuario);
             return res.status(401).json({ error: 'Credenciais inválidas' });
@@ -93,9 +102,19 @@ module.exports = async (req, res) => {
 
         // Remover senha antes de retornar
         delete user.senha;
-        return res.status(200).json({ success: true, user });
+        const token = signJwt(
+            {
+                sub: String(user.id || user.usuario || ''),
+                usuario: user.usuario,
+                nivel: user.nivel,
+                tipo: 'admin'
+            },
+            jwtSecret,
+            { expiresInSeconds: 7 * 24 * 60 * 60 }
+        );
+        return res.status(200).json({ success: true, user, token });
     } catch (err) {
         console.error('[AUTH/LOGIN] ❌', err.message);
-        return res.status(500).json({ error: 'Erro interno', detalles: err.message });
+        return res.status(500).json({ error: 'Erro interno', detalhes: err.message });
     }
 };

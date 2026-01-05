@@ -7,6 +7,188 @@ window.getPagamentosConfiguradosGestor = function() {
         return [];
     }
 };
+
+window.carregarMinhaLojaConfig = async function() {
+    try {
+        // GET é público; mas no gestor teremos token e podemos usar do mesmo jeito
+        const resp = await fetch(window.location.origin + '/api/configuracoes');
+        if (!resp.ok) return;
+        const cfg = await resp.json();
+        if (!cfg || typeof cfg !== 'object') return;
+
+        const nomeEl = document.getElementById('minha-loja-nome');
+        const logoEl = document.getElementById('minha-loja-logo');
+        const accEl = document.getElementById('minha-loja-accent');
+        const accHEl = document.getElementById('minha-loja-accent-hover');
+        const bgEl = document.getElementById('minha-loja-bg');
+        const bg2El = document.getElementById('minha-loja-bg-secondary');
+        const tpEl = document.getElementById('minha-loja-text-primary');
+        const tsEl = document.getElementById('minha-loja-text-secondary');
+
+        if (nomeEl) nomeEl.value = cfg.nomeEstabelecimento || '';
+        if (logoEl) logoEl.value = cfg.logoUrl || '';
+        if (accEl) accEl.value = cfg.tema?.accent || '';
+        if (accHEl) accHEl.value = cfg.tema?.accentHover || '';
+        if (bgEl) bgEl.value = cfg.tema?.bg || '';
+        if (bg2El) bg2El.value = cfg.tema?.bgSecondary || '';
+        if (tpEl) tpEl.value = cfg.tema?.textPrimary || '';
+        if (tsEl) tsEl.value = cfg.tema?.textSecondary || '';
+    } catch (e) {
+        // ignora
+    }
+};
+
+function _aplicarTemaLocalPreview(tema) {
+    try {
+        if (!tema || typeof tema !== 'object') return;
+        const root = document.documentElement;
+        if (tema.bg) root.style.setProperty('--bg', tema.bg);
+        if (tema.bgSecondary) root.style.setProperty('--bg-secondary', tema.bgSecondary);
+        if (tema.accent) root.style.setProperty('--accent', tema.accent);
+        if (tema.accentHover) root.style.setProperty('--accent-hover', tema.accentHover);
+        if (tema.textPrimary) root.style.setProperty('--text-primary', tema.textPrimary);
+        if (tema.textSecondary) root.style.setProperty('--text-secondary', tema.textSecondary);
+        if (tema.accent) root.style.setProperty('--vermelho-claro', tema.accent);
+        if (tema.accentHover) root.style.setProperty('--vermelho-escuro', tema.accentHover);
+        if (tema.accentHover) root.style.setProperty('--vermelho-hover', tema.accentHover);
+    } catch (e) {}
+}
+
+window.salvarMinhaLojaConfig = async function(event) {
+    try {
+        event.preventDefault();
+
+        const nome = document.getElementById('minha-loja-nome')?.value?.trim() || '';
+        const logoUrl = document.getElementById('minha-loja-logo')?.value?.trim() || '';
+        const tema = {
+            accent: document.getElementById('minha-loja-accent')?.value?.trim() || '',
+            accentHover: document.getElementById('minha-loja-accent-hover')?.value?.trim() || '',
+            bg: document.getElementById('minha-loja-bg')?.value?.trim() || '',
+            bgSecondary: document.getElementById('minha-loja-bg-secondary')?.value?.trim() || '',
+            textPrimary: document.getElementById('minha-loja-text-primary')?.value?.trim() || '',
+            textSecondary: document.getElementById('minha-loja-text-secondary')?.value?.trim() || ''
+        };
+
+        _aplicarTemaLocalPreview(tema);
+
+        const payload = {
+            ...(db && typeof db.getConfiguracoes === 'function' ? (db.getConfiguracoes() || {}) : {}),
+            nomeEstabelecimento: nome,
+            logoUrl: logoUrl,
+            tema: tema
+        };
+
+        const resp = await fetch(window.location.origin + '/api/configuracoes', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        if (!resp.ok) {
+            const t = await resp.text().catch(() => '');
+            throw new Error('Erro ao salvar: ' + resp.status + ' ' + t);
+        }
+
+        const saved = await resp.json();
+        try {
+            if (db && db.data) {
+                db.data.configuracoes = saved;
+                db.saveData();
+            }
+        } catch (e) {}
+
+        alert('✅ Branding salvo com sucesso!');
+    } catch (e) {
+        alert('Erro ao salvar branding: ' + (e && e.message ? e.message : e));
+    }
+};
+
+// ============================================
+// MINHA LOJA (BACKUP / RESET)
+// ============================================
+
+window.baixarBackupMinhaLoja = async function() {
+    try {
+        const resp = await fetch(window.location.origin + '/api/loja/backup');
+        if (!resp.ok) {
+            const t = await resp.text().catch(() => '');
+            throw new Error('Erro ao gerar backup: ' + resp.status + ' ' + t);
+        }
+        const data = await resp.json();
+        if (!data || !data.payload) throw new Error('Payload inválido do backup');
+
+        const payload = data.payload;
+        const nome = 'backup-minha-loja-' + new Date().toISOString().replace(/[:.]/g, '-') + '.json';
+        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = nome;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        alert('✅ Backup baixado com sucesso!');
+    } catch (e) {
+        console.error('[MINHA LOJA] ❌ backup:', e);
+        alert('Erro ao baixar backup: ' + (e && e.message ? e.message : e));
+    }
+};
+
+window.abrirModalResetMinhaLoja = function() {
+    const m = document.getElementById('modal-reset-minha-loja');
+    if (!m) return;
+    m.style.display = 'flex';
+};
+
+window.fecharModalResetMinhaLoja = function() {
+    const m = document.getElementById('modal-reset-minha-loja');
+    if (!m) return;
+    m.style.display = 'none';
+};
+
+window.confirmarResetMinhaLoja = async function() {
+    try {
+        const usuario = document.getElementById('reset-loja-usuario')?.value?.trim();
+        const senha = document.getElementById('reset-loja-senha')?.value || '';
+        const confirm = document.getElementById('reset-loja-confirm')?.value?.trim();
+
+        if (!usuario || !senha) {
+            alert('Informe usuário e senha.');
+            return;
+        }
+        if (confirm !== 'RESETAR') {
+            alert('Digite RESETAR para confirmar.');
+            return;
+        }
+
+        // Antes do reset, forçar o backup local
+        await window.baixarBackupMinhaLoja();
+
+        const resp = await fetch(window.location.origin + '/api/loja/reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usuario, senha, confirm })
+        });
+        if (!resp.ok) {
+            const t = await resp.text().catch(() => '');
+            throw new Error('Erro ao resetar: ' + resp.status + ' ' + t);
+        }
+        const result = await resp.json();
+        alert('✅ Loja resetada! Você precisará configurar do zero.');
+
+        // Limpar caches locais e recarregar
+        try {
+            localStorage.removeItem('vetera_database');
+            localStorage.removeItem('vetera_novo_pedido');
+        } catch (e) {}
+        window.fecharModalResetMinhaLoja();
+        location.reload();
+    } catch (e) {
+        console.error('[MINHA LOJA] ❌ reset:', e);
+        alert('Erro ao resetar loja: ' + (e && e.message ? e.message : e));
+    }
+};
 // ============================================
 // GESTOR DE PEDIDOS
 // ============================================
@@ -631,16 +813,20 @@ function mostrarSecao(secao) {
         item.classList.remove('active');
     });
 
-    const secaoEl = document.getElementById('sec-' + secao);
-    if (secaoEl) {
-        secaoEl.classList.add('active');
+    const secaoElement = document.getElementById('sec-' + secao);
+    if (secaoElement) {
+        secaoElement.classList.add('active');
     }
 
+    if (secao === 'minha-loja') {
+        try { window.carregarMinhaLojaConfig(); } catch (e) {}
+    }
     // Atualizar item ativo no menu
     const nomesSecoes = {
         'nova-venda': 'Nova Venda',
         'pedidos': 'Pedidos',
         'ocultos': 'Ocultos',
+        // ...
         'detalhes': 'Detalhes',
         'produtos': 'Produtos',
         'cupons': 'Cupons',
@@ -648,7 +834,8 @@ function mostrarSecao(secao) {
         'usuarios': 'Usuários',
         'configuracoes': 'Configurações',
         'pagamentos': 'Pagamentos',
-        'entradas': 'Entradas'
+        'entradas': 'Entradas',
+        'minha-loja': 'Minha Loja'
     };
     
     // Se for a seção de ocultos, renderizar pedidos ocultos

@@ -3,7 +3,7 @@ const { getCollection } = require('../mongodb');
 
 module.exports = async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Allow-Methods', 'GET, PUT, OPTIONS');
     res.setHeader('Content-Type', 'application/json');
 
@@ -30,7 +30,17 @@ module.exports = async (req, res) => {
                     telefone: '',
                     endereco: '',
                     taxaEntrega: 0,
-                    tempoPreparo: 30
+                    tempoPreparo: 30,
+                    logoUrl: '/logo.png',
+                    faviconUrl: '/logo.png',
+                    tema: {
+                        accent: '#dc2626',
+                        accentHover: '#b91c1c',
+                        bg: '#0a0a0a',
+                        bgSecondary: '#111111',
+                        textPrimary: '#ffffff',
+                        textSecondary: '#a3a3a3'
+                    }
                 };
 
                 // Persistir defaults no servidor (fonte de verdade)

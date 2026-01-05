@@ -6,6 +6,8 @@ class Auth {
   constructor() {
     this.currentUser = null;
     this.sessionToken = null;
+    this.adminJwt = null;
+    this._fetchWrapped = false;
     this.loadSession();
   }
 
@@ -52,6 +54,12 @@ class Auth {
         if (data && data.user && data.token) {
           this.currentUser = data.user;
           this.sessionToken = data.token;
+          try {
+            this.adminJwt = localStorage.getItem('vetera_admin_token') || null;
+          } catch (e) {
+            this.adminJwt = null;
+          }
+          this._wrapFetchWithBearerIfNeeded();
           return true;
         }
       }
@@ -59,6 +67,41 @@ class Auth {
       console.error('Erro ao carregar sessão:', error);
     }
     return false;
+  }
+
+  _wrapFetchWithBearerIfNeeded() {
+    try {
+      if (this._fetchWrapped) return;
+      const path = String(window.location && window.location.pathname ? window.location.pathname : '').toLowerCase();
+      const isAdminUi = path.includes('gestor') || path.includes('pdv');
+      if (!isAdminUi) return;
+      const originalFetch = window.fetch;
+      if (typeof originalFetch !== 'function') return;
+      const self = this;
+      window.fetch = function(input, init) {
+        try {
+          const token = self.adminJwt || null;
+          if (!token) return originalFetch(input, init);
+
+          const url = (typeof input === 'string') ? input : (input && input.url ? input.url : '');
+          const isApi = typeof url === 'string' && (url.startsWith('/api/') || url.includes('/api/'));
+          if (!isApi) return originalFetch(input, init);
+
+          const nextInit = init ? { ...init } : {};
+          const headers = new Headers(nextInit.headers || (input && input.headers) || {});
+          if (!headers.has('Authorization')) {
+            headers.set('Authorization', 'Bearer ' + token);
+          }
+          nextInit.headers = headers;
+          return originalFetch(input, nextInit);
+        } catch (e) {
+          return originalFetch(input, init);
+        }
+      };
+      this._fetchWrapped = true;
+    } catch (e) {
+      // ignora
+    }
   }
 
   // Salvar sessão
@@ -97,6 +140,14 @@ class Auth {
         
         if (result.success) {
           this.saveSession(result.user);
+          // Salvar token JWT admin (Bearer)
+          try {
+            if (result.token) {
+              this.adminJwt = result.token;
+              localStorage.setItem('vetera_admin_token', result.token);
+              this._wrapFetchWithBearerIfNeeded();
+            }
+          } catch (e) {}
           console.log('[AUTH] ✅ Login bem-sucedido!');
           return { success: true, user: result.user };
         } else {
@@ -256,8 +307,10 @@ class Auth {
   // Logout
   logout() {
     localStorage.removeItem('vetera_session');
+    try { localStorage.removeItem('vetera_admin_token'); } catch (e) {}
     this.currentUser = null;
     this.sessionToken = null;
+    this.adminJwt = null;
   }
 
   // Verificar se está logado
