@@ -178,11 +178,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         const path = String(window.location && window.location.pathname ? window.location.pathname : '').toLowerCase();
         const isAdminUi = path.includes('gestor') || path.includes('pdv');
         if (!isAdminUi) {
-            // Remover caches/credenciais que não devem ficar no cliente público
+            // Remover apenas caches pesados que não devem ficar no cliente público
+            // NÃO remover vetera_session e vetera_admin_token: são necessários para o fluxo login → gestor
             localStorage.removeItem('vetera_database');
             localStorage.removeItem('vetera_usuarios_json');
-            localStorage.removeItem('vetera_session');
-            localStorage.removeItem('vetera_admin_token');
             localStorage.removeItem('vetera_novo_pedido');
         }
     } catch (e) {

@@ -175,12 +175,22 @@ class Database {
       // Usar endpoint seguro em vez de arquivo direto
       const apiUrl = window.location.origin + '/api/database?' + Date.now();
       
-      const response = await fetch(apiUrl, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json'
-        }
-      });
+      // Timeout de 15 segundos para evitar travar em payloads grandes
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 15000);
+      
+      let response;
+      try {
+        response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json'
+          },
+          signal: controller.signal
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
       
       if (response.ok) {
         const dataFromFile = await response.json();

@@ -998,6 +998,26 @@
     </div>
 
     <!-- Scripts -->
+    <!-- Verificar sessão ANTES de carregar scripts que fazem fetch (evita redirecionamento por erro de rede) -->
+    <script>
+        (function() {
+            try {
+                var session = localStorage.getItem('vetera_session');
+                if (!session) {
+                    window.location.href = 'index.html';
+                    return;
+                }
+                var data = JSON.parse(session);
+                if (!data || !data.user || (data.user.nivel !== 'admin' && data.user.nivel !== 'gerente')) {
+                    window.location.href = 'index.html';
+                    return;
+                }
+                // Sessão válida, continuar carregamento
+            } catch (e) {
+                window.location.href = 'index.html';
+            }
+        })();
+    </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="/js/database.js"></script>
     <script src="/js/auth.js"></script>
@@ -1473,12 +1493,8 @@
         };
     </script>
     <script>
-        // Verificar autenticação
-        if (!auth.isManager()) {
-            window.location.href = 'index.html';
-        }
-
-        // Link admin removido - todas as funcionalidades estão no gestor
+        // Verificação de autenticação já feita no início do carregamento (antes do database.js)
+        // Aqui só definimos a função de logout
 
         function fazerLogout() {
             auth.logout();
