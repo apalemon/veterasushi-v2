@@ -282,11 +282,6 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Inicializar cardápio
     inicializarCardapio();
-    
-    // Aplicar modelo salvo se houver
-    setTimeout(() => {
-        carregarModeloSalvo();
-    }, 500);
 });
 
 function iniciarMonitoramentoStatusPedidosCliente() {
@@ -550,33 +545,6 @@ function atualizarStatusLojaIndicador() {
     }
 }
 
-// Carregar e aplicar modelo salvo (se houver)
-window.carregarModeloSalvo = function() {
-    try {
-        // Verificar se db está disponível e se há modelo salvo
-        if (typeof db !== 'undefined' && db.data && db.data.configuracoes && db.data.configuracoes.modelo) {
-            const modeloSalvo = db.data.configuracoes.modelo;
-            const layoutSalvo = db.data.configuracoes.layout;
-            
-            // Se houver um layout salvo diferente do padrão, aplicar
-            if (layoutSalvo && layoutSalvo !== 'padrao') {
-                console.log('[MAIN] Aplicando modelo salvo:', modeloSalvo, layoutSalvo);
-                
-                // Importar a função do gestor se necessário
-                if (typeof window.aplicarModelo === 'function') {
-                    window.aplicarModelo(modeloSalvo);
-                } else {
-                    // Se a função não estiver disponível, recarregar
-                    console.warn('[MAIN] Função aplicarModelo não encontrada, recarregando página...');
-                    setTimeout(() => location.reload(), 1000);
-                }
-            }
-        }
-    } catch (e) {
-        console.error('[MAIN] Erro ao carregar modelo salvo:', e);
-    }
-}
-
 async function inicializarCardapio() {
     try {
         // Aguardar um pouco para garantir que db está pronto
@@ -612,9 +580,6 @@ async function inicializarCardapio() {
         try {
             aplicarBrandingLoja();
         } catch (e) {}
-        
-        // Carregar e aplicar modelo salvo (se houver)
-        window.carregarModeloSalvo();
         
         // Garantir que categorias existam (extrair de produtos se necessário)
         if (!db.data.categorias || db.data.categorias.length === 0) {
