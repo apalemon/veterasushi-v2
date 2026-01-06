@@ -837,6 +837,24 @@ window.atualizarHeaderGestor = function() {
         }
     } catch (e) {}
 
+    // Atualizar status da loja no gestor
+    try {
+        const indicator = document.getElementById('status-loja-indicator');
+        const text = document.getElementById('status-loja-text');
+        if (indicator && text && typeof verificarStatusLoja === 'function') {
+            const status = verificarStatusLoja();
+            if (status.aberta) {
+                indicator.style.background = 'var(--status-aberta)';
+                text.textContent = 'Loja Aberta';
+                text.style.color = 'var(--status-aberta)';
+            } else {
+                indicator.style.background = 'var(--status-fechada)';
+                text.textContent = 'Loja Fechada';
+                text.style.color = 'var(--status-fechada)';
+            }
+        }
+    } catch (e) {}
+
     // Aplicar permissões (esconder links e botões sem permissão)
     try {
         const perms = (() => {
@@ -912,6 +930,11 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // Atualizar header e aplicar permissões
     window.atualizarHeaderGestor();
+
+    // Atualizar status da loja periodicamente
+    setInterval(() => {
+        window.atualizarHeaderGestor();
+    }, 15000); // a cada 15 segundos
 
     // Garantir estrutura para produtos pausados (fallback)
     try {
@@ -2881,17 +2904,30 @@ function renderizarCategorias() {
     const container = document.getElementById('categorias-list');
     if (!container) return;
 
-    const categorias = db.getCategorias();
+    const categoriasDados = db.getCategoriasDados();
     
-    if (categorias.length === 0) {
+    if (categoriasDados.length === 0) {
         container.innerHTML = '<p style="text-align: center; color: var(--texto-medio); padding: 3rem;">Nenhuma categoria cadastrada</p>';
         return;
     }
     
-    container.innerHTML = categorias.map(function(categoria) {
+    container.innerHTML = categoriasDados.map(function(categoria, index) {
         return '<div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--cinza-medio); border-radius: 8px; margin-bottom: 1rem;">' +
-            '<span style="color: var(--texto-claro); font-weight: bold;">' + categoria + '</span>' +
-            '<button class="btn btn-secondary btn-small" onclick="excluirCategoria(\'' + categoria + '\')">Excluir</button>' +
+            '<div style="flex: 1;">' +
+                '<div style="color: var(--texto-claro); font-weight: bold; margin-bottom: 8px;">' + categoria.nome + '</div>' +
+                '<div style="display: flex; align-items: center; gap: 15px;">' +
+                    '<label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 13px;">' +
+                        '<input type="checkbox" id="cat-div-' + index + '" ' + (categoria.divisoria ? 'checked' : '') + ' onchange="toggleDivisoriaCategoria(\'' + categoria.nome + '\', this.checked)">' +
+                        '<span style="color: var(--texto-medio);">Mostrar divisória</span>' +
+                    '</label>' +
+                    '<span style="color: var(--texto-medio); font-size: 12px;">Ordem: ' + (categoria.ordem !== undefined ? categoria.ordem : index) + '</span>' +
+                '</div>' +
+            '</div>' +
+            '<div style="display: flex; gap: 8px;">' +
+                '<button class="btn btn-secondary btn-small" onclick="moverCategoria(\'' + categoria.nome + '\', \'up\')" ' + (index === 0 ? 'disabled' : '') + '>↑</button>' +
+                '<button class="btn btn-secondary btn-small" onclick="moverCategoria(\'' + categoria.nome + '\', \'down\')" ' + (index === categoriasDados.length - 1 ? 'disabled' : '') + '>↓</button>' +
+                '<button class="btn btn-secondary btn-small" onclick="excluirCategoria(\'' + categoria.nome + '\')">Excluir</button>' +
+            '</div>' +
             '</div>';
     }).join('');
 }
@@ -2901,20 +2937,35 @@ function abrirModalCategoria() {
     if (!nome || !nome.trim()) return;
     
     const nomeCategoria = nome.trim();
-    if (!db.data.categorias) db.data.categorias = [];
+    const categoriasDados = db.getCategoriasDados();
     
-    if (db.data.categorias.includes(nomeCategoria)) {
-        return; // Categoria já existe
+    // Verificar se categoria já existe
+    if (categoriasDados.some(c => c.nome === nomeCategoria)) {
+        alert('Esta categoria já existe!');
+        return;
     }
     
-    db.data.categorias.push(nomeCategoria);
+    // Adicionar nova categoria no final
+    if (!db.data.categorias) db.data.categorias = [];
+    db.data.categorias.push({
+        nome: nomeCategoria,
+        ordem: categoriasDados.length,
+        divisoria: false
+    });
     db.saveData();
+    
     // Persistir no servidor
     (async () => {
         try {
+            const token = (() => {
+                try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+            })();
             await fetch(window.location.origin + '/api/categorias', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+                },
                 body: JSON.stringify(db.data.categorias || [])
             });
             try { await db.fetchInitialData(); } catch (e) {}
@@ -2929,14 +2980,34 @@ function excluirCategoria(nome) {
     if (!confirm('Deseja realmente excluir a categoria "' + nome + '"?')) return;
     
     if (db.data.categorias) {
-        db.data.categorias = db.data.categorias.filter(function(c) { return c !== nome; });
+        db.data.categorias = db.data.categorias.filter(function(c) { 
+            return (c.nome || c) !== nome; 
+        });
+        
+        // Reordenar as categorias restantes
+        db.data.categorias.forEach((cat, index) => {
+            if (typeof cat === 'object') {
+                cat.ordem = index;
+            } else {
+                // Migrar para objeto se for string
+                db.data.categorias[index] = { nome: cat, ordem: index, divisoria: false };
+            }
+        });
+        
         db.saveData();
+        
         // Persistir no servidor
         (async () => {
             try {
+                const token = (() => {
+                    try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+                })();
                 await fetch(window.location.origin + '/api/categorias', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+                    },
                     body: JSON.stringify(db.data.categorias || [])
                 });
                 try { await db.fetchInitialData(); } catch (e) {}
@@ -2947,6 +3018,99 @@ function excluirCategoria(nome) {
         renderizarCategorias();
     }
 }
+
+// Ativar/desativar divisória da categoria
+window.toggleDivisoriaCategoria = function(nome, ativo) {
+    if (!db.data.categorias) return;
+    
+    const categoria = db.data.categorias.find(c => (c.nome || c) === nome);
+    if (categoria) {
+        if (typeof categoria === 'string') {
+            // Migrar para objeto
+            const index = db.data.categorias.indexOf(categoria);
+            db.data.categorias[index] = { nome: categoria, ordem: index, divisoria: ativo };
+        } else {
+            categoria.divisoria = ativo;
+        }
+        db.saveData();
+        
+        // Persistir no servidor
+        (async () => {
+            try {
+                const token = (() => {
+                    try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+                })();
+                await fetch(window.location.origin + '/api/categorias', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+                    },
+                    body: JSON.stringify(db.data.categorias || [])
+                });
+            } catch (e) {
+                // Servidor pode estar indisponível; mantém local
+            }
+        })();
+    }
+};
+
+// Mover categoria para cima ou para baixo
+window.moverCategoria = function(nome, direcao) {
+    if (!db.data.categorias) return;
+    
+    const categorias = db.getCategoriasDados();
+    const index = categorias.findIndex(c => c.nome === nome);
+    
+    if (direcao === 'up' && index > 0) {
+        // Trocar com a anterior
+        const temp = categorias[index];
+        categorias[index] = categorias[index - 1];
+        categorias[index - 1] = temp;
+    } else if (direcao === 'down' && index < categorias.length - 1) {
+        // Trocar com a próxima
+        const temp = categorias[index];
+        categorias[index] = categorias[index + 1];
+        categorias[index + 1] = temp;
+    }
+    
+    // Atualizar ordens no banco
+    categorias.forEach((cat, i) => {
+        cat.ordem = i;
+        const dbCat = db.data.categorias.find(c => (c.nome || c) === cat.nome);
+        if (dbCat) {
+            if (typeof dbCat === 'string') {
+                const idx = db.data.categorias.indexOf(dbCat);
+                db.data.categorias[idx] = { nome: dbCat, ordem: i, divisoria: cat.divisoria };
+            } else {
+                dbCat.ordem = i;
+            }
+        }
+    });
+    
+    db.saveData();
+    
+    // Persistir no servidor
+    (async () => {
+        try {
+            const token = (() => {
+                try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+            })();
+            await fetch(window.location.origin + '/api/categorias', {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+                },
+                body: JSON.stringify(db.data.categorias || [])
+            });
+        } catch (e) {
+            // Servidor pode estar indisponível; mantém local
+        }
+    })();
+    
+    renderizarCategorias();
+};
 
 // Renderizar usuários
 function renderizarUsuarios() {
@@ -5613,9 +5777,15 @@ window.abrirLojaManual = async function() {
     
     try {
         console.log('[HORARIOS] ℹ️ Enviando PUT /api/horarios { statusManual: true }');
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
         const response = await fetch(window.location.origin + '/api/horarios', {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            },
             body: JSON.stringify({ statusManual: true })
         });
         console.log('[HORARIOS] 📡 Resposta inicial:', response.status, response.statusText, response.url);
@@ -5655,7 +5825,10 @@ window.abrirLojaManual = async function() {
                         console.log('[HORARIOS] 🔁 Tentando alternative:', altApi);
                         const altResp = await fetch(altApi, {
                             method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+                            },
                             body: JSON.stringify({ statusManual: true })
                         });
                         console.log('[HORARIOS] 🔁 Resposta alternativa:', altResp.status, altResp.statusText, altResp.url);
@@ -5718,9 +5891,15 @@ window.fecharLojaManual = async function() {
     
     try {
         console.log('[HORARIOS] ℹ️ Enviando PUT /api/horarios { statusManual: false }');
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
         const response = await fetch(window.location.origin + '/api/horarios', {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            },
             body: JSON.stringify({ statusManual: false })
         });
         console.log('[HORARIOS] 📡 Resposta inicial:', response.status, response.statusText, response.url);
@@ -5760,7 +5939,10 @@ window.fecharLojaManual = async function() {
                         console.log('[HORARIOS] 🔁 Tentando alternative:', altApi);
                         const altResp = await fetch(altApi, {
                             method: 'PUT',
-                            headers: { 'Content-Type': 'application/json' },
+                            headers: { 
+                                'Content-Type': 'application/json',
+                                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+                            },
                             body: JSON.stringify({ statusManual: false })
                         });
                         console.log('[HORARIOS] 🔁 Resposta alternativa:', altResp.status, altResp.statusText, altResp.url);

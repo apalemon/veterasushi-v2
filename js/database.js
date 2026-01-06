@@ -55,7 +55,7 @@ class Database {
             // Se erro ao parsear, usar estrutura vazia
             this.data = {
               produtos: [],
-              categorias: [],
+              categorias: [], // será migrado para objeto
               pedidos: [],
               clientes: [],
               cupons: [],
@@ -378,25 +378,53 @@ class Database {
   getCategorias() {
     if (!this.data) return [];
     
-    // Se não tiver categorias no array, extrair dos produtos
-    if (!this.data.categorias || this.data.categorias.length === 0) {
-      if (this.data.produtos && this.data.produtos.length > 0) {
-        const categoriasUnicas = [...new Set(this.data.produtos.map(p => p.categoria).filter(Boolean))];
-        this.data.categorias = categoriasUnicas;
+    // Migrar categorias de array para objeto com ordem e divisória (se necessário)
+    if (Array.isArray(this.data.categorias) && this.data.categorias.length > 0) {
+      // Verificar se já é o novo formato (array de objetos)
+      if (typeof this.data.categorias[0] === 'object' && this.data.categorias[0].nome) {
+        // Já é o novo formato, ordenar por ordem
+        return this.data.categorias
+          .filter(c => c && c.nome)
+          .sort((a, b) => (a.ordem || 0) - (b.ordem || 0))
+          .map(c => c.nome);
+      } else {
+        // Formato antigo (array de strings), migrar para novo formato
+        this.data.categorias = this.data.categorias.map((nome, index) => ({
+          nome: nome,
+          ordem: index,
+          divisoria: false // padrão sem divisória
+        }));
         this.saveData();
-        return categoriasUnicas;
+        return this.data.categorias.map(c => c.nome);
       }
-      return [];
     }
+    
+    // Se não tiver categorias, extrair dos produtos (legado)
+    if (this.data.produtos && this.data.produtos.length > 0) {
+      const categoriasUnicas = [...new Set(this.data.produtos.map(p => p.categoria).filter(Boolean))];
+      // Migrar para novo formato
+      this.data.categorias = categoriasUnicas.map((nome, index) => ({
+        nome: nome,
+        ordem: index,
+        divisoria: false
+      }));
+      this.saveData();
+      return categoriasUnicas;
+    }
+    
+    return [];
+  }
 
-    // Compatibilidade: permitir categorias como array de objetos ({nome,...})
-    try {
-      if (Array.isArray(this.data.categorias) && this.data.categorias.length > 0 && typeof this.data.categorias[0] === 'object') {
-        return this.data.categorias.map(c => c?.nome).filter(Boolean);
-      }
-    } catch (e) {}
-
-    return this.data.categorias;
+  // Obter dados completos das categorias (com ordem e divisória)
+  getCategoriasDados() {
+    if (!this.data || !Array.isArray(this.data.categorias)) return [];
+    
+    // Garantir que todas as categorias tenham as propriedades necessárias
+    return this.data.categorias.map((cat, index) => ({
+      nome: cat.nome || cat,
+      ordem: typeof cat.ordem === 'number' ? cat.ordem : index,
+      divisoria: Boolean(cat.divisoria)
+    }));
   }
 
   // ============================================

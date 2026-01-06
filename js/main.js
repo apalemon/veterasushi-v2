@@ -831,6 +831,29 @@ function renderizarProdutos() {
         destaqueIds = [];
     }
 
+    // Obter categorias com divisória
+    const categoriasDados = typeof db.getCategoriasDados === 'function' ? db.getCategoriasDados() : [];
+    const categoriasComDivisoria = new Set();
+    categoriasDados.forEach(cat => {
+        if (cat.divisoria) {
+            categoriasComDivisoria.add(cat.nome);
+        }
+    });
+
+    // Agrupar produtos por categoria (se não houver filtro de categoria específica)
+    let produtosPorCategoria = {};
+    if (!categoriaSelecionada || categoriaSelecionada === 'Todas') {
+        produtos.forEach(p => {
+            const cat = p.categoria || 'Sem categoria';
+            if (!produtosPorCategoria[cat]) {
+                produtosPorCategoria[cat] = [];
+            }
+            produtosPorCategoria[cat].push(p);
+        });
+    } else {
+        produtosPorCategoria[categoriaSelecionada] = produtos;
+    }
+
 
     // Se não houver produtos, mostrar mensagem apropriada
     if (produtos.length === 0) {
@@ -854,61 +877,84 @@ function renderizarProdutos() {
         return;
     }
 
-    container.innerHTML = produtos.map(produto => {
-        // Calcular preço com desconto
-        const precoOriginal = parseFloat(produto.preco) || 0;
-        let precoFinal = precoOriginal;
-        let temDesconto = false;
-        let descontoInfo = '';
-        
-        if (produto.desconto && produto.desconto.ativo && produto.desconto.valor) {
-            temDesconto = true;
-            if (produto.desconto.tipo === 'percentual') {
-                precoFinal = precoOriginal * (1 - produto.desconto.valor / 100);
-            } else if (produto.desconto.tipo === 'fixo') {
-                precoFinal = precoOriginal - produto.desconto.valor;
-                if (precoFinal < 0) precoFinal = 0;
+    // Renderizar produtos por categoria com divisórias
+    let html = '';
+    const categoriasOrdenadas = Object.keys(produtosPorCategoria).sort((a, b) => {
+        const ordemA = categoriasDados.find(c => c.nome === a)?.ordem || 999;
+        const ordemB = categoriasDados.find(c => c.nome === b)?.ordem || 999;
+        return ordemA - ordemB;
+    });
+
+    categoriasOrdenadas.forEach(categoria => {
+        // Adicionar divisória se a categoria tiver divisória ativada
+        if (categoriasComDivisoria.has(categoria)) {
+            html += '<div style="grid-column: 1 / -1; text-align: center; padding: 2rem 1rem 1rem; position: relative;">';
+            html += '<div style="position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: linear-gradient(to right, transparent, var(--accent), transparent); opacity: 0.3;"></div>';
+            html += '<span style="background: var(--bg-primary); color: var(--accent); font-weight: 700; font-size: 1.1rem; padding: 0 1.5rem; position: relative; text-transform: uppercase; letter-spacing: 1px;">' + categoria + '</span>';
+            html += '</div>';
+        }
+
+        // Renderizar produtos da categoria
+        produtosPorCategoria[categoria].forEach(produto => {
+            if (!produto) return;
+            
+            // Calcular preço com desconto
+            const precoOriginal = parseFloat(produto.preco) || 0;
+            let precoFinal = precoOriginal;
+            let temDesconto = false;
+            let descontoInfo = '';
+            
+            if (produto.desconto && produto.desconto.ativo && produto.desconto.valor) {
+                temDesconto = true;
+                if (produto.desconto.tipo === 'percentual') {
+                    precoFinal = precoOriginal * (1 - produto.desconto.valor / 100);
+                } else if (produto.desconto.tipo === 'fixo') {
+                    precoFinal = precoOriginal - produto.desconto.valor;
+                    if (precoFinal < 0) precoFinal = 0;
+                }
+                
+                const descontoTexto = produto.desconto.tipo === 'percentual' ? produto.desconto.valor + '% OFF' : 'DESCONTO';
+                descontoInfo = '<div class="produto-preco" style="display: flex; flex-direction: column; gap: 4px;"><div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;"><span style="text-decoration: line-through; color: var(--texto-medio); font-size: 0.9em;">R$ ' + precoOriginal.toFixed(2) + '</span><span style="background: var(--vermelho-claro); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; font-weight: 600;">' + descontoTexto + '</span></div><div style="color: var(--vermelho-claro); font-size: 1.2em; font-weight: 700;">R$ ' + precoFinal.toFixed(2) + '</div></div>';
+            } else {
+                descontoInfo = '<div class="produto-preco">R$ ' + precoOriginal.toFixed(2) + '</div>';
             }
             
-            const descontoTexto = produto.desconto.tipo === 'percentual' ? produto.desconto.valor + '% OFF' : 'DESCONTO';
-            descontoInfo = '<div class="produto-preco" style="display: flex; flex-direction: column; gap: 4px;"><div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;"><span style="text-decoration: line-through; color: var(--texto-medio); font-size: 0.9em;">R$ ' + precoOriginal.toFixed(2) + '</span><span style="background: var(--vermelho-claro); color: #fff; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; font-weight: 600;">' + descontoTexto + '</span></div><div style="color: var(--vermelho-claro); font-size: 1.2em; font-weight: 700;">R$ ' + precoFinal.toFixed(2) + '</div></div>';
-        } else {
-            descontoInfo = '<div class="produto-preco">R$ ' + precoOriginal.toFixed(2) + '</div>';
-        }
-        
-        // Sanitizar dados
-        const nomeSeguro = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(produto.nome) : String(produto.nome || '').replace(/[<>]/g, '');
-        const descricaoSegura = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(produto.descricao) : String(produto.descricao || '').replace(/[<>]/g, '');
-        const imagemUrl = produto.imagem ? ((produto.imagem.startsWith('http') || produto.imagem.startsWith('/') || produto.imagem.startsWith('data:')) ? produto.imagem : '/Fotos/' + produto.imagem).replace(/[<>'"]/g, '') : '';
-        const indisponivel = produto.ativo === false;
+            // Sanitizar dados
+            const nomeSeguro = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(produto.nome) : String(produto.nome || '').replace(/[<>]/g, '');
+            const descricaoSegura = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(produto.descricao) : String(produto.descricao || '').replace(/[<>]/g, '');
+            const imagemUrl = produto.imagem ? ((produto.imagem.startsWith('http') || produto.imagem.startsWith('/') || produto.imagem.startsWith('data:')) ? produto.imagem : '/Fotos/' + produto.imagem).replace(/[<>'"]/g, '') : '';
+            const indisponivel = produto.ativo === false;
 
-        return '<div class="produto-card" style="' + (indisponivel ? 'opacity:0.55; filter:grayscale(1);' : '') + '">' +
-            '<div class="produto-imagem-container">' +
-            (produto.imagem ? 
-                '<img src="' + imagemUrl + '" alt="' + nomeSeguro + '" class="produto-imagem" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">' +
-                '<div class="produto-imagem-placeholder" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5zm6-2h-1.2l-.8-1.2A1 1 0 0 0 15.9 5H8.1a1 1 0 0 0-.9.3L6.4 6.5H5a2 2 0 0 0-2 2V18a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5a2 2 0 0 0-2-2z"/></svg><span class="placeholder-text">Foto</span></div>' :
-                '<div class="produto-imagem-placeholder"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5zm6-2h-1.2l-.8-1.2A1 1 0 0 0 15.9 5H8.1a1 1 0 0 0-.9.3L6.4 6.5H5a2 2 0 0 0-2 2V18a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5a2 2 0 0 0-2-2z"/></svg><span class="placeholder-text">Foto</span></div>'
-            ) +
-            '</div>' +
-            '<div class="produto-conteudo">' +
-            '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">' +
-            '<h3 class="produto-nome" style="margin:0;">' + nomeSeguro + '</h3>' +
-            (destaqueIds.includes(produto.id) ? '<span class="produto-badge destaque">DESTAQUE</span>' : '') +
-            '</div>' +
-            '<p class="produto-descricao">' + descricaoSegura + '</p>' +
-            (indisponivel ? '<div style="margin: 8px 0; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: var(--texto-medio); font-weight: 600; text-align:center;">Indisponível no momento</div>' : '') +
-            descontoInfo +
-            '<div class="produto-controles">' +
-            '<div class="quantidade-controle">' +
-            '<button class="quantidade-btn" ' + (indisponivel ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '') + ' onclick="diminuirQuantidade(' + produto.id + ')">-</button>' +
-            '<span class="quantidade-valor" id="qtd-' + produto.id + '">0</span>' +
-            '<button class="quantidade-btn" ' + (indisponivel ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '') + ' onclick="aumentarQuantidade(' + produto.id + ')">+</button>' +
-            '</div>' +
-            '<button class="adicionar-btn" ' + (indisponivel ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '') + ' onclick="adicionarAoCarrinho(' + produto.id + ')">' + (indisponivel ? 'Indisponível' : 'Adicionar') + '</button>' +
-            '</div>' +
-            '</div>' +
-            '</div>';
-    }).join('');
+            html += '<div class="produto-card" style="' + (indisponivel ? 'opacity:0.55; filter:grayscale(1);' : '') + '">' +
+                '<div class="produto-imagem-container">' +
+                (produto.imagem ? 
+                    '<img src="' + imagemUrl + '" alt="' + nomeSeguro + '" class="produto-imagem" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">' +
+                    '<div class="produto-imagem-placeholder" style="display: none;"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5zm6-2h-1.2l-.8-1.2A1 1 0 0 0 15.9 5H8.1a1 1 0 0 0-.9.3L6.4 6.5H5a2 2 0 0 0-2 2V18a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5a2 2 0 0 0-2-2z"/></svg><span class="placeholder-text">Foto</span></div>' :
+                    '<div class="produto-imagem-placeholder"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path fill="currentColor" d="M12 8.5A3.5 3.5 0 1 0 12 15.5 3.5 3.5 0 0 0 12 8.5zm6-2h-1.2l-.8-1.2A1 1 0 0 0 15.9 5H8.1a1 1 0 0 0-.9.3L6.4 6.5H5a2 2 0 0 0-2 2V18a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5a2 2 0 0 0-2-2z"/></svg><span class="placeholder-text">Foto</span></div>'
+                ) +
+                '</div>' +
+                '<div class="produto-conteudo">' +
+                '<div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">' +
+                '<h3 class="produto-nome" style="margin:0;">' + nomeSeguro + '</h3>' +
+                (destaqueIds.includes(produto.id) ? '<span class="produto-badge destaque">DESTAQUE</span>' : '') +
+                '</div>' +
+                '<p class="produto-descricao">' + descricaoSegura + '</p>' +
+                (indisponivel ? '<div style="margin: 8px 0; padding: 8px 10px; border-radius: 10px; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.08); color: var(--texto-medio); font-weight: 600; text-align:center;">Indisponível no momento</div>' : '') +
+                descontoInfo +
+                '<div class="produto-controles">' +
+                '<div class="quantidade-controle">' +
+                '<button class="quantidade-btn" ' + (indisponivel ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '') + ' onclick="diminuirQuantidade(' + produto.id + ')">-</button>' +
+                '<span class="quantidade-valor" id="qtd-' + produto.id + '">0</span>' +
+                '<button class="quantidade-btn" ' + (indisponivel ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '') + ' onclick="aumentarQuantidade(' + produto.id + ')">+</button>' +
+                '</div>' +
+                '<button class="adicionar-btn" ' + (indisponivel ? 'disabled style="opacity:0.5; cursor:not-allowed;"' : '') + ' onclick="adicionarAoCarrinho(' + produto.id + ')">' + (indisponivel ? 'Indisponível' : 'Adicionar') + '</button>' +
+                '</div>' +
+                '</div>' +
+                '</div>';
+        });
+    });
+
+    container.innerHTML = html || '<p style="text-align: center; color: var(--texto-medio); grid-column: 1 / -1;">Nenhum produto encontrado.</p>';
 
     // Atualizar quantidades visíveis baseadas no carrinho
     atualizarQuantidadesVisiveis();

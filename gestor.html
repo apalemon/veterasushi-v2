@@ -43,6 +43,10 @@
         <aside class="gestor-sidebar">
             <div class="sidebar-header">
                 <h2 id="sidebar-nome-loja">Minha Loja</h2>
+                <div id="status-loja-gestor" style="display: flex; align-items: center; gap: 8px; margin-top: 8px; font-size: 14px; font-weight: 600;">
+                    <span id="status-loja-indicator" style="width: 10px; height: 10px; border-radius: 50%; background: var(--status-fechada);"></span>
+                    <span id="status-loja-text">Carregando...</span>
+                </div>
                 <div class="db-status" id="db-status">
                     <span class="status-indicator"></span>
                     <span></span>
@@ -1567,8 +1571,9 @@
             }
             
             // Salvar imagem no servidor se houver nova imagem
-            let imagemUrl = id ? (db.getProduto(parseInt(id)) ? db.getProduto(parseInt(id)).imagem : '') : '';
+            let imagemUrl = '';
             
+            // Se houver nova imagem (base64), ela SEMPRE substitui a antiga
             if (produtoImagemBase64Gestor) {
                 // Se estiver rodando via file:// (ou origin null), não existe API.
                 // Usar base64 diretamente para permitir salvar foto localmente.
@@ -1602,7 +1607,11 @@
                     imagemUrl = produtoImagemBase64Gestor;
                 }
                 }
+            } else if (id) {
+                // Se não houver nova imagem E for edição, manter a antiga
+                imagemUrl = (db.getProduto(parseInt(id)) ? db.getProduto(parseInt(id)).imagem : '');
             }
+            // Se for novo produto sem imagem, imagemUrl continua '' (vazio)
 
             if (!db.data.produtos) db.data.produtos = [];
 
@@ -1687,6 +1696,7 @@
 
         // Definir função abrirModalProduto
         window.abrirModalProduto = function(produtoId = null) {
+            // Resetar sempre ao abrir para evitar imagens antigas
             produtoImagemBase64Gestor = '';
             const modal = document.getElementById('modal-produto');
             const titulo = document.getElementById('modal-produto-titulo');
