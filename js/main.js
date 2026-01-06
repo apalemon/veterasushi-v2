@@ -684,7 +684,30 @@ async function inicializarCardapio() {
 
 // Renderizar categorias
 function renderizarCategorias() {
-    const container = document.getElementById('categorias-container');
+    // Tentar encontrar o container de categorias em diferentes layouts
+    let container = document.getElementById('categorias-container');
+    
+    // Se não encontrar no container principal, tentar no layout padrão
+    if (!container) {
+        container = document.querySelector('.categorias');
+    }
+    
+    // Se ainda não encontrar, criar no container principal
+    if (!container) {
+        const mainContainer = document.querySelector('.container');
+        if (mainContainer) {
+            // Criar container de categorias se não existir
+            let categoriasDiv = document.getElementById('categorias');
+            if (!categoriasDiv) {
+                categoriasDiv = document.createElement('div');
+                categoriasDiv.id = 'categorias';
+                categoriasDiv.style.cssText = 'margin-bottom: 2rem; display: flex; gap: 0.5rem; flex-wrap: wrap;';
+                mainContainer.insertBefore(categoriasDiv, mainContainer.firstChild);
+            }
+            container = categoriasDiv;
+        }
+    }
+    
     if (!container) return;
 
     // Verificar se db existe
@@ -797,7 +820,31 @@ function adicionarPedidoIdClienteLocal(pedidoId) {
 
 // Renderizar produtos
 function renderizarProdutos() {
-    const container = document.getElementById('produtos-container');
+    // Tentar encontrar o container de produtos em diferentes layouts
+    let container = document.getElementById('produtos-container');
+    
+    // Se não encontrar, tentar no container principal
+    if (!container) {
+        const mainContainer = document.querySelector('.container');
+        if (mainContainer) {
+            // Criar container de produtos se não existir
+            let produtosDiv = document.getElementById('produtos');
+            if (!produtosDiv) {
+                produtosDiv = document.createElement('div');
+                produtosDiv.id = 'produtos';
+                produtosDiv.style.cssText = 'display: grid; gap: 1.5rem; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));';
+                // Inserir após o header ou categorias
+                const categorias = document.getElementById('categorias');
+                if (categorias) {
+                    categorias.insertAdjacentElement('after', produtosDiv);
+                } else {
+                    mainContainer.appendChild(produtosDiv);
+                }
+            }
+            container = produtosDiv;
+        }
+    }
+    
     if (!container) {
         // Container não encontrado, tentar novamente depois
         setTimeout(renderizarProdutos, 500);

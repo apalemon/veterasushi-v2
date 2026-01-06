@@ -5485,45 +5485,21 @@ window.aplicarRegrasCondicionais = function(contexto) {
 // SISTEMA DE MODELOS DE CARDÁPIO
 // ============================================
 
-// Definições dos modelos com layouts diferentes
+// Definições dos modelos com layouts diferentes (sem mudar cores)
 const modelos = {
     padrao: {
         nome: 'Modelo Padrão',
         descricao: 'Layout tradicional com header e categorias laterais',
-        tema: {
-            bg: '#f8f9fa',
-            bgSecondary: '#ffffff',
-            accent: '#dc2626',
-            accentHover: '#b91c1c',
-            textPrimary: '#1f2937',
-            textSecondary: '#6b7280'
-        },
         layout: 'padrao'
     },
     lateral: {
         nome: 'Modelo Lateral',
         descricao: 'Nome da loja no lado esquerdo, cardápio em lista vertical',
-        tema: {
-            bg: '#ffffff',
-            bgSecondary: '#f3f4f6',
-            accent: '#059669',
-            accentHover: '#047857',
-            textPrimary: '#111827',
-            textSecondary: '#6b7280'
-        },
         layout: 'lateral'
     },
     centro: {
         nome: 'Modelo Centralizado',
         descricao: 'Cardápio centralizado com design moderno e minimalista',
-        tema: {
-            bg: '#1f2937',
-            bgSecondary: '#111827',
-            accent: '#f59e0b',
-            accentHover: '#d97706',
-            textPrimary: '#f9fafb',
-            textSecondary: '#d1d5db'
-        },
         layout: 'centro'
     }
 };
@@ -5533,10 +5509,9 @@ window.aplicarModelo = function(modeloKey) {
     const modelo = modelos[modeloKey];
     if (!modelo) return;
     
-    // Salvar modelo nas configurações
+    // Salvar modelo nas configurações (sem alterar cores)
     if (db && db.data && db.data.configuracoes) {
         db.data.configuracoes.modelo = modeloKey;
-        db.data.configuracoes.tema = modelo.tema;
         db.data.configuracoes.layout = modelo.layout;
         db.saveData();
         
@@ -5560,7 +5535,7 @@ window.aplicarModelo = function(modeloKey) {
         })();
     }
     
-    // Aplicar CSS e layout
+    // Aplicar apenas o layout (sem alterar cores)
     aplicarLayoutModelo(modelo);
     
     // Atualizar interface
@@ -5570,20 +5545,8 @@ window.aplicarModelo = function(modeloKey) {
     alert(`✅ Modelo "${modelo.nome}" aplicado com sucesso!`);
 };
 
-// Aplicar layout específico do modelo
+// Aplicar layout específico do modelo (sem alterar cores)
 function aplicarLayoutModelo(modelo) {
-    const root = document.documentElement;
-    
-    // Aplicar cores CSS
-    Object.entries(modelo.tema).forEach(([key, value]) => {
-        if (key === 'bg') root.style.setProperty('--bg', value);
-        else if (key === 'bgSecondary') root.style.setProperty('--bg-secondary', value);
-        else if (key === 'accent') root.style.setProperty('--accent', value);
-        else if (key === 'accentHover') root.style.setProperty('--accent-hover', value);
-        else if (key === 'textPrimary') root.style.setProperty('--text-primary', value);
-        else if (key === 'textSecondary') root.style.setProperty('--text-secondary', value);
-    });
-    
     // Aplicar layout específico
     if (modelo.layout === 'lateral') {
         aplicarLayoutLateral();
@@ -5646,6 +5609,9 @@ function aplicarLayoutLateral() {
         if (typeof window.renderizarProdutos === 'function') {
             window.renderizarProdutos();
         }
+        if (typeof window.aplicarBrandingLoja === 'function') {
+            window.aplicarBrandingLoja();
+        }
     }, 100);
 }
 
@@ -5693,6 +5659,9 @@ function aplicarLayoutCentro() {
         if (typeof window.renderizarProdutos === 'function') {
             window.renderizarProdutos();
         }
+        if (typeof window.aplicarBrandingLoja === 'function') {
+            window.aplicarBrandingLoja();
+        }
     }, 100);
 }
 
@@ -5714,7 +5683,7 @@ function atualizarModeloSelecionado(modeloKey) {
     
     infoEl.innerHTML = `
         <div style="display: flex; align-items: center; gap: 15px;">
-            <div style="width: 40px; height: 40px; background: ${modelo.tema.accent}; border-radius: 8px;"></div>
+            <div style="width: 40px; height: 40px; background: var(--accent); border-radius: 8px;"></div>
             <div>
                 <strong style="color: var(--text-primary);">${modelo.nome}</strong>
                 <div style="color: var(--texto-medio); font-size: 14px;">${modelo.descricao}</div>
@@ -5725,8 +5694,8 @@ function atualizarModeloSelecionado(modeloKey) {
     // Atualizar cards visuais
     document.querySelectorAll('.modelo-card').forEach(card => {
         if (card.dataset.modelo === modeloKey) {
-            card.style.borderColor = modelo.tema.accent;
-            card.style.boxShadow = `0 0 0 3px ${modelo.tema.accent}20`;
+            card.style.borderColor = 'var(--accent)';
+            card.style.boxShadow = `0 0 0 3px var(--accent)20`;
         } else {
             card.style.borderColor = 'var(--borda)';
             card.style.boxShadow = 'none';
@@ -5766,7 +5735,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }, 1000);
 });
 
-// Carregar horários do servidor
+// ============================================
+// SISTEMA DE USUÁRIOS
 async function carregarHorariosDoServidor() {
     try {
         const token = (() => {

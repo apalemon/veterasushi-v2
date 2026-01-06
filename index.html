@@ -59,15 +59,12 @@
                     <li id="meus-pedidos-menu-item" style="display: block;">
                         <button class="btn-login" onclick="abrirModalMeusPedidos()">Compras</button>
                     </li>
-                    <li id="gestor-menu-item" style="display: none;">
-                        <a id="link-gestor" href="/gestor" class="btn-gestor" style="background: var(--vermelho-claro); color: #fff; padding: 8px 16px; border-radius: 12px; text-decoration: none; font-weight: 500;">Gestor</a>
-                    </li>
                     <li id="login-menu-item">
                         <button class="btn-login" onclick="abrirModalLoginCliente()">Login</button>
                     </li>
                     <li id="cliente-logado-item" style="display: none; align-items: center; gap: 1rem; position: relative;">
                         <span style="color: var(--texto-claro); font-weight: 500;">Olá, <span id="cliente-nome-header"></span>!</span>
-                        <button class="btn-dropdown" onclick="toggleUserDropdown()" style="background: none; border: none; color: var(--texto-claro); cursor: pointer; padding: 4px;">
+                        <button class="btn-dropdown" onclick="toggleUserDropdown()" style="background: #000000; border: none; color: var(--texto-claro); cursor: pointer; padding: 4px;">
                             <i class="fas fa-chevron-down" style="font-size: 12px;"></i>
                         </button>
                         <div id="user-dropdown" style="display: none; position: absolute; top: 100%; right: 0; background: var(--bg-secundario); border: 1px solid var(--borda); border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); min-width: 150px; z-index: 1000; margin-top: 8px;">
