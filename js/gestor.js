@@ -1612,6 +1612,45 @@ async function carregarEntradasDoServidor() {
     try { renderizarEntradasGestor(); } catch (e) {}
 }
 
+// Excluir todas as entradas
+window.excluirTodasEntradas = async function() {
+    if (!confirm('Tem certeza que deseja excluir TODAS as entradas do sistema? Esta ação não pode ser desfeita.')) {
+        return;
+    }
+    
+    try {
+        // Excluir localmente
+        if (db.data) {
+            db.data.entradas = [];
+            db.saveData();
+        }
+        
+        // Excluir no servidor
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
+        const response = await fetch(window.location.origin + '/api/entradas', {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            }
+        });
+        
+        if (response.ok) {
+            alert('✅ Todas as entradas foram excluídas com sucesso!');
+        } else {
+            console.warn('Erro ao excluir entradas do servidor:', response.status);
+            alert('⚠️ Entradas excluídas localmente, mas houve um erro ao sincronizar com o servidor.');
+        }
+        
+        renderizarEntradasGestor();
+    } catch (e) {
+        console.error('Erro ao excluir entradas:', e);
+        alert('❌ Erro ao excluir entradas: ' + e.message);
+    }
+};
+
 function renderizarEntradasGestor() {
     const container = document.getElementById('entradas-grid');
     if (!container) return;
@@ -3042,26 +3081,7 @@ function abrirModalCategoria() {
         divisoria: false
     });
     db.saveData();
-    
-    // Persistir no servidor
-    (async () => {
-        try {
-            const token = (() => {
-                try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
-            })();
-            await fetch(window.location.origin + '/api/categorias', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-                },
-                body: JSON.stringify(db.data.categorias || [])
-            });
-            try { await db.fetchInitialData(); } catch (e) {}
-        } catch (e) {
-            // Servidor pode estar indisponível; mantém local
-        }
-    })();
+    db.salvarCategorias(); // Salvar no servidor
     renderizarCategorias();
 }
 
@@ -3084,26 +3104,7 @@ function excluirCategoria(nome) {
         });
         
         db.saveData();
-        
-        // Persistir no servidor
-        (async () => {
-            try {
-                const token = (() => {
-                    try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
-                })();
-                await fetch(window.location.origin + '/api/categorias', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-                    },
-                    body: JSON.stringify(db.data.categorias || [])
-                });
-                try { await db.fetchInitialData(); } catch (e) {}
-            } catch (e) {
-                // Servidor pode estar indisponível; mantém local
-            }
-        })();
+        db.salvarCategorias(); // Salvar no servidor
         renderizarCategorias();
     }
 }
@@ -3122,25 +3123,7 @@ window.toggleDivisoriaCategoria = function(nome, ativo) {
             categoria.divisoria = ativo;
         }
         db.saveData();
-        
-        // Persistir no servidor
-        (async () => {
-            try {
-                const token = (() => {
-                    try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
-                })();
-                await fetch(window.location.origin + '/api/categorias', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-                    },
-                    body: JSON.stringify(db.data.categorias || [])
-                });
-            } catch (e) {
-                // Servidor pode estar indisponível; mantém local
-            }
-        })();
+        db.salvarCategorias(); // Salvar no servidor
     }
 };
 
@@ -3178,25 +3161,7 @@ window.moverCategoria = function(nome, direcao) {
     });
     
     db.saveData();
-    
-    // Persistir no servidor
-    (async () => {
-        try {
-            const token = (() => {
-                try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
-            })();
-            await fetch(window.location.origin + '/api/categorias', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-                },
-                body: JSON.stringify(db.data.categorias || [])
-            });
-        } catch (e) {
-            // Servidor pode estar indisponível; mantém local
-        }
-    })();
+    db.salvarCategorias(); // Salvar no servidor
     
     renderizarCategorias();
 };
@@ -5517,52 +5482,185 @@ window.aplicarRegrasCondicionais = function(contexto) {
 };
 
 // ============================================
-// SISTEMA DE HORÁRIOS DE FUNCIONAMENTO
+// SISTEMA DE MODELOS
 // ============================================
+
+// Definições dos modelos
+const modelos = {
+    padrao: {
+        nome: 'Modelo Padrão',
+        tema: {
+            bg: '#f8f9fa',
+            bgSecondary: '#ffffff',
+            accent: '#dc2626',
+            accentHover: '#b91c1c',
+            textPrimary: '#1f2937',
+            textSecondary: '#6b7280'
+        },
+        css: {
+            '--bg': '#f8f9fa',
+            '--bg-secondary': '#ffffff',
+            '--accent': '#dc2626',
+            '--accent-hover': '#b91c1c',
+            '--text-primary': '#1f2937',
+            '--text-secondary': '#6b7280'
+        }
+    },
+    moderno: {
+        nome: 'Modelo Moderno',
+        tema: {
+            bg: '#1f2937',
+            bgSecondary: '#111827',
+            accent: '#dc2626',
+            accentHover: '#ef4444',
+            textPrimary: '#f9fafb',
+            textSecondary: '#d1d5db'
+        },
+        css: {
+            '--bg': '#1f2937',
+            '--bg-secondary': '#111827',
+            '--accent': '#dc2626',
+            '--accent-hover': '#ef4444',
+            '--text-primary': '#f9fafb',
+            '--text-secondary': '#d1d5db'
+        }
+    },
+    colorido: {
+        nome: 'Modelo Colorido',
+        tema: {
+            bg: '#fef3c7',
+            bgSecondary: '#fde68a',
+            accent: '#f59e0b',
+            accentHover: '#d97706',
+            textPrimary: '#78350f',
+            textSecondary: '#92400e'
+        },
+        css: {
+            '--bg': '#fef3c7',
+            '--bg-secondary': '#fde68a',
+            '--accent': '#f59e0b',
+            '--accent-hover': '#d97706',
+            '--text-primary': '#78350f',
+            '--text-secondary': '#92400e'
+        }
+    }
+};
+
+// Aplicar modelo selecionado
+window.aplicarModelo = function(modeloKey) {
+    const modelo = modelos[modeloKey];
+    if (!modelo) return;
+    
+    // Salvar modelo nas configurações
+    if (db && db.data && db.data.configuracoes) {
+        db.data.configuracoes.modelo = modeloKey;
+        db.data.configuracoes.tema = modelo.tema;
+        db.saveData();
+        
+        // Salvar no servidor
+        (async () => {
+            try {
+                const token = (() => {
+                    try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+                })();
+                await fetch(window.location.origin + '/api/configuracoes', {
+                    method: 'PUT',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+                    },
+                    body: JSON.stringify(db.data.configuracoes)
+                });
+            } catch (e) {
+                console.warn('Erro ao salvar modelo no servidor:', e);
+            }
+        })();
+    }
+    
+    // Aplicar CSS
+    const root = document.documentElement;
+    Object.entries(modelo.css).forEach(([prop, value]) => {
+        root.style.setProperty(prop, value);
+    });
+    
+    // Atualizar interface
+    atualizarModeloSelecionado(modeloKey);
+    
+    // Mostrar feedback
+    alert(`✅ Modelo "${modelo.nome}" aplicado com sucesso!`);
+};
+
+// Atualizar visualização do modelo selecionado
+function atualizarModeloSelecionado(modeloKey) {
+    const infoEl = document.getElementById('modelo-selecionado-info');
+    if (!infoEl) return;
+    
+    const modelo = modelos[modeloKey];
+    if (!modelo) {
+        infoEl.innerHTML = 'Nenhum modelo selecionado. Clique em um modelo acima para aplicá-lo.';
+        return;
+    }
+    
+    infoEl.innerHTML = `
+        <div style="display: flex; align-items: center; gap: 15px;">
+            <div style="width: 40px; height: 40px; background: ${modelo.tema.accent}; border-radius: 8px;"></div>
+            <div>
+                <strong style="color: var(--text-primary);">${modelo.nome}</strong>
+                <div style="color: var(--texto-medio); font-size: 14px;">Modelo aplicado ao cardápio</div>
+            </div>
+        </div>
+    `;
+    
+    // Atualizar cards visuais
+    document.querySelectorAll('.modelo-card').forEach(card => {
+        if (card.dataset.modelo === modeloKey) {
+            card.style.borderColor = modelo.tema.accent;
+            card.style.boxShadow = `0 0 0 3px ${modelo.tema.accent}20`;
+        } else {
+            card.style.borderColor = 'var(--borda)';
+            card.style.boxShadow = 'none';
+        }
+    });
+}
+
+// Inicializar seleção de modelos
+document.addEventListener('DOMContentLoaded', function() {
+    // Adicionar clique nos cards de modelo
+    document.querySelectorAll('.modelo-card').forEach(card => {
+        card.addEventListener('click', function() {
+            const modeloKey = this.dataset.modelo;
+            if (confirm(`Deseja aplicar o modelo "${modelos[modeloKey].nome}" ao seu cardápio?`)) {
+                window.aplicarModelo(modeloKey);
+            }
+        });
+        
+        // Hover effect
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-2px)';
+            this.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            if (this.dataset.modelo !== (db.data?.configuracoes?.modelo || 'padrao')) {
+                this.style.boxShadow = 'none';
+            }
+        });
+    });
+    
+    // Carregar modelo salvo
+    setTimeout(() => {
+        const modeloSalvo = db.data?.configuracoes?.modelo || 'padrao';
+        atualizarModeloSelecionado(modeloSalvo);
+    }, 1000);
+});
 
 // Carregar horários do servidor
 async function carregarHorariosDoServidor() {
     try {
-        const response = await fetch(window.location.origin + '/api/horarios');
-        if (response.ok) {
-            let horarios = await response.json();
-            // aceitar array como resposta (legacy) — usar o primeiro elemento
-            if (Array.isArray(horarios)) horarios = horarios.length > 0 ? horarios[0] : null;
-            if (horarios) {
-                if (!db.data) db.data = {};
-                // Garantir estrutura mínima
-                if (!horarios.dias || typeof horarios.dias !== 'object') {
-                    horarios.dias = {
-                        domingo: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                        segunda: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                        terca: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                        quarta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                        quinta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                        sexta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                        sabado: { aberto: true, abertura: '18:30', fechamento: '23:30' }
-                    };
-                }
-                db.data.horarios = horarios;
-                db.saveData();
-                console.log('[HORARIOS] ✅ Horários carregados do servidor');
-                return true;
-            }
-        } else if (response.status === 503) {
-            // Service Unavailable - usar dados locais
-            console.warn('[HORARIOS] ⚠️ Servidor indisponível (503), usando dados locais');
-            if (db.data && db.data.horarios) {
-                return true;
-            }
-        }
-    } catch (e) {
-        console.warn('[HORARIOS] ⚠️ Erro ao carregar do servidor:', e);
-        // Em caso de erro, usar dados locais se disponíveis
-        if (db.data && db.data.horarios) {
-            return true;
-        }
-    }
-    return false;
-}
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
 
 // Inicializar horários no banco de dados se não existir
 function inicializarHorarios() {

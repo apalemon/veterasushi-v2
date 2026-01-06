@@ -14,12 +14,23 @@ class PixPayment {
 
   // Gerar QR Code PIX
   gerarQRCode(chavePix, valor, descricao = '') {
-    // Usar a chave PIX fixa do Mercado Pago (já está no formato EMV completo)
-    const chavePixFixa = this.getChavePixFixa();
+    // Tentar obter a chave PIX das configurações primeiro
+    let chaveConfig = '';
+    try {
+      if (typeof db !== 'undefined' && db.getConfiguracoes) {
+        const cfg = db.getConfiguracoes();
+        chaveConfig = cfg.chavePix || '';
+      }
+    } catch (e) {
+      // Ignorar erro
+    }
     
-    // Se a chave fornecida for a chave fixa ou se não for fornecida, usar a chave fixa
-    // Caso contrário, usar a chave fornecida (para compatibilidade)
-    const pixData = chavePixFixa || this.gerarDadosPIX(chavePix, valor, descricao);
+    // Usar chave das configurações, senão a fornecida, senão a fixa
+    const chaveFinal = chaveConfig || chavePix || this.getChavePixFixa();
+    
+    // Se for a chave fixa (formato EMV), usar direto
+    // Senão, gerar dados PIX
+    const pixData = chaveFinal.includes('BR.GOV.BCB.PIX') ? chaveFinal : this.gerarDadosPIX(chaveFinal, valor, descricao);
     
     // Usar API pública para gerar QR Code visual
     const qrCodeUrl = `${this.qrCodeApi}${encodeURIComponent(pixData)}`;
@@ -27,7 +38,7 @@ class PixPayment {
     return {
       qrCodeUrl: qrCodeUrl,
       pixData: pixData,
-      chavePix: chavePixFixa || chavePix,
+      chavePix: chaveFinal,
       valor: valor
     };
   }

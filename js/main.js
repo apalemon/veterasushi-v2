@@ -5,6 +5,23 @@
 let categoriaSelecionada = 'Todas';
 let cupomAplicado = null;
 
+// Toggle dropdown do usuário
+function toggleUserDropdown() {
+    const dropdown = document.getElementById('user-dropdown');
+    if (dropdown) {
+        dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
+    }
+}
+
+// Fechar dropdown ao clicar fora
+document.addEventListener('click', function(e) {
+    const dropdown = document.getElementById('user-dropdown');
+    const dropdownButton = e.target.closest('.btn-dropdown');
+    if (dropdown && !dropdown.contains(e.target) && !dropdownButton) {
+        dropdown.style.display = 'none';
+    }
+});
+
 function _entradasIsFileOrigin() {
     try {
         return window.location.protocol === 'file:' || window.location.origin === 'null';
@@ -106,6 +123,10 @@ function aplicarBrandingLoja() {
             const slug = cfg.slug || 'vetera';
             const linkGestor = document.getElementById('link-gestor');
             if (linkGestor) linkGestor.href = '/' + slug + '/gestor';
+            
+            // Atualizar link do dropdown
+            const linkGestorDropdown = document.getElementById('link-gestor-dropdown');
+            if (linkGestorDropdown) linkGestorDropdown.href = '/' + slug + '/gestor';
 
             const linkCardapio = document.getElementById('link-cardapio');
             if (linkCardapio) linkCardapio.href = '/' + slug + '/cardapio';
@@ -1957,16 +1978,33 @@ async function processarPedidoCheckout() {
 
 // Mostrar QR Code PIX
 function mostrarQRCodePix(pedido) {
-    // Usar a chave PIX fixa do Mercado Pago
-    const chavePixFixa = pixPayment.getChavePixFixa();
+    // Obter chave PIX das configurações
+    let chavePix = '';
+    try {
+        if (typeof db !== 'undefined' && db.getConfiguracoes) {
+            const cfg = db.getConfiguracoes();
+            chavePix = cfg.chavePix || '';
+        }
+    } catch (e) {
+        // Ignorar erro
+    }
+    
+    // Se não tiver chave, usar a fixa
+    if (!chavePix) {
+        chavePix = pixPayment.getChavePixFixa();
+    }
+    
     const modal = document.getElementById('modal-pix');
     const container = document.getElementById('pix-container');
     
     if (!modal || !container) return;
     
+    // Mostrar modal
+    modal.style.display = 'flex';
+    
     // Renderizar QR Code
     const nomeLoja = (typeof db !== 'undefined' && db.getConfiguracoes) ? (db.getConfiguracoes().nomeEstabelecimento || 'Minha Loja') : 'Minha Loja';
-    pixPayment.renderizarQRCode('pix-container', chavePixFixa, pedido.total, `Pedido #${pedido.id} - ${nomeLoja}`);
+    pixPayment.renderizarQRCode('pix-container', chavePix, pedido.total, `Pedido #${pedido.id} - ${nomeLoja}`);
     
     // Adicionar mensagem de aprovação manual após o QR Code
     setTimeout(() => {

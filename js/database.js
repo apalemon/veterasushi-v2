@@ -267,7 +267,27 @@ class Database {
           }
         })();
         
-        // Garantir que categorias existem
+        // Carregar categorias do servidor (se disponível)
+        try {
+          const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+          })();
+          const respCat = await fetch(window.location.origin + '/api/categorias', {
+            headers: {
+              ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            }
+          });
+          if (respCat.ok) {
+            const cats = await respCat.json();
+            if (Array.isArray(cats) && cats.length > 0) {
+              this.data.categorias = cats;
+            }
+          }
+        } catch (e) {
+          // Ignorar erro ao carregar categorias
+        }
+        
+        // Garantir que categorias existam
         if (!this.data.categorias || this.data.categorias.length === 0) {
           this.data.categorias = this.data.produtos 
             ? [...new Set(this.data.produtos.map(p => p.categoria).filter(Boolean))]
@@ -320,6 +340,31 @@ class Database {
             usuarios: this.data?.usuarios || []
         };
       }
+    }
+  }
+
+  // Salvar categorias no servidor
+  async salvarCategorias() {
+    if (!this._useLocalStorage) return;
+    
+    try {
+      const token = (() => {
+        try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+      })();
+      const response = await fetch(window.location.origin + '/api/categorias', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+        },
+        body: JSON.stringify(this.data.categorias || [])
+      });
+      
+      if (!response.ok) {
+        console.warn('[DATABASE] Erro ao salvar categorias no servidor:', response.status);
+      }
+    } catch (e) {
+      console.warn('[DATABASE] Erro ao salvar categorias:', e);
     }
   }
 
@@ -395,6 +440,7 @@ class Database {
           divisoria: false // padrão sem divisória
         }));
         this.saveData();
+        this.salvarCategorias(); // Salvar no servidor
         return this.data.categorias.map(c => c.nome);
       }
     }
@@ -409,6 +455,7 @@ class Database {
         divisoria: false
       }));
       this.saveData();
+      this.salvarCategorias(); // Salvar no servidor
       return categoriasUnicas;
     }
     
