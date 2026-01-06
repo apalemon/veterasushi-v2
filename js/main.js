@@ -274,52 +274,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Opção B: no site público, não persistir banco/credenciais de admin no localStorage
     try {
         const path = String(window.location && window.location.pathname ? window.location.pathname : '').toLowerCase();
-        const isAdminUi = path.includes('gestor') || path.includes('pdv');
-        if (!isAdminUi) {
-            // Remover apenas caches pesados que não devem ficar no cliente público
-            // NÃO remover vetera_session e vetera_admin_token: são necessários para o fluxo login → gestor
-            localStorage.removeItem('vetera_database');
-            localStorage.removeItem('vetera_usuarios_json');
-            localStorage.removeItem('vetera_novo_pedido');
+        if (path.includes('/gestor')) {
+            // Página do gestor - não inicializar cardápio
+            return;
         }
-    } catch (e) {
-        // ignora
-    }
-
-    if (typeof db === 'undefined') {
-        // Tentar novamente após um delay
-        setTimeout(() => {
-            if (typeof db !== 'undefined') {
-                inicializarCardapio();
-                atualizarStatusLojaIndicador();
-            }
-        }, 1000);
-        return;
-    }
+    } catch (e) {}
     
-    await inicializarCardapio();
-
-    // Registrar entrada (leve) e depois marcar se colocou algo no carrinho
-    registrarEntradaSite({ teveCarrinho: false });
-    _entradasMarcarCarrinhoSeNecessario();
-
-    // Monitorar atualizações de status dos pedidos do cliente
-    iniciarMonitoramentoStatusPedidosCliente();
+    // Inicializar cardápio
+    inicializarCardapio();
     
-    // Carregar horários do servidor
-    await carregarHorariosDoServidorMain();
-    atualizarStatusLojaIndicador();
-    
-    // Atualizar status e recarregar horários periodicamente
-    setInterval(async () => {
-        await carregarHorariosDoServidorMain();
-        atualizarStatusLojaIndicador();
-    }, 30000); // A cada 30 segundos
-
-    // Monitorar carrinho para marcar teveCarrinho sem pesar
-    setInterval(() => {
-        _entradasMarcarCarrinhoSeNecessario();
-    }, 5000);
+    // Aplicar modelo salvo se houver
+    setTimeout(() => {
+        carregarModeloSalvo();
+    }, 500);
 });
 
 function iniciarMonitoramentoStatusPedidosCliente() {
@@ -619,7 +586,10 @@ async function inicializarCardapio() {
             aplicarBrandingLoja();
         } catch (e) {}
         
-        // Garantir que categorias existem (extrair de produtos se necessário)
+        // Carregar e aplicar modelo salvo (se houver)
+        carregarModeloSalvo();
+        
+        // Garantir que categorias existam (extrair de produtos se necessário)
         if (!db.data.categorias || db.data.categorias.length === 0) {
             if (db.data.produtos && db.data.produtos.length > 0) {
                 db.data.categorias = [...new Set(db.data.produtos.map(p => p.categoria).filter(Boolean))];
