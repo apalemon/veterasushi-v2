@@ -282,6 +282,13 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Inicializar cardápio
     inicializarCardapio();
+    
+    // Atualizar status da loja periodicamente
+    setInterval(() => {
+        try {
+            atualizarStatusLojaIndicador();
+        } catch (e) {}
+    }, 30000); // A cada 30 segundos
 });
 
 function iniciarMonitoramentoStatusPedidosCliente() {
@@ -579,6 +586,11 @@ async function inicializarCardapio() {
 
         try {
             aplicarBrandingLoja();
+        } catch (e) {}
+        
+        // Atualizar status da loja
+        try {
+            atualizarStatusLojaIndicador();
         } catch (e) {}
         
         // Garantir que categorias existam (extrair de produtos se necessário)
@@ -952,7 +964,33 @@ function renderizarProdutos() {
             // Sanitizar dados
             const nomeSeguro = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(produto.nome) : String(produto.nome || '').replace(/[<>]/g, '');
             const descricaoSegura = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(produto.descricao) : String(produto.descricao || '').replace(/[<>]/g, '');
-            const imagemUrl = produto.imagem ? ((produto.imagem.startsWith('http') || produto.imagem.startsWith('/') || produto.imagem.startsWith('data:')) ? produto.imagem : '/Fotos/' + produto.imagem).replace(/[<>'"]/g, '') : '';
+            
+            // Corrigir URL da imagem - evitar redirecionamento infinito
+            let imagemUrl = '';
+            if (produto.imagem) {
+                // Limpar URL primeiro
+                let imagemLimpa = String(produto.imagem).trim();
+                
+                // Se contém api/produto-imagem, converter para caminho direto
+                if (imagemLimpa.includes('api/produto-imagem')) {
+                    // Extrair ID da imagem da URL
+                    const match = imagemLimpa.match(/id=(\d+)/);
+                    if (match && match[1]) {
+                        imagemUrl = '/Fotos/produto_' + match[1] + '.jpg';
+                    } else {
+                        imagemUrl = ''; // Se não conseguir extrair ID, não usar imagem
+                    }
+                } else if (imagemLimpa.startsWith('http') || imagemLimpa.startsWith('data:')) {
+                    imagemUrl = imagemLimpa;
+                } else if (imagemLimpa.startsWith('/')) {
+                    imagemUrl = imagemLimpa;
+                } else {
+                    // Caminho normal para pasta Fotos
+                    imagemUrl = '/Fotos/' + imagemLimpa;
+                }
+                imagemUrl = imagemUrl.replace(/[<>'"]/g, '');
+            }
+            
             const indisponivel = produto.ativo === false;
 
             html += '<div class="produto-card" style="' + (indisponivel ? 'opacity:0.55; filter:grayscale(1);' : '') + '">' +
