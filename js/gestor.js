@@ -5661,6 +5661,50 @@ async function carregarHorariosDoServidor() {
         const token = (() => {
             try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
         })();
+        const response = await fetch(window.location.origin + '/api/horarios', {
+            headers: {
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            }
+        });
+        if (response.ok) {
+            let horarios = await response.json();
+            // aceitar array como resposta (legacy) — usar o primeiro elemento
+            if (Array.isArray(horarios)) horarios = horarios.length > 0 ? horarios[0] : null;
+            if (horarios) {
+                if (!db.data) db.data = {};
+                // Garantir estrutura mínima
+                if (!horarios.dias || typeof horarios.dias !== 'object') {
+                    horarios.dias = {
+                        domingo: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                        segunda: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                        terca: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                        quarta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                        quinta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                        sexta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
+                        sabado: { aberto: true, abertura: '18:30', fechamento: '23:30' }
+                    };
+                }
+                db.data.horarios = horarios;
+                db.saveData();
+                console.log('[HORARIOS] ✅ Horários carregados do servidor');
+                return true;
+            }
+        } else if (response.status === 503) {
+            // Service Unavailable - usar dados locais
+            console.warn('[HORARIOS] ⚠️ Servidor indisponível (503), usando dados locais');
+            if (db.data && db.data.horarios) {
+                return true;
+            }
+        }
+    } catch (e) {
+        console.warn('[HORARIOS] ⚠️ Erro ao carregar do servidor:', e);
+        // Em caso de erro, usar dados locais se disponíveis
+        if (db.data && db.data.horarios) {
+            return true;
+        }
+    }
+    return false;
+}
 
 // Inicializar horários no banco de dados se não existir
 function inicializarHorarios() {

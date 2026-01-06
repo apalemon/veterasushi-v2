@@ -134,11 +134,15 @@ class Database {
   // Carregar pedidos do servidor (pedidos.json) - SEMPRE usar servidor como fonte principal
   async carregarPedidosServidor() {
     try {
+      const token = (() => {
+        try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+      })();
       const apiUrl = window.location.origin + '/api/pedidos';
       const response = await fetch(apiUrl, {
         method: 'GET',
         headers: {
-          'Accept': 'application/json'
+          'Accept': 'application/json',
+          ...(token ? { 'Authorization': 'Bearer ' + token } : {})
         }
       });
       
@@ -181,10 +185,14 @@ class Database {
       
       let response;
       try {
+        const token = (() => {
+          try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
         response = await fetch(apiUrl, {
           method: 'GET',
           headers: {
-            'Accept': 'application/json'
+            'Accept': 'application/json',
+            ...(token ? { 'Authorization': 'Bearer ' + token } : {})
           },
           signal: controller.signal
         });
@@ -242,7 +250,14 @@ class Database {
 
         // Sincronizar condicionais do servidor (promoções/regras)
         try {
-          const respCond = await fetch(window.location.origin + '/api/condicionais');
+          const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+          })();
+          const respCond = await fetch(window.location.origin + '/api/condicionais', {
+            headers: {
+              ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            }
+          });
           if (respCond.ok) {
             const cond = await respCond.json();
             if (Array.isArray(cond)) {
@@ -256,7 +271,14 @@ class Database {
         // Tentar mesclar configurações persistidas no servidor (/api/configuracoes)
         (async () => {
           try {
-            const resp = await fetch(window.location.origin + '/api/configuracoes');
+            const token = (() => {
+              try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+            })();
+            const resp = await fetch(window.location.origin + '/api/configuracoes', {
+              headers: {
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+              }
+            });
             if (resp.ok) {
               const cfg = await resp.json();
               this.data.configuracoes = { ...(this.data.configuracoes || {}), ...(cfg || {}) };
@@ -594,11 +616,14 @@ class Database {
       // Salvar TODOS os pedidos via API (servidor é fonte principal)
       try {
         const apiUrl = window.location.origin + '/api/pedidos';
-        
+        const token = (() => {
+          try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
         const response = await fetch(apiUrl, {
           method: 'POST',
           headers: { 
             'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
             'Accept': 'application/json'
           },
           body: JSON.stringify(this.data.pedidos)
@@ -662,11 +687,14 @@ class Database {
     // Salvar TODOS os pedidos no servidor (MongoDB)
     try {
       const apiUrl = window.location.origin + '/api/pedidos';
-      
+      const token = (() => {
+        try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+      })();
       const response = await fetch(apiUrl, {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': 'Bearer ' + token } : {}),
           'Accept': 'application/json'
         },
         body: JSON.stringify(this.data.pedidos)
@@ -723,9 +751,15 @@ class Database {
 
     // Persistir no servidor (fonte de verdade) - não bloquear o fluxo
     try {
+      const token = (() => {
+        try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+      })();
       fetch(window.location.origin + '/api/usuarios', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+        },
         body: JSON.stringify([novoCliente])
       }).catch(() => {});
     } catch (e) {}
@@ -745,9 +779,15 @@ class Database {
 
       // Persistir no servidor (fonte de verdade) - não bloquear o fluxo
       try {
+        const token = (() => {
+          try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
         fetch(window.location.origin + '/api/usuarios', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+          },
           body: JSON.stringify([this.data.clientes[index]])
         }).catch(() => {});
       } catch (e) {}
@@ -853,9 +893,15 @@ class Database {
     // Tentar persistir no servidor (não bloquear se falhar)
     (async () => {
       try {
+        const token = (() => {
+          try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
         await fetch(window.location.origin + '/api/configuracoes', {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+          },
           body: JSON.stringify(this.data.configuracoes)
         });
       } catch (e) {
