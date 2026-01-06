@@ -665,36 +665,48 @@
                                 </div>
                             </div>
                             <h3 style="color: var(--text-primary); margin: 0 0 10px 0; font-size: 18px;">Modelo Padrão</h3>
-                            <p style="color: var(--texto-medio); margin: 0; font-size: 14px;">Design clássico e limpo, ideal para qualquer tipo de negócio.</p>
+                            <p style="color: var(--texto-medio); margin: 0; font-size: 14px;">Layout tradicional com header e categorias laterais</p>
                         </div>
                         
-                        <!-- Modelo 2 - Moderno -->
-                        <div class="modelo-card" data-modelo="moderno" style="background: var(--bg-primary); border: 2px solid var(--borda); border-radius: 12px; padding: 20px; cursor: pointer; transition: all 0.3s ease;">
+                        <!-- Modelo 2 - Lateral -->
+                        <div class="modelo-card" data-modelo="lateral" style="background: var(--bg-primary); border: 2px solid var(--borda); border-radius: 12px; padding: 20px; cursor: pointer; transition: all 0.3s ease;">
+                            <div style="aspect-ratio: 16/9; background: linear-gradient(135deg, #ffffff 0%, #f3f4f6 100%); border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
+                                <div style="position: absolute; left: 0; top: 0; bottom: 0; width: 30%; background: #f3f4f6; border-right: 1px solid #e5e7eb;">
+                                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; gap: 4px;">
+                                        <div style="width: 20px; height: 20px; background: #059669; border-radius: 50%;"></div>
+                                        <div style="width: 30px; height: 2px; background: #6b7280; border-radius: 1px;"></div>
+                                        <div style="width: 30px; height: 2px; background: #6b7280; border-radius: 1px;"></div>
+                                        <div style="width: 30px; height: 2px; background: #6b7280; border-radius: 1px;"></div>
+                                    </div>
+                                </div>
+                                <div style="position: absolute; left: 35%; top: 50%; transform: translateY(-50%); width: 60%;">
+                                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                                        <div style="width: 100%; height: 8px; background: #059669; border-radius: 4px;"></div>
+                                        <div style="width: 100%; height: 6px; background: #6b7280; border-radius: 3px;"></div>
+                                        <div style="width: 100%; height: 6px; background: #6b7280; border-radius: 3px;"></div>
+                                    </div>
+                                </div>
+                            </div>
+                            <h3 style="color: var(--text-primary); margin: 0 0 10px 0; font-size: 18px;">Modelo Lateral</h3>
+                            <p style="color: var(--texto-medio); margin: 0; font-size: 14px;">Nome da loja no lado esquerdo, cardápio em lista vertical</p>
+                        </div>
+                        
+                        <!-- Modelo 3 - Centralizado -->
+                        <div class="modelo-card" data-modelo="centro" style="background: var(--bg-primary); border: 2px solid var(--borda); border-radius: 12px; padding: 20px; cursor: pointer; transition: all 0.3s ease;">
                             <div style="aspect-ratio: 16/9; background: linear-gradient(135deg, #1f2937 0%, #111827 100%); border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
-                                <div style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, #dc2626, transparent);"></div>
-                                <div style="display: flex; flex-direction: column; align-items: center; gap: 6px;">
-                                    <div style="width: 100px; height: 3px; background: #dc2626; border-radius: 2px;"></div>
-                                    <div style="width: 80px; height: 2px; background: #9ca3af; border-radius: 1px;"></div>
-                                    <div style="width: 120px; height: 2px; background: #9ca3af; border-radius: 1px;"></div>
+                                <div style="position: absolute; top: 20px; left: 50%; transform: translateX(-50%); width: 40px; height: 40px; background: #f59e0b; border-radius: 50%;"></div>
+                                <div style="position: absolute; top: 70px; left: 50%; transform: translateX(-50%); width: 80%; height: 2px; background: #4b5563;"></div>
+                                <div style="position: absolute; top: 85px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px;">
+                                    <div style="width: 60px; height: 40px; background: #374151; border-radius: 4px;"></div>
+                                    <div style="width: 60px; height: 40px; background: #374151; border-radius: 4px;"></div>
+                                    <div style="width: 60px; height: 40px; background: #374151; border-radius: 4px;"></div>
+                                </div>
+                                <div style="position: absolute; bottom: 20px; right: 20px; width: 40px; height: 40px; background: #f59e0b; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                                    <i class="fas fa-shopping-cart" style="color: #111827; font-size: 16px;"></i>
                                 </div>
                             </div>
-                            <h3 style="color: var(--text-primary); margin: 0 0 10px 0; font-size: 18px;">Modelo Moderno</h3>
-                            <p style="color: var(--texto-medio); margin: 0; font-size: 14px;">Estilo dark mode com linhas minimalistas, perfeito para pubs e choperias.</p>
-                        </div>
-                        
-                        <!-- Modelo 3 - Colorido -->
-                        <div class="modelo-card" data-modelo="colorido" style="background: var(--bg-primary); border: 2px solid var(--borda); border-radius: 12px; padding: 20px; cursor: pointer; transition: all 0.3s ease;">
-                            <div style="aspect-ratio: 16/9; background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; position: relative; overflow: hidden;">
-                                <div style="position: absolute; top: 10px; right: 10px; width: 35px; height: 35px; background: #f59e0b; border-radius: 8px; transform: rotate(15deg);"></div>
-                                <div style="position: absolute; bottom: 10px; left: 10px; width: 40px; height: 40px; background: #ef4444; border-radius: 50%;"></div>
-                                <div style="display: flex; flex-direction: column; align-items: center; gap: 8px;">
-                                    <div style="width: 110px; height: 10px; background: #f59e0b; border-radius: 5px;"></div>
-                                    <div style="width: 90px; height: 7px; background: #ef4444; border-radius: 4px;"></div>
-                                    <div style="width: 130px; height: 7px; background: #10b981; border-radius: 4px;"></div>
-                                </div>
-                            </div>
-                            <h3 style="color: var(--text-primary); margin: 0 0 10px 0; font-size: 18px;">Modelo Colorido</h3>
-                            <p style="color: var(--texto-medio); margin: 0; font-size: 14px;">Cores vibrantes e divertidas, ótimo para sorveterias e docerias.</p>
+                            <h3 style="color: var(--text-primary); margin: 0 0 10px 0; font-size: 18px;">Modelo Centralizado</h3>
+                            <p style="color: var(--texto-medio); margin: 0; font-size: 14px;">Cardápio centralizado com design moderno e minimalista</p>
                         </div>
                     </div>
                     

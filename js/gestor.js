@@ -5482,13 +5482,14 @@ window.aplicarRegrasCondicionais = function(contexto) {
 };
 
 // ============================================
-// SISTEMA DE MODELOS
+// SISTEMA DE MODELOS DE CARDÁPIO
 // ============================================
 
-// Definições dos modelos
+// Definições dos modelos com layouts diferentes
 const modelos = {
     padrao: {
         nome: 'Modelo Padrão',
+        descricao: 'Layout tradicional com header e categorias laterais',
         tema: {
             bg: '#f8f9fa',
             bgSecondary: '#ffffff',
@@ -5497,52 +5498,33 @@ const modelos = {
             textPrimary: '#1f2937',
             textSecondary: '#6b7280'
         },
-        css: {
-            '--bg': '#f8f9fa',
-            '--bg-secondary': '#ffffff',
-            '--accent': '#dc2626',
-            '--accent-hover': '#b91c1c',
-            '--text-primary': '#1f2937',
-            '--text-secondary': '#6b7280'
-        }
+        layout: 'padrao'
     },
-    moderno: {
-        nome: 'Modelo Moderno',
+    lateral: {
+        nome: 'Modelo Lateral',
+        descricao: 'Nome da loja no lado esquerdo, cardápio em lista vertical',
+        tema: {
+            bg: '#ffffff',
+            bgSecondary: '#f3f4f6',
+            accent: '#059669',
+            accentHover: '#047857',
+            textPrimary: '#111827',
+            textSecondary: '#6b7280'
+        },
+        layout: 'lateral'
+    },
+    centro: {
+        nome: 'Modelo Centralizado',
+        descricao: 'Cardápio centralizado com design moderno e minimalista',
         tema: {
             bg: '#1f2937',
             bgSecondary: '#111827',
-            accent: '#dc2626',
-            accentHover: '#ef4444',
+            accent: '#f59e0b',
+            accentHover: '#d97706',
             textPrimary: '#f9fafb',
             textSecondary: '#d1d5db'
         },
-        css: {
-            '--bg': '#1f2937',
-            '--bg-secondary': '#111827',
-            '--accent': '#dc2626',
-            '--accent-hover': '#ef4444',
-            '--text-primary': '#f9fafb',
-            '--text-secondary': '#d1d5db'
-        }
-    },
-    colorido: {
-        nome: 'Modelo Colorido',
-        tema: {
-            bg: '#fef3c7',
-            bgSecondary: '#fde68a',
-            accent: '#f59e0b',
-            accentHover: '#d97706',
-            textPrimary: '#78350f',
-            textSecondary: '#92400e'
-        },
-        css: {
-            '--bg': '#fef3c7',
-            '--bg-secondary': '#fde68a',
-            '--accent': '#f59e0b',
-            '--accent-hover': '#d97706',
-            '--text-primary': '#78350f',
-            '--text-secondary': '#92400e'
-        }
+        layout: 'centro'
     }
 };
 
@@ -5555,6 +5537,7 @@ window.aplicarModelo = function(modeloKey) {
     if (db && db.data && db.data.configuracoes) {
         db.data.configuracoes.modelo = modeloKey;
         db.data.configuracoes.tema = modelo.tema;
+        db.data.configuracoes.layout = modelo.layout;
         db.saveData();
         
         // Salvar no servidor
@@ -5577,11 +5560,8 @@ window.aplicarModelo = function(modeloKey) {
         })();
     }
     
-    // Aplicar CSS
-    const root = document.documentElement;
-    Object.entries(modelo.css).forEach(([prop, value]) => {
-        root.style.setProperty(prop, value);
-    });
+    // Aplicar CSS e layout
+    aplicarLayoutModelo(modelo);
     
     // Atualizar interface
     atualizarModeloSelecionado(modeloKey);
@@ -5589,6 +5569,137 @@ window.aplicarModelo = function(modeloKey) {
     // Mostrar feedback
     alert(`✅ Modelo "${modelo.nome}" aplicado com sucesso!`);
 };
+
+// Aplicar layout específico do modelo
+function aplicarLayoutModelo(modelo) {
+    const root = document.documentElement;
+    
+    // Aplicar cores CSS
+    Object.entries(modelo.tema).forEach(([key, value]) => {
+        if (key === 'bg') root.style.setProperty('--bg', value);
+        else if (key === 'bgSecondary') root.style.setProperty('--bg-secondary', value);
+        else if (key === 'accent') root.style.setProperty('--accent', value);
+        else if (key === 'accentHover') root.style.setProperty('--accent-hover', value);
+        else if (key === 'textPrimary') root.style.setProperty('--text-primary', value);
+        else if (key === 'textSecondary') root.style.setProperty('--text-secondary', value);
+    });
+    
+    // Aplicar layout específico
+    if (modelo.layout === 'lateral') {
+        aplicarLayoutLateral();
+    } else if (modelo.layout === 'centro') {
+        aplicarLayoutCentro();
+    } else {
+        aplicarLayoutPadrao();
+    }
+}
+
+// Layout Lateral - Nome no lado, cardápio em lista
+function aplicarLayoutLateral() {
+    const container = document.querySelector('.container');
+    if (!container) return;
+    
+    // Modificar estrutura HTML para layout lateral
+    container.innerHTML = `
+        <div class="layout-lateral" style="display: grid; grid-template-columns: 300px 1fr; min-height: 100vh; gap: 0;">
+            <!-- Sidebar com nome da loja -->
+            <aside class="sidebar-loja" style="background: var(--bg-secondary); padding: 2rem; border-right: 1px solid var(--borda);">
+                <div class="loja-info" style="text-align: center;">
+                    <img id="header-logo" src="/logo.png" alt="Logo" style="width: 80px; height: 80px; margin-bottom: 1rem; border-radius: 50%;">
+                    <h1 id="header-nome-loja" style="color: var(--text-primary); font-size: 1.5rem; margin-bottom: 0.5rem;">Minha Loja</h1>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem;">Cardápio Digital</p>
+                </div>
+                
+                <!-- Categorias verticais -->
+                <nav class="categorias-nav" style="margin-top: 2rem;">
+                    <div id="categorias-container" style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <!-- Categorias serão inseridas aqui -->
+                    </div>
+                </nav>
+                
+                <!-- Carrinho -->
+                <div class="carrinho-lateral" style="position: sticky; bottom: 2rem; margin-top: 2rem;">
+                    <button onclick="abrirModalCheckout()" class="btn-carrinho" style="width: 100%; background: var(--accent); color: white; padding: 1rem; border-radius: 8px; border: none; cursor: pointer;">
+                        <i class="fas fa-shopping-cart"></i> Ver Carrinho
+                    </button>
+                </div>
+            </aside>
+            
+            <!-- Conteúdo principal -->
+            <main class="conteudo-principal" style="padding: 2rem; background: var(--bg);">
+                <!-- Status da loja -->
+                <div id="mensagem-loja-fechada" style="display: none; background: var(--accent); color: white; padding: 1rem; border-radius: 8px; margin-bottom: 2rem; text-align: center;"></div>
+                
+                <!-- Produtos em lista -->
+                <div id="produtos-container" style="display: grid; gap: 1rem;">
+                    <!-- Produtos serão inseridos aqui -->
+                </div>
+            </main>
+        </div>
+    `;
+    
+    // Re-renderizar categorias e produtos no novo layout
+    setTimeout(() => {
+        if (typeof window.renderizarCategorias === 'function') {
+            window.renderizarCategorias();
+        }
+        if (typeof window.renderizarProdutos === 'function') {
+            window.renderizarProdutos();
+        }
+    }, 100);
+}
+
+// Layout Centralizado - Design minimalista
+function aplicarLayoutCentro() {
+    const container = document.querySelector('.container');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="layout-centro" style="max-width: 800px; margin: 0 auto; padding: 2rem; background: var(--bg);">
+            <!-- Header centralizado -->
+            <header class="header-centro" style="text-align: center; margin-bottom: 3rem;">
+                <img id="header-logo" src="/logo.png" alt="Logo" style="width: 100px; height: 100px; margin-bottom: 1rem; border-radius: 50%;">
+                <h1 id="header-nome-loja" style="color: var(--text-primary); font-size: 2rem; margin-bottom: 0.5rem;">Minha Loja</h1>
+                <p style="color: var(--text-secondary);">Cardápio Digital</p>
+            </header>
+            
+            <!-- Status da loja -->
+            <div id="mensagem-loja-fechada" style="display: none; background: var(--accent); color: white; padding: 1rem; border-radius: 8px; margin-bottom: 2rem; text-align: center;"></div>
+            
+            <!-- Categorias em linha -->
+            <nav class="categorias-centro" style="margin-bottom: 2rem;">
+                <div id="categorias-container" style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+                    <!-- Categorias serão inseridas aqui -->
+                </div>
+            </nav>
+            
+            <!-- Produtos em grid centralizado -->
+            <div id="produtos-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem;">
+                <!-- Produtos serão inseridos aqui -->
+            </div>
+            
+            <!-- Carrinho flutuante -->
+            <button onclick="abrirModalCheckout()" class="carrinho-flutuante" style="position: fixed; bottom: 2rem; right: 2rem; width: 60px; height: 60px; background: var(--accent); color: white; border-radius: 50%; border: none; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 1000;">
+                <i class="fas fa-shopping-cart" style="font-size: 1.5rem;"></i>
+            </button>
+        </div>
+    `;
+    
+    // Re-renderizar categorias e produtos no novo layout
+    setTimeout(() => {
+        if (typeof window.renderizarCategorias === 'function') {
+            window.renderizarCategorias();
+        }
+        if (typeof window.renderizarProdutos === 'function') {
+            window.renderizarProdutos();
+        }
+    }, 100);
+}
+
+// Layout Padrão - Restaurar estrutura original
+function aplicarLayoutPadrao() {
+    location.reload(); // Simplesmente recarrega para restaurar o layout padrão
+}
 
 // Atualizar visualização do modelo selecionado
 function atualizarModeloSelecionado(modeloKey) {
@@ -5606,7 +5717,7 @@ function atualizarModeloSelecionado(modeloKey) {
             <div style="width: 40px; height: 40px; background: ${modelo.tema.accent}; border-radius: 8px;"></div>
             <div>
                 <strong style="color: var(--text-primary);">${modelo.nome}</strong>
-                <div style="color: var(--texto-medio); font-size: 14px;">Modelo aplicado ao cardápio</div>
+                <div style="color: var(--texto-medio); font-size: 14px;">${modelo.descricao}</div>
             </div>
         </div>
     `;
@@ -5629,7 +5740,7 @@ document.addEventListener('DOMContentLoaded', function() {
     document.querySelectorAll('.modelo-card').forEach(card => {
         card.addEventListener('click', function() {
             const modeloKey = this.dataset.modelo;
-            if (confirm(`Deseja aplicar o modelo "${modelos[modeloKey].nome}" ao seu cardápio?`)) {
+            if (confirm(`Deseja aplicar o modelo "${modelos[modeloKey].nome}" ao seu cardápio? Isso mudará completamente o layout.`)) {
                 window.aplicarModelo(modeloKey);
             }
         });
