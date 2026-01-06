@@ -5502,11 +5502,6 @@ const modelos = {
         descricao: 'Cardápio centralizado com design moderno e minimalista',
         layout: 'centro'
     },
-    mobile: {
-        nome: 'Modelo Mobile',
-        descricao: 'Otimizado para celular com navegação por gestos e swipe',
-        layout: 'mobile'
-    },
     compacto: {
         nome: 'Modelo Compacto',
         descricao: 'Design minimalista com produtos em lista compacta',
@@ -5567,8 +5562,6 @@ function aplicarLayoutModelo(modelo) {
         aplicarLayoutLateral();
     } else if (modelo.layout === 'centro') {
         aplicarLayoutCentro();
-    } else if (modelo.layout === 'mobile') {
-        aplicarLayoutMobile();
     } else if (modelo.layout === 'compacto') {
         aplicarLayoutCompacto();
     } else if (modelo.layout === 'magazine') {
@@ -5578,81 +5571,7 @@ function aplicarLayoutModelo(modelo) {
     }
 }
 
-// Layout Mobile - Otimizado para celular
-function aplicarLayoutMobile() {
-    const container = document.querySelector('.container');
-    if (!container) return;
-    
-    container.innerHTML = `
-        <div class="layout-mobile" style="min-height: 100vh; background: var(--bg);">
-            <!-- Header Mobile -->
-            <header class="header-mobile" style="background: var(--bg-secondary); padding: 1rem; border-bottom: 1px solid var(--borda); position: sticky; top: 0; z-index: 100;">
-                <div style="display: flex; align-items: center; justify-content: space-between;">
-                    <div style="display: flex; align-items: center; gap: 0.75rem;">
-                        <img id="header-logo" src="/logo.png" alt="Logo" style="width: 40px; height: 40px; border-radius: 50%;">
-                        <h1 id="header-nome-loja" style="color: var(--text-primary); font-size: 1.2rem; margin: 0;">Minha Loja</h1>
-                    </div>
-                    <button onclick="abrirModalCheckout()" style="background: var(--accent); color: white; border: none; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem;">
-                        <i class="fas fa-shopping-cart"></i> <span id="carrinho-count">0</span>
-                    </button>
-                </div>
-            </header>
-            
-            <!-- Status da loja -->
-            <div id="mensagem-loja-fechada" style="display: none; background: var(--accent); color: white; padding: 1rem; text-align: center;"></div>
-            
-            <!-- Categorias Mobile (Horizontal Scroll) -->
-            <nav class="categorias-mobile" style="background: var(--bg-secondary); padding: 1rem; border-bottom: 1px solid var(--borda);">
-                <div id="categorias-container" style="display: flex; gap: 0.5rem; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;">
-                    <!-- Categorias serão inseridas aqui -->
-                </div>
-            </nav>
-            
-            <!-- Produtos Mobile -->
-            <main class="conteudo-mobile" style="padding: 1rem;">
-                <div id="produtos-container" style="display: grid; gap: 1rem;">
-                    <!-- Produtos serão inseridos aqui -->
-                </div>
-            </main>
-            
-            <!-- Bottom Navigation -->
-            <nav class="bottom-nav" style="position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg-secondary); border-top: 1px solid var(--borda); padding: 0.5rem 0; z-index: 100;">
-                <div style="display: flex; justify-content: space-around; align-items: center;">
-                    <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" style="background: none; border: none; color: var(--text-primary); padding: 0.5rem;">
-                        <i class="fas fa-home" style="font-size: 1.2rem;"></i>
-                        <div style="font-size: 0.7rem;">Início</div>
-                    </button>
-                    <button onclick="abrirModalMeusPedidos()" style="background: none; border: none; color: var(--text-primary); padding: 0.5rem;">
-                        <i class="fas fa-receipt" style="font-size: 1.2rem;"></i>
-                        <div style="font-size: 0.7rem;">Pedidos</div>
-                    </button>
-                    <button onclick="abrirModalCheckout()" style="background: none; border: none; color: var(--text-primary); padding: 0.5rem;">
-                        <i class="fas fa-shopping-cart" style="font-size: 1.2rem;"></i>
-                        <div style="font-size: 0.7rem;">Carrinho</div>
-                    </button>
-                </div>
-            </nav>
-        </div>
-    `;
-    
-    // Adicionar padding no body para não ficar atrás da bottom nav
-    document.body.style.paddingBottom = '60px';
-    
-    // Re-renderizar categorias e produtos no novo layout
-    setTimeout(() => {
-        if (typeof window.renderizarCategorias === 'function') {
-            window.renderizarCategorias();
-        }
-        if (typeof window.renderizarProdutos === 'function') {
-            window.renderizarProdutos();
-        }
-        if (typeof window.aplicarBrandingLoja === 'function') {
-            window.aplicarBrandingLoja();
-        }
-    }, 100);
-}
-
-// Layout Compacto - Design minimalista
+// Layout Compacto - Design minimalista (responsivo)
 function aplicarLayoutCompacto() {
     const container = document.querySelector('.container');
     if (!container) return;
@@ -5689,6 +5608,97 @@ function aplicarLayoutCompacto() {
         </div>
     `;
     
+    // Adicionar CSS responsivo
+    const style = document.createElement('style');
+    style.textContent = `
+        .layout-compacto {
+            max-width: 600px;
+            padding: 1rem;
+        }
+        
+        @media (max-width: 768px) {
+            .layout-compacto {
+                max-width: 100% !important;
+                padding: 0.75rem !important;
+            }
+            
+            .header-compacto img {
+                width: 50px !important;
+                height: 50px !important;
+            }
+            
+            .header-compacto h1 {
+                font-size: 1.3rem !important;
+            }
+            
+            .header-compacto {
+                margin-bottom: 0.75rem !important;
+            }
+            
+            .categorias-compacto {
+                margin-bottom: 0.75rem !important;
+            }
+            
+            .categorias-compacto #categorias-container {
+                gap: 0.25rem !important;
+            }
+            
+            #produtos-container {
+                gap: 0.5rem !important;
+            }
+            
+            .carrinho-flutuante {
+                bottom: 0.75rem !important;
+                right: 0.75rem !important;
+                width: 45px !important;
+                height: 45px !important;
+            }
+            
+            .carrinho-flutuante i {
+                font-size: 1rem !important;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .layout-compacto {
+                padding: 0.5rem !important;
+            }
+            
+            .header-compacto img {
+                width: 40px !important;
+                height: 40px !important;
+            }
+            
+            .header-compacto h1 {
+                font-size: 1.1rem !important;
+            }
+            
+            .header-compacto {
+                margin-bottom: 0.5rem !important;
+            }
+            
+            .categorias-compacto {
+                margin-bottom: 0.5rem !important;
+            }
+            
+            #produtos-container {
+                gap: 0.4rem !important;
+            }
+            
+            .carrinho-flutuante {
+                bottom: 0.5rem !important;
+                right: 0.5rem !important;
+                width: 40px !important;
+                height: 40px !important;
+            }
+            
+            .carrinho-flutuante i {
+                font-size: 0.9rem !important;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+    
     // Re-renderizar categorias e produtos no novo layout
     setTimeout(() => {
         if (typeof window.renderizarCategorias === 'function') {
@@ -5703,7 +5713,7 @@ function aplicarLayoutCompacto() {
     }, 100);
 }
 
-// Layout Magazine - Elegante com imagens grandes
+// Layout Magazine - Elegante com imagens grandes (responsivo)
 function aplicarLayoutMagazine() {
     const container = document.querySelector('.container');
     if (!container) return;
@@ -5742,6 +5752,107 @@ function aplicarLayoutMagazine() {
         </div>
     `;
     
+    // Adicionar CSS responsivo
+    const style = document.createElement('style');
+    style.textContent = `
+        .layout-magazine {
+            max-width: 1200px;
+            padding: 1rem;
+        }
+        
+        @media (max-width: 768px) {
+            .layout-magazine {
+                padding: 0.75rem !important;
+            }
+            
+            .header-magazine img {
+                width: 60px !important;
+                height: 60px !important;
+            }
+            
+            .header-magazine h1 {
+                font-size: 1.5rem !important;
+            }
+            
+            .header-magazine {
+                margin-bottom: 1.5rem !important;
+            }
+            
+            .categorias-magazine {
+                margin-bottom: 1.5rem !important;
+            }
+            
+            .categorias-magazine #categorias-container {
+                gap: 0.5rem !important;
+            }
+            
+            #produtos-container {
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) !important;
+                gap: 1.5rem !important;
+            }
+            
+            .carrinho-magazine {
+                bottom: 1rem !important;
+                right: 1rem !important;
+                padding: 0.75rem 1rem !important;
+            }
+            
+            .carrinho-magazine span {
+                display: none !important;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .layout-magazine {
+                padding: 0.5rem !important;
+            }
+            
+            .header-magazine img {
+                width: 50px !important;
+                height: 50px !important;
+            }
+            
+            .header-magazine h1 {
+                font-size: 1.3rem !important;
+            }
+            
+            .header-magazine p {
+                font-size: 0.9rem !important;
+            }
+            
+            .header-magazine {
+                margin-bottom: 1rem !important;
+            }
+            
+            .categorias-magazine {
+                margin-bottom: 1rem !important;
+            }
+            
+            #produtos-container {
+                grid-template-columns: 1fr !important;
+                gap: 1rem !important;
+            }
+            
+            .carrinho-magazine {
+                bottom: 0.75rem !important;
+                right: 0.75rem !important;
+                padding: 0.5rem !important;
+                width: 50px !important;
+                height: 50px !important;
+                border-radius: 50% !important;
+            }
+            
+            .carrinho-magazine span {
+                display: none !important;
+            }
+            
+            .carrinho-magazine i {
+                font-size: 1rem !important;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+    
     // Re-renderizar categorias e produtos no novo layout
     setTimeout(() => {
         if (typeof window.renderizarCategorias === 'function') {
@@ -5756,16 +5867,16 @@ function aplicarLayoutMagazine() {
     }, 100);
 }
 
-// Layout Lateral - Nome no lado, cardápio em lista
+// Layout Lateral - Nome no lado, cardápio em lista (responsivo)
 function aplicarLayoutLateral() {
     const container = document.querySelector('.container');
     if (!container) return;
     
-    // Modificar estrutura HTML para layout lateral
+    // Modificar estrutura HTML para layout lateral responsivo
     container.innerHTML = `
-        <div class="layout-lateral" style="display: grid; grid-template-columns: 300px 1fr; min-height: 100vh; gap: 0;">
+        <div class="layout-lateral" style="display: grid; min-height: 100vh; gap: 0;">
             <!-- Sidebar com nome da loja -->
-            <aside class="sidebar-loja" style="background: var(--bg-secondary); padding: 2rem; border-right: 1px solid var(--borda);">
+            <aside class="sidebar-loja" style="background: var(--bg-secondary); padding: 2rem; border-right: 1px solid var(--borda); grid-area: sidebar;">
                 <div class="loja-info" style="text-align: center;">
                     <img id="header-logo" src="/logo.png" alt="Logo" style="width: 80px; height: 80px; margin-bottom: 1rem; border-radius: 50%;">
                     <h1 id="header-nome-loja" style="color: var(--text-primary); font-size: 1.5rem; margin-bottom: 0.5rem;">Minha Loja</h1>
@@ -5788,7 +5899,7 @@ function aplicarLayoutLateral() {
             </aside>
             
             <!-- Conteúdo principal -->
-            <main class="conteudo-principal" style="padding: 2rem; background: var(--bg);">
+            <main class="conteudo-principal" style="padding: 2rem; background: var(--bg); grid-area: main;">
                 <!-- Status da loja -->
                 <div id="mensagem-loja-fechada" style="display: none; background: var(--accent); color: white; padding: 1rem; border-radius: 8px; margin-bottom: 2rem; text-align: center;"></div>
                 
@@ -5799,6 +5910,48 @@ function aplicarLayoutLateral() {
             </main>
         </div>
     `;
+    
+    // Adicionar CSS responsivo
+    const style = document.createElement('style');
+    style.textContent = `
+        .layout-lateral {
+            grid-template-columns: 300px 1fr;
+            grid-template-areas: "sidebar main";
+        }
+        
+        @media (max-width: 768px) {
+            .layout-lateral {
+                grid-template-columns: 1fr;
+                grid-template-areas: "sidebar" "main";
+            }
+            
+            .sidebar-loja {
+                border-right: none !important;
+                border-bottom: 1px solid var(--borda);
+                padding: 1rem !important;
+            }
+            
+            .loja-info img {
+                width: 60px !important;
+                height: 60px !important;
+            }
+            
+            .loja-info h1 {
+                font-size: 1.2rem !important;
+            }
+            
+            .conteudo-principal {
+                padding: 1rem !important;
+            }
+            
+            .carrinho-lateral {
+                position: relative !important;
+                margin-top: 1rem !important;
+                bottom: auto !important;
+            }
+        }
+    `;
+    document.head.appendChild(style);
     
     // Re-renderizar categorias e produtos no novo layout
     setTimeout(() => {
@@ -5814,7 +5967,7 @@ function aplicarLayoutLateral() {
     }, 100);
 }
 
-// Layout Centralizado - Design minimalista
+// Layout Centralizado - Design minimalista (responsivo)
 function aplicarLayoutCentro() {
     const container = document.querySelector('.container');
     if (!container) return;
@@ -5849,6 +6002,88 @@ function aplicarLayoutCentro() {
             </button>
         </div>
     `;
+    
+    // Adicionar CSS responsivo
+    const style = document.createElement('style');
+    style.textContent = `
+        .layout-centro {
+            padding: 2rem;
+        }
+        
+        @media (max-width: 768px) {
+            .layout-centro {
+                padding: 1rem !important;
+            }
+            
+            .header-centro img {
+                width: 80px !important;
+                height: 80px !important;
+            }
+            
+            .header-centro h1 {
+                font-size: 1.5rem !important;
+            }
+            
+            .header-centro {
+                margin-bottom: 2rem !important;
+            }
+            
+            .categorias-centro {
+                margin-bottom: 1rem !important;
+            }
+            
+            .categorias-centro #categorias-container {
+                gap: 0.5rem !important;
+            }
+            
+            #produtos-container {
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)) !important;
+                gap: 1rem !important;
+            }
+            
+            .carrinho-flutuante {
+                bottom: 1rem !important;
+                right: 1rem !important;
+                width: 50px !important;
+                height: 50px !important;
+            }
+            
+            .carrinho-flutuante i {
+                font-size: 1.2rem !important;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .layout-centro {
+                padding: 0.75rem !important;
+            }
+            
+            .header-centro img {
+                width: 60px !important;
+                height: 60px !important;
+            }
+            
+            .header-centro h1 {
+                font-size: 1.2rem !important;
+            }
+            
+            #produtos-container {
+                grid-template-columns: 1fr !important;
+            }
+            
+            .carrinho-flutuante {
+                bottom: 0.75rem !important;
+                right: 0.75rem !important;
+                width: 45px !important;
+                height: 45px !important;
+            }
+            
+            .carrinho-flutuante i {
+                font-size: 1rem !important;
+            }
+        }
+    `;
+    document.head.appendChild(style);
     
     // Re-renderizar categorias e produtos no novo layout
     setTimeout(() => {
