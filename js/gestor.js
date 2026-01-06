@@ -5501,6 +5501,21 @@ const modelos = {
         nome: 'Modelo Centralizado',
         descricao: 'Cardápio centralizado com design moderno e minimalista',
         layout: 'centro'
+    },
+    mobile: {
+        nome: 'Modelo Mobile',
+        descricao: 'Otimizado para celular com navegação por gestos e swipe',
+        layout: 'mobile'
+    },
+    compacto: {
+        nome: 'Modelo Compacto',
+        descricao: 'Design minimalista com produtos em lista compacta',
+        layout: 'compacto'
+    },
+    magazine: {
+        nome: 'Modelo Magazine',
+        descricao: 'Layout de revista com imagens grandes e elegante',
+        layout: 'magazine'
     }
 };
 
@@ -5552,9 +5567,193 @@ function aplicarLayoutModelo(modelo) {
         aplicarLayoutLateral();
     } else if (modelo.layout === 'centro') {
         aplicarLayoutCentro();
+    } else if (modelo.layout === 'mobile') {
+        aplicarLayoutMobile();
+    } else if (modelo.layout === 'compacto') {
+        aplicarLayoutCompacto();
+    } else if (modelo.layout === 'magazine') {
+        aplicarLayoutMagazine();
     } else {
         aplicarLayoutPadrao();
     }
+}
+
+// Layout Mobile - Otimizado para celular
+function aplicarLayoutMobile() {
+    const container = document.querySelector('.container');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="layout-mobile" style="min-height: 100vh; background: var(--bg);">
+            <!-- Header Mobile -->
+            <header class="header-mobile" style="background: var(--bg-secondary); padding: 1rem; border-bottom: 1px solid var(--borda); position: sticky; top: 0; z-index: 100;">
+                <div style="display: flex; align-items: center; justify-content: space-between;">
+                    <div style="display: flex; align-items: center; gap: 0.75rem;">
+                        <img id="header-logo" src="/logo.png" alt="Logo" style="width: 40px; height: 40px; border-radius: 50%;">
+                        <h1 id="header-nome-loja" style="color: var(--text-primary); font-size: 1.2rem; margin: 0;">Minha Loja</h1>
+                    </div>
+                    <button onclick="abrirModalCheckout()" style="background: var(--accent); color: white; border: none; padding: 0.5rem 1rem; border-radius: 20px; font-size: 0.9rem;">
+                        <i class="fas fa-shopping-cart"></i> <span id="carrinho-count">0</span>
+                    </button>
+                </div>
+            </header>
+            
+            <!-- Status da loja -->
+            <div id="mensagem-loja-fechada" style="display: none; background: var(--accent); color: white; padding: 1rem; text-align: center;"></div>
+            
+            <!-- Categorias Mobile (Horizontal Scroll) -->
+            <nav class="categorias-mobile" style="background: var(--bg-secondary); padding: 1rem; border-bottom: 1px solid var(--borda);">
+                <div id="categorias-container" style="display: flex; gap: 0.5rem; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch;">
+                    <!-- Categorias serão inseridas aqui -->
+                </div>
+            </nav>
+            
+            <!-- Produtos Mobile -->
+            <main class="conteudo-mobile" style="padding: 1rem;">
+                <div id="produtos-container" style="display: grid; gap: 1rem;">
+                    <!-- Produtos serão inseridos aqui -->
+                </div>
+            </main>
+            
+            <!-- Bottom Navigation -->
+            <nav class="bottom-nav" style="position: fixed; bottom: 0; left: 0; right: 0; background: var(--bg-secondary); border-top: 1px solid var(--borda); padding: 0.5rem 0; z-index: 100;">
+                <div style="display: flex; justify-content: space-around; align-items: center;">
+                    <button onclick="window.scrollTo({top: 0, behavior: 'smooth'})" style="background: none; border: none; color: var(--text-primary); padding: 0.5rem;">
+                        <i class="fas fa-home" style="font-size: 1.2rem;"></i>
+                        <div style="font-size: 0.7rem;">Início</div>
+                    </button>
+                    <button onclick="abrirModalMeusPedidos()" style="background: none; border: none; color: var(--text-primary); padding: 0.5rem;">
+                        <i class="fas fa-receipt" style="font-size: 1.2rem;"></i>
+                        <div style="font-size: 0.7rem;">Pedidos</div>
+                    </button>
+                    <button onclick="abrirModalCheckout()" style="background: none; border: none; color: var(--text-primary); padding: 0.5rem;">
+                        <i class="fas fa-shopping-cart" style="font-size: 1.2rem;"></i>
+                        <div style="font-size: 0.7rem;">Carrinho</div>
+                    </button>
+                </div>
+            </nav>
+        </div>
+    `;
+    
+    // Adicionar padding no body para não ficar atrás da bottom nav
+    document.body.style.paddingBottom = '60px';
+    
+    // Re-renderizar categorias e produtos no novo layout
+    setTimeout(() => {
+        if (typeof window.renderizarCategorias === 'function') {
+            window.renderizarCategorias();
+        }
+        if (typeof window.renderizarProdutos === 'function') {
+            window.renderizarProdutos();
+        }
+        if (typeof window.aplicarBrandingLoja === 'function') {
+            window.aplicarBrandingLoja();
+        }
+    }, 100);
+}
+
+// Layout Compacto - Design minimalista
+function aplicarLayoutCompacto() {
+    const container = document.querySelector('.container');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="layout-compacto" style="max-width: 600px; margin: 0 auto; padding: 1rem; background: var(--bg);">
+            <!-- Header Compacto -->
+            <header class="header-compacto" style="text-align: center; margin-bottom: 1rem;">
+                <img id="header-logo" src="/logo.png" alt="Logo" style="width: 60px; height: 60px; margin-bottom: 0.5rem; border-radius: 50%;">
+                <h1 id="header-nome-loja" style="color: var(--text-primary); font-size: 1.5rem; margin: 0;">Minha Loja</h1>
+            </header>
+            
+            <!-- Status da loja -->
+            <div id="mensagem-loja-fechada" style="display: none; background: var(--accent); color: white; padding: 0.75rem; border-radius: 8px; margin-bottom: 1rem; text-align: center;"></div>
+            
+            <!-- Categorias Compactas -->
+            <nav class="categorias-compacto" style="margin-bottom: 1rem;">
+                <div id="categorias-container" style="display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap;">
+                    <!-- Categorias serão inseridas aqui -->
+                </div>
+            </nav>
+            
+            <!-- Produtos Compactos -->
+            <main class="conteudo-compacto">
+                <div id="produtos-container" style="display: grid; gap: 0.75rem;">
+                    <!-- Produtos serão inseridos aqui -->
+                </div>
+            </main>
+            
+            <!-- Carrinho Flutuante -->
+            <button onclick="abrirModalCheckout()" class="carrinho-flutuante" style="position: fixed; bottom: 1rem; right: 1rem; width: 50px; height: 50px; background: var(--accent); color: white; border-radius: 50%; border: none; cursor: pointer; box-shadow: 0 2px 8px rgba(0,0,0,0.2); z-index: 1000;">
+                <i class="fas fa-shopping-cart" style="font-size: 1.2rem;"></i>
+            </button>
+        </div>
+    `;
+    
+    // Re-renderizar categorias e produtos no novo layout
+    setTimeout(() => {
+        if (typeof window.renderizarCategorias === 'function') {
+            window.renderizarCategorias();
+        }
+        if (typeof window.renderizarProdutos === 'function') {
+            window.renderizarProdutos();
+        }
+        if (typeof window.aplicarBrandingLoja === 'function') {
+            window.aplicarBrandingLoja();
+        }
+    }, 100);
+}
+
+// Layout Magazine - Elegante com imagens grandes
+function aplicarLayoutMagazine() {
+    const container = document.querySelector('.container');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="layout-magazine" style="max-width: 1200px; margin: 0 auto; padding: 1rem; background: var(--bg);">
+            <!-- Header Magazine -->
+            <header class="header-magazine" style="text-align: center; margin-bottom: 2rem;">
+                <img id="header-logo" src="/logo.png" alt="Logo" style="width: 80px; height: 80px; margin-bottom: 1rem; border-radius: 50%;">
+                <h1 id="header-nome-loja" style="color: var(--text-primary); font-size: 2rem; margin: 0; font-weight: 300;">Minha Loja</h1>
+                <p style="color: var(--text-secondary); font-style: italic;">Cardápio Digital</p>
+            </header>
+            
+            <!-- Status da loja -->
+            <div id="mensagem-loja-fechada" style="display: none; background: var(--accent); color: white; padding: 1rem; border-radius: 12px; margin-bottom: 2rem; text-align: center;"></div>
+            
+            <!-- Categorias Magazine -->
+            <nav class="categorias-magazine" style="margin-bottom: 2rem;">
+                <div id="categorias-container" style="display: flex; justify-content: center; gap: 1rem; flex-wrap: wrap;">
+                    <!-- Categorias serão inseridas aqui -->
+                </div>
+            </nav>
+            
+            <!-- Produtos Magazine -->
+            <main class="conteudo-magazine">
+                <div id="produtos-container" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem;">
+                    <!-- Produtos serão inseridos aqui -->
+                </div>
+            </main>
+            
+            <!-- Carrinho Elegante -->
+            <button onclick="abrirModalCheckout()" class="carrinho-magazine" style="position: fixed; bottom: 2rem; right: 2rem; background: var(--accent); color: white; padding: 1rem 1.5rem; border-radius: 50px; border: none; cursor: pointer; box-shadow: 0 4px 20px rgba(0,0,0,0.2); z-index: 1000; display: flex; align-items: center; gap: 0.5rem;">
+                <i class="fas fa-shopping-cart"></i>
+                <span>Ver Carrinho</span>
+            </button>
+        </div>
+    `;
+    
+    // Re-renderizar categorias e produtos no novo layout
+    setTimeout(() => {
+        if (typeof window.renderizarCategorias === 'function') {
+            window.renderizarCategorias();
+        }
+        if (typeof window.renderizarProdutos === 'function') {
+            window.renderizarProdutos();
+        }
+        if (typeof window.aplicarBrandingLoja === 'function') {
+            window.aplicarBrandingLoja();
+        }
+    }, 100);
 }
 
 // Layout Lateral - Nome no lado, cardápio em lista
