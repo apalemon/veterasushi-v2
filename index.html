@@ -57,10 +57,10 @@
                 <ul class="nav-menu">
                     <li><a id="menu-link-cardapio" href="/vetera/cardapio">Cardápio</a></li>
                     <li id="meus-pedidos-menu-item" style="display: block;">
-                        <button class="btn-login" onclick="abrirModalMeusPedidos()">Meus pedidos</button>
+                        <button class="btn-login" onclick="abrirModalMeusPedidos()">Compras</button>
                     </li>
                     <li id="gestor-menu-item" style="display: none;">
-                        <a id="link-gestor" href="/vetera/gestor" class="btn-gestor" style="background: var(--vermelho-claro); color: #fff; padding: 8px 16px; border-radius: 8px; text-decoration: none; font-weight: 500;">Gestor</a>
+                        <a id="link-gestor" href="/vetera/gestor" class="btn-gestor" style="background: var(--vermelho-claro); color: #fff; padding: 8px 16px; border-radius: 12px; text-decoration: none; font-weight: 500;">Gestor</a>
                     </li>
                     <li id="login-menu-item">
                         <button class="btn-login" onclick="abrirModalLoginCliente()">Login</button>
@@ -149,7 +149,7 @@
     <div class="modal-overlay" id="modal-meus-pedidos" style="z-index: 10002;" role="dialog" aria-labelledby="modal-meus-pedidos-title" aria-modal="true">
         <div class="modal" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
             <div class="modal-header">
-                <h2 class="modal-title" id="modal-meus-pedidos-title">Meus pedidos</h2>
+                <h2 class="modal-title" id="modal-meus-pedidos-title">Compras</h2>
                 <button class="modal-close" onclick="fecharModalMeusPedidos()" aria-label="Fechar"><i class="fas fa-times"></i></button>
             </div>
             <div id="meus-pedidos-lista">
@@ -173,10 +173,10 @@
         
         <div style="text-align: center; margin-bottom: 2rem;">
             <h1 id="titulo-loja" style="color: var(--vermelho-claro); font-size: 2.5rem; font-weight: 700; margin-bottom: 0.5rem;">
-                MINHA LOJA
+                (Nome da Loja)
             </h1>
-            <p style="color: var(--texto-medio); font-size: 1rem;">Cardápio Online</p>
-            <div id="status-loja-indicador" style="margin-top: 15px; display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; background: rgba(220, 38, 38, 0.1); border-radius: 20px; border: 1px solid rgba(220, 38, 38, 0.3);">
+            <p style="color: var(--texto-medio); font-size: 1rem;">Powered by Nurhb</p>
+            <div id="status-loja-indicador" style="margin-top: 13px; display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; background: rgba(220, 38, 38, 0.1); border-radius: 20px; border: 1px solid rgba(220, 38, 38, 0.3);">
                 <!-- Status será atualizado aqui -->
             </div>
         </div>

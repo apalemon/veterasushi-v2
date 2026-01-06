@@ -80,7 +80,7 @@ class PixPayment {
 
         <div style="background: var(--aviso); padding: 1rem; border-radius: 8px; margin-top: 1.5rem;">
           <p style="color: var(--preto); font-weight: bold; margin: 0;">
-            ⚠️ Aguarde a confirmação do pagamento no PDV
+            ✨ O pagamento está sendo processado...
           </p>
         </div>
       </div>

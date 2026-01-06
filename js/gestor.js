@@ -300,9 +300,15 @@ window.salvarMinhaLojaConfig = async function(event) {
         // Limpar logo temporário após salvar
         _logoBase64Temp = null;
 
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
         const resp = await fetch(window.location.origin + '/api/configuracoes', {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            },
             body: JSON.stringify(payload)
         });
 
@@ -387,9 +393,15 @@ window.salvarPagamentosConfig = async function(event) {
         const cfgAtual = db && typeof db.getConfiguracoes === 'function' ? (db.getConfiguracoes() || {}) : {};
         const payload = { ...cfgAtual, metodosPagamento: metodos };
         
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
         const resp = await fetch(window.location.origin + '/api/configuracoes', {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            },
             body: JSON.stringify(payload)
         });
         
@@ -684,7 +696,14 @@ function _atualizarPermissoesPorNivel() {
 
 window.baixarBackupMinhaLoja = async function() {
     try {
-        const resp = await fetch(window.location.origin + '/api/loja/backup');
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
+        const resp = await fetch(window.location.origin + '/api/loja/backup', {
+            headers: {
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            }
+        });
         if (!resp.ok) {
             const t = await resp.text().catch(() => '');
             throw new Error('Erro ao gerar backup: ' + resp.status + ' ' + t);
@@ -740,9 +759,15 @@ window.confirmarResetMinhaLoja = async function() {
         // Antes do reset, forçar o backup local
         await window.baixarBackupMinhaLoja();
 
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
         const resp = await fetch(window.location.origin + '/api/loja/reset', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            },
             body: JSON.stringify({ usuario, senha, confirm })
         });
         if (!resp.ok) {
@@ -796,9 +821,15 @@ async function toggleProdutoAtivo(produtoId) {
         db.saveData();
 
         try {
+            const token = (() => {
+                try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+            })();
             await fetch(window.location.origin + '/api/produtos', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+                },
                 body: JSON.stringify(db.data.produtos || [])
             });
         } catch (e) {
@@ -944,7 +975,14 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     // IMPORTANTE: Carregar cupons do servidor
     try {
-        const response = await fetch(window.location.origin + '/api/cupons');
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
+        const response = await fetch(window.location.origin + '/api/cupons', {
+            headers: {
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            }
+        });
         if (response.ok) {
             const cupons = await response.json();
             if (Array.isArray(cupons)) {
@@ -959,7 +997,14 @@ document.addEventListener('DOMContentLoaded', async function() {
 
     // IMPORTANTE: Carregar destaques do servidor
     try {
-        const resp = await fetch(window.location.origin + '/api/destaques');
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
+        const resp = await fetch(window.location.origin + '/api/destaques', {
+            headers: {
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            }
+        });
         if (resp.ok) {
             const dados = await resp.json();
             if (Array.isArray(dados)) {
@@ -1168,8 +1213,15 @@ function detectarCancelamentosGestor() {
 // Carregar pedidos do servidor - SEMPRE usar servidor como fonte principal
 async function carregarPedidosDoServidor() {
     try {
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
         const apiUrl = window.location.origin + '/api/pedidos?' + Date.now(); // Cache bust
-        const response = await fetch(apiUrl);
+        const response = await fetch(apiUrl, {
+            headers: {
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            }
+        });
         
         if (response.ok) {
             const pedidosServidor = await response.json();
@@ -1177,7 +1229,7 @@ async function carregarPedidosDoServidor() {
             if (Array.isArray(pedidosServidor)) {
                 if (!db.data) db.data = {};
                 
-                // REMOVER DUPLICATAS baseado no ID
+                // REMOVER   baseado no ID
                 const pedidosUnicos = [];
                 const idsVistos = new Set();
                 
@@ -1226,7 +1278,7 @@ function atualizarStatusBanco() {
         const textoPedido = count === 1 ? 'pedido' : 'pedidos';
         statusEl.innerHTML = 
             '<span class="status-indicator"></span>' +
-            '<span>Banco ativo (' + count + ' ' + textoPedido + ')</span>';
+            '<span>' + count + ' ' + textoPedido + '</span>';
     }
 }
 
@@ -1540,7 +1592,14 @@ window.mostrarSecao = mostrarSecao;
 
 async function carregarEntradasDoServidor() {
     try {
-        const response = await fetch(window.location.origin + '/api/entradas?limit=200');
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
+        const response = await fetch(window.location.origin + '/api/entradas?limit=200', {
+            headers: {
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            }
+        });
         if (response.ok) {
             const entradas = await response.json();
             if (!db.data) db.data = {};
@@ -2579,9 +2638,15 @@ function moverProdutoUp(produtoId) {
         db.data.produtos = todos;
         db.saveData();
         // Persistir no servidor (enviar array completo)
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
         fetch(window.location.origin + '/api/produtos', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            },
             body: JSON.stringify(todos)
         }).then(resp => {
             if (!resp.ok) console.warn('Não foi possível atualizar ordem no servidor');
@@ -2601,9 +2666,15 @@ function moverProdutoDown(produtoId) {
         todos.forEach((p, i) => p.ordem = i);
         db.data.produtos = todos;
         db.saveData();
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
         fetch(window.location.origin + '/api/produtos', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            },
             body: JSON.stringify(todos)
         }).then(resp => {
             if (!resp.ok) console.warn('Não foi possível atualizar ordem no servidor');
@@ -2710,9 +2781,15 @@ function excluirCupomGestor(id) {
         // Persistir no servidor
         (async () => {
             try {
+                const token = (() => {
+                    try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+                })();
                 await fetch(window.location.origin + '/api/cupons', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+                    },
                     body: JSON.stringify(db.data.cupons || [])
                 });
                 // Recarregar para garantir sincronização
@@ -2782,9 +2859,15 @@ async function salvarCupomGestor(event) {
     
     // IMPORTANTE: Salvar também no database.json via API
     try {
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
         const response = await fetch(window.location.origin + '/api/cupons', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            },
             body: JSON.stringify(db.data.cupons || [])
         });
         
@@ -2851,9 +2934,15 @@ function excluirProdutoGestor(id) {
         // Persistir no servidor
         (async () => {
             try {
+                const token = (() => {
+                    try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+                })();
                 await fetch(window.location.origin + '/api/produtos', {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+                    },
                     body: JSON.stringify(db.data.produtos || [])
                 });
                 try { await db.fetchInitialData(); } catch (e) {}
