@@ -1,15 +1,6 @@
 {
   "version": 2,
   "name": "vetera-sushi",
-  "builds": [
-    {
-      "src": "package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "public"
-      }
-    }
-  ],
   "headers": [
     {
       "source": "/api/(.*)",

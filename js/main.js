@@ -295,10 +295,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 function iniciarMonitoramentoStatusPedidosCliente() {
     try {
-        const ids = (typeof getPedidoIdsClienteLocal === 'function') ? getPedidoIdsClienteLocal() : [];
-        if (!ids || ids.length === 0) return;
+        // Evitar criar múltiplos intervals
+        if (window.__veteraPedidosClienteInterval) return;
+
+        // Rodar imediatamente (mesmo se ainda não existir pedido; a função interna já ignora)
         verificarAtualizacoesStatusPedidosCliente();
-        setInterval(verificarAtualizacoesStatusPedidosCliente, 10000);
+
+        window.__veteraPedidosClienteInterval = setInterval(() => {
+            try { verificarAtualizacoesStatusPedidosCliente(); } catch (e) {}
+        }, 10000);
     } catch (e) {
         // ignora
     }
@@ -2704,6 +2709,11 @@ async function processarPedidoCheckout() {
 
         // Salvar este pedido como "meu" no dispositivo (fonte principal do Meus Pedidos)
         adicionarPedidoIdClienteLocal(pedido.id);
+
+        // IMPORTANTE: iniciar monitoramento após criar o primeiro pedido
+        try {
+            iniciarMonitoramentoStatusPedidosCliente();
+        } catch (e) {}
 
         // Criar/atualizar perfil local simples (sem senha)
         try {
