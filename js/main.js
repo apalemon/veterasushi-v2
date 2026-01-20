@@ -94,7 +94,7 @@ function aplicarBrandingLoja() {
             root.style.setProperty('--gradient-hover', `linear-gradient(135deg, ${tema.accentHover} 0%, ${_darkenColor(tema.accentHover, 20)} 100%)`);
         }
 
-        const nome = cfg.nomeEstabelecimento || 'Minha Loja';
+        const nome = cfg.nomeEstabelecimento || 'Vetera Sushi';
         try { document.title = nome + ' - Cardápio Online'; } catch (e) {}
 
         const logoUrl = cfg.logoUrl || '/logo.png';
@@ -284,8 +284,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     inicializarCardapio();
     
     // Atualizar status da loja periodicamente
-    setInterval(() => {
+    setInterval(async () => {
         try {
+            // Recarregar horários do servidor antes de atualizar indicador
+            await carregarHorariosDoServidorMain();
             atualizarStatusLojaIndicador();
         } catch (e) {}
     }, 30000); // A cada 30 segundos
@@ -339,107 +341,138 @@ function mostrarModalPedidoEmPreparo(pedido) {
         const numeroWhats = '+55 51 984149137';
         const numeroWhatsDigits = '5551984149137';
         const pedidoId = pedido && pedido.id ? pedido.id : '';
-        const mensagem = 'Seu pedido está em preparo: o gestor aprovou seu pedido.';
         const textoWhats = encodeURIComponent('Olá! Meu pedido #' + pedidoId + ' foi aprovado e está em preparo.');
         const linkWhats = 'https://wa.me/' + numeroWhatsDigits + '?text=' + textoWhats;
 
         const overlay = document.createElement('div');
         overlay.id = 'modal-pedido-preparo';
-        overlay.style.position = 'fixed';
-        overlay.style.inset = '0';
-        overlay.style.zIndex = '99999';
-        overlay.style.display = 'flex';
-        overlay.style.alignItems = 'center';
-        overlay.style.justifyContent = 'center';
-        overlay.style.padding = '18px';
-        overlay.style.background = 'rgba(0,0,0,0.65)';
+        overlay.style.cssText = `
+            position: fixed;
+            inset: 0;
+            z-index: 99999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(0, 0, 0, 0.75);
+            animation: fadeIn 0.3s ease;
+        `;
 
         const card = document.createElement('div');
-        card.style.width = 'min(560px, 94vw)';
-        card.style.borderRadius = '14px';
-        card.style.overflow = 'hidden';
-        card.style.background = '#0f0f12';
-        card.style.border = '1px solid rgba(255,255,255,0.10)';
-        card.style.boxShadow = '0 24px 80px rgba(0,0,0,0.55)';
+        card.style.cssText = `
+            width: min(480px, 95vw);
+            border-radius: 16px;
+            overflow: hidden;
+            background: linear-gradient(145deg, #1a1a1f, #0f0f12);
+            border: 1px solid rgba(34, 197, 94, 0.3);
+            box-shadow: 0 25px 80px rgba(34, 197, 94, 0.15), 0 0 0 1px rgba(255,255,255,0.05);
+            animation: slideUp 0.3s ease;
+        `;
 
+        // Header com ícone
         const header = document.createElement('div');
-        header.style.display = 'flex';
-        header.style.alignItems = 'center';
-        header.style.justifyContent = 'space-between';
-        header.style.padding = '14px 16px';
-        header.style.borderBottom = '1px solid rgba(255,255,255,0.08)';
+        header.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 30px 20px 20px;
+            background: linear-gradient(180deg, rgba(34, 197, 94, 0.15) 0%, transparent 100%);
+        `;
 
-        const title = document.createElement('div');
-        title.textContent = 'Pedido aprovado';
-        title.style.fontWeight = '800';
-        title.style.color = '#fff';
+        const iconContainer = document.createElement('div');
+        iconContainer.style.cssText = `
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: rgba(34, 197, 94, 0.15);
+            border: 2px solid rgba(34, 197, 94, 0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 15px;
+            animation: pulse 2s infinite;
+        `;
+        iconContainer.innerHTML = '<i class="fas fa-utensils" style="font-size: 32px; color: #22c55e;"></i>';
 
-        const btnClose = document.createElement('button');
-        btnClose.type = 'button';
-        btnClose.textContent = 'Fechar';
-        btnClose.style.background = 'rgba(255,255,255,0.08)';
-        btnClose.style.border = '1px solid rgba(255,255,255,0.12)';
-        btnClose.style.color = '#fff';
-        btnClose.style.padding = '8px 12px';
-        btnClose.style.borderRadius = '10px';
-        btnClose.style.cursor = 'pointer';
+        const title = document.createElement('h2');
+        title.textContent = 'Pedido em Preparo!';
+        title.style.cssText = 'margin: 0; font-size: 22px; font-weight: 700; color: #fff; text-align: center;';
 
+        const pedidoNum = document.createElement('div');
+        pedidoNum.textContent = 'Pedido #' + pedidoId;
+        pedidoNum.style.cssText = 'margin-top: 5px; font-size: 14px; color: rgba(255,255,255,0.6);';
+
+        header.appendChild(iconContainer);
         header.appendChild(title);
-        header.appendChild(btnClose);
+        header.appendChild(pedidoNum);
 
+        // Body
         const body = document.createElement('div');
-        body.style.padding = '16px';
+        body.style.cssText = 'padding: 20px 25px 25px; text-align: center;';
 
-        const p1 = document.createElement('div');
-        p1.textContent = mensagem;
-        p1.style.color = 'rgba(255,255,255,0.92)';
-        p1.style.fontSize = '16px';
-        p1.style.lineHeight = '1.4';
+        const mensagem = document.createElement('p');
+        mensagem.textContent = 'Seu pedido foi aprovado e já está sendo preparado! Em breve estará pronto para entrega.';
+        mensagem.style.cssText = 'margin: 0 0 20px; font-size: 15px; color: rgba(255,255,255,0.8); line-height: 1.5;';
 
-        const p2 = document.createElement('div');
-        p2.textContent = 'Caso queira falar conosco, contacte nosso WhatsApp: ' + numeroWhats;
-        p2.style.color = 'rgba(255,255,255,0.78)';
-        p2.style.marginTop = '10px';
-        p2.style.fontSize = '14px';
-        p2.style.lineHeight = '1.35';
+        const whatsInfo = document.createElement('div');
+        whatsInfo.style.cssText = `
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.2);
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 20px;
+        `;
+        whatsInfo.innerHTML = `
+            <div style="font-size: 13px; color: rgba(255,255,255,0.6); margin-bottom: 5px;">Dúvidas? Fale conosco:</div>
+            <div style="font-size: 16px; color: #22c55e; font-weight: 600;">${numeroWhats}</div>
+        `;
 
         const actions = document.createElement('div');
-        actions.style.display = 'flex';
-        actions.style.gap = '10px';
-        actions.style.marginTop = '14px';
+        actions.style.cssText = 'display: flex; gap: 12px;';
 
         const btnWhats = document.createElement('a');
         btnWhats.href = linkWhats;
         btnWhats.target = '_blank';
         btnWhats.rel = 'noopener noreferrer';
-        btnWhats.textContent = 'Falar no WhatsApp';
-        btnWhats.style.flex = '1';
-        btnWhats.style.textAlign = 'center';
-        btnWhats.style.textDecoration = 'none';
-        btnWhats.style.background = 'rgba(34, 197, 94, 0.15)';
-        btnWhats.style.border = '1px solid rgba(34, 197, 94, 0.35)';
-        btnWhats.style.color = '#4ade80';
-        btnWhats.style.padding = '10px 12px';
-        btnWhats.style.borderRadius = '10px';
-        btnWhats.style.fontWeight = '700';
+        btnWhats.innerHTML = '<i class="fab fa-whatsapp" style="margin-right: 8px;"></i>WhatsApp';
+        btnWhats.style.cssText = `
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-decoration: none;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            border: none;
+            border-radius: 10px;
+            color: #fff;
+            padding: 14px 20px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        `;
 
         const btnOk = document.createElement('button');
         btnOk.type = 'button';
         btnOk.textContent = 'Entendi';
-        btnOk.style.flex = '1';
-        btnOk.style.background = 'rgba(255,255,255,0.10)';
-        btnOk.style.border = '1px solid rgba(255,255,255,0.12)';
-        btnOk.style.color = '#fff';
-        btnOk.style.padding = '10px 12px';
-        btnOk.style.borderRadius = '10px';
-        btnOk.style.fontWeight = '700';
-        btnOk.style.cursor = 'pointer';
+        btnOk.style.cssText = `
+            flex: 1;
+            background: rgba(255,255,255,0.1);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 10px;
+            color: #fff;
+            padding: 14px 20px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        `;
 
         actions.appendChild(btnWhats);
         actions.appendChild(btnOk);
 
-        body.appendChild(p1);
-        body.appendChild(p2);
+        body.appendChild(mensagem);
+        body.appendChild(whatsInfo);
         body.appendChild(actions);
 
         card.appendChild(header);
@@ -450,7 +483,6 @@ function mostrarModalPedidoEmPreparo(pedido) {
         const close = () => {
             try { overlay.remove(); } catch (e) {}
         };
-        btnClose.addEventListener('click', close);
         btnOk.addEventListener('click', close);
         overlay.addEventListener('click', (ev) => {
             if (ev.target === overlay) close();
@@ -579,14 +611,24 @@ async function inicializarCardapio() {
         // SEMPRE recarregar do arquivo para garantir dados atualizados
         try {
             await db.fetchInitialData();
+            // Após carregar, garantir que produtos manuais estão carregados
+            db.inicializarProdutosManualmente();
         } catch (e) {
             console.error('[MAIN] ❌ Erro ao buscar dados:', e);
-            // Se falhar, usar dados do localStorage (já carregados)
+            // Se falhar, garantir produtos manuais mesmo assim
+            db.inicializarProdutosManualmente();
         }
 
         try {
             aplicarBrandingLoja();
         } catch (e) {}
+        
+        // Carregar horários do servidor ANTES de verificar status
+        try {
+            await carregarHorariosDoServidorMain();
+        } catch (e) {
+            console.warn('[MAIN] ⚠️ Erro ao carregar horários do servidor:', e);
+        }
         
         // Atualizar status da loja
         try {
@@ -927,12 +969,21 @@ function renderizarProdutos() {
         return ordemA - ordemB;
     });
 
-    categoriasOrdenadas.forEach(categoria => {
-        // Adicionar divisória se a categoria tiver divisória ativada
-        if (categoriasComDivisoria.has(categoria)) {
-            html += '<div style="grid-column: 1 / -1; text-align: center; padding: 2rem 1rem 1rem; position: relative;">';
-            html += '<div style="position: absolute; top: 50%; left: 0; right: 0; height: 2px; background: linear-gradient(to right, transparent, var(--accent), transparent); opacity: 0.3;"></div>';
-            html += '<span style="background: var(--bg-primary); color: var(--accent); font-weight: 700; font-size: 1.1rem; padding: 0 1.5rem; position: relative; text-transform: uppercase; letter-spacing: 1px;">' + categoria + '</span>';
+    categoriasOrdenadas.forEach((categoria, index) => {
+        // Adicionar divisória bonita para cada categoria (exceto a primeira)
+        if (index > 0 || categoriasComDivisoria.has(categoria)) {
+            const categoriaDados = categoriasDados.find(c => c.nome === categoria);
+            html += '<div class="categoria-divisoria" style="grid-column: 1 / -1; margin: 3rem 0 2rem; padding: 0 1rem; position: relative;">';
+            html += '<div style="display: flex; align-items: center; justify-content: center; gap: 1rem;">';
+            html += '<div style="flex: 1; height: 2px; background: linear-gradient(to right, transparent, var(--accent), transparent); opacity: 0.4; max-width: 100px;"></div>';
+            html += '<div style="background: linear-gradient(135deg, var(--accent), var(--vermelho-escuro)); padding: 0.75rem 2rem; border-radius: 50px; box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);">';
+            html += '<h2 style="color: white; font-weight: 700; font-size: 1.3rem; margin: 0; text-transform: uppercase; letter-spacing: 2px; display: flex; align-items: center; gap: 0.5rem; justify-content: center;">';
+            html += '<i class="fas fa-utensils" style="font-size: 1.1rem;"></i>';
+            html += '<span>' + categoria + '</span>';
+            html += '</h2>';
+            html += '</div>';
+            html += '<div style="flex: 1; height: 2px; background: linear-gradient(to left, transparent, var(--accent), transparent); opacity: 0.4; max-width: 100px;"></div>';
+            html += '</div>';
             html += '</div>';
         }
 
@@ -965,18 +1016,20 @@ function renderizarProdutos() {
             const nomeSeguro = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(produto.nome) : String(produto.nome || '').replace(/[<>]/g, '');
             const descricaoSegura = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(produto.descricao) : String(produto.descricao || '').replace(/[<>]/g, '');
             
-            // Corrigir URL da imagem - evitar redirecionamento infinito
+            // Corrigir URL da imagem - usar caminho direto das Fotos
             let imagemUrl = '';
             if (produto.imagem) {
                 // Limpar URL primeiro
                 let imagemLimpa = String(produto.imagem).trim();
                 
-                // Se contém api/produto-imagem, converter para caminho direto
+                // Se contém api/produto-imagem, converter para caminho direto da pasta Fotos
                 if (imagemLimpa.includes('api/produto-imagem')) {
                     // Extrair ID da imagem da URL
                     const match = imagemLimpa.match(/id=(\d+)/);
                     if (match && match[1]) {
-                        imagemUrl = '/Fotos/produto_' + match[1] + '.jpg';
+                        // Usar caminho direto da pasta Fotos
+                        const imagesBase = window.ENV?.imagesBaseUrl || '/Fotos';
+                        imagemUrl = imagesBase + '/produto_' + match[1] + '.jpg';
                     } else {
                         imagemUrl = ''; // Se não conseguir extrair ID, não usar imagem
                     }
@@ -986,7 +1039,8 @@ function renderizarProdutos() {
                     imagemUrl = imagemLimpa;
                 } else {
                     // Caminho normal para pasta Fotos
-                    imagemUrl = '/Fotos/' + imagemLimpa;
+                    const imagesBase = window.ENV?.imagesBaseUrl || '/Fotos';
+                    imagemUrl = imagesBase + '/' + imagemLimpa;
                 }
                 imagemUrl = imagemUrl.replace(/[<>'"]/g, '');
             }
@@ -1100,8 +1154,29 @@ function adicionarAoCarrinho(produtoId) {
     try {
         const produto = (typeof db !== 'undefined' && typeof db.getProduto === 'function') ? db.getProduto(idSeguro) : null;
         if (produto && produto.ativo === false) return;
+        
+        const qtdElement = document.getElementById(`qtd-${idSeguro}`);
+        const quantidade = qtdElement ? (parseInt(qtdElement.textContent) || 1) : 1;
+        
+        // Se for um combo, abrir modal de seleção de partes
+        if (produto && produto.tipo === 'combo' && produto.partes && produto.partes.length > 0) {
+            abrirModalCombo(produto, quantidade);
+            return;
+        }
+        
+        // Se tiver finalizações, abrir modal de seleção
+        if (produto && produto.finalizacoes && produto.finalizacoes.length > 0) {
+            abrirModalFinalizacoes(produto, quantidade);
+            return;
+        }
+        
+        // Se for um produto normal (sem combo, sem finalizações), adicionar direto ao carrinho
+        if (produto && produto.tipo !== 'combo' && (!produto.finalizacoes || produto.finalizacoes.length === 0)) {
+            carrinho.adicionarItem(idSeguro, quantidade);
+            return;
+        }
     } catch (e) {
-        // ignora
+        console.error('[MAIN] Erro ao processar produto:', e);
     }
     
     const qtdElement = document.getElementById(`qtd-${idSeguro}`);
@@ -1131,6 +1206,585 @@ function adicionarAoCarrinho(produtoId) {
             }
         }, 100);
     }
+}
+
+// Função para abrir modal de seleção de combo
+function abrirModalCombo(produto, quantidade = 1) {
+    // Criar modal se não existir
+    let modal = document.getElementById('modal-combo');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'modal-combo';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <h2 class="modal-title" id="modal-combo-titulo"></h2>
+                    <button class="modal-close" onclick="fecharModalCombo()"><i class="fas fa-times"></i></button>
+                </div>
+                <div id="modal-combo-conteudo" style="padding: 20px;">
+                    <!-- Conteúdo será inserido aqui -->
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    const titulo = document.getElementById('modal-combo-titulo');
+    const conteudo = document.getElementById('modal-combo-conteudo');
+    
+    titulo.textContent = produto.nome + (quantidade > 1 ? ` (${quantidade}x)` : '');
+    
+    let html = `
+        <div style="margin-bottom: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--borda);">
+            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">${produto.descricao || ''}</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--vermelho-claro);">R$ ${produto.preco.toFixed(2)}</div>
+        </div>
+    `;
+    
+    // Renderizar partes
+    produto.partes.forEach((parte, parteIndex) => {
+        html += `
+            <div style="margin-bottom: 25px; padding: 20px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--borda);">
+                <h3 style="margin: 0 0 10px 0; color: var(--text-primary); font-size: 1.1rem; font-weight: 700;">
+                    🔹 ${parte.nome}${parte.descricao ? ` – ${parte.descricao}` : ''}
+                </h3>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+        `;
+        
+        parte.opcoes.forEach((opcao, opcaoIndex) => {
+            const opcaoId = `combo-${produto.id}-parte-${parteIndex}-opcao-${opcaoIndex}`;
+            const precoAdicional = opcao.preco > 0 ? ` <span style="color: var(--vermelho-claro); font-weight: 600;">➕ R$ ${opcao.preco.toFixed(2)}</span>` : '';
+            const isRadio = parte.escolhaMaxima === 1;
+            
+            html += `
+                <label style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-primary); border: 2px solid var(--borda); border-radius: 8px; cursor: pointer; transition: all 0.2s;" 
+                       onmouseover="this.style.borderColor='var(--vermelho-claro)'; this.style.background='rgba(220,38,38,0.05)'" 
+                       onmouseout="this.style.borderColor='var(--borda)'; this.style.background='var(--bg-primary)'">
+                    <input type="${isRadio ? 'radio' : 'checkbox'}" 
+                           name="combo-${produto.id}-parte-${parteIndex}" 
+                           id="${opcaoId}"
+                           value="${opcaoIndex}"
+                           ${parte.obrigatorio && isRadio && opcaoIndex === 0 ? 'checked' : ''}
+                           style="width: 20px; height: 20px; accent-color: var(--vermelho-claro); cursor: pointer;"
+                           onchange="atualizarPrecoCombo()">
+                    <span style="flex: 1; color: var(--text-primary); font-size: 0.95rem;">${opcao.nome}${precoAdicional}</span>
+                </label>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    });
+    
+    // Renderizar adicionais se existirem
+    if (produto.adicionais && produto.adicionais.length > 0) {
+        html += `
+            <div style="margin-bottom: 25px; padding: 20px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--borda);">
+                <h3 style="margin: 0 0 15px 0; color: var(--text-primary); font-size: 1.1rem; font-weight: 700;">
+                    ➕ Adicionais${produto.adicionaisMaximo ? ` (até ${produto.adicionaisMaximo})` : ''}
+                </h3>
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+        `;
+        
+        produto.adicionais.forEach((adicional, adicionalIndex) => {
+            const adicionalId = `combo-${produto.id}-adicional-${adicionalIndex}`;
+            html += `
+                <label style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; background: var(--bg-primary); border: 2px solid var(--borda); border-radius: 8px; cursor: pointer; transition: all 0.2s;" 
+                       onmouseover="this.style.borderColor='var(--vermelho-claro)'; this.style.background='rgba(220,38,38,0.05)'" 
+                       onmouseout="this.style.borderColor='var(--borda)'; this.style.background='var(--bg-primary)'">
+                    <span style="flex: 1; color: var(--text-primary); font-size: 0.95rem;">${adicional.nome}</span>
+                    <span style="color: var(--vermelho-claro); font-weight: 600;">➕ R$ ${adicional.preco.toFixed(2)}</span>
+                    <input type="checkbox" 
+                           id="${adicionalId}"
+                           style="width: 20px; height: 20px; accent-color: var(--vermelho-claro); cursor: pointer;"
+                           onchange="atualizarPrecoCombo(); validarAdicionaisMaximo()">
+                </label>
+            `;
+        });
+        
+        html += `
+                </div>
+            </div>
+        `;
+    }
+    
+    // Preço total e botão adicionar
+    html += `
+        <div style="margin-top: 25px; padding: 20px; background: var(--bg-secondary); border-radius: 12px; border: 2px solid var(--vermelho-claro);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <span style="font-size: 1.2rem; font-weight: 600; color: var(--text-primary);">Total:</span>
+                <span id="combo-preco-total" style="font-size: 1.8rem; font-weight: 700; color: var(--vermelho-claro);">R$ ${produto.preco.toFixed(2)}</span>
+            </div>
+            <button onclick="adicionarComboAoCarrinho(${produto.id}, ${quantidade})" 
+                    class="btn btn-primary" 
+                    style="width: 100%; padding: 15px; font-size: 1.1rem; font-weight: 700;">
+                Adicionar ao Carrinho
+            </button>
+        </div>
+    `;
+    
+    conteudo.innerHTML = html;
+    modal.style.display = 'flex';
+    
+    // Armazenar dados do produto no modal
+    modal.dataset.produtoId = produto.id;
+    modal.dataset.quantidade = quantidade;
+    window.comboAtual = produto;
+    window.comboQuantidade = quantidade;
+    
+    // Calcular preço inicial
+    atualizarPrecoCombo();
+}
+
+// Função para atualizar preço total do combo
+function atualizarPrecoCombo() {
+    if (!window.comboAtual) return;
+    
+    const produto = window.comboAtual;
+    let precoTotal = produto.preco;
+    
+    // Calcular preço das partes selecionadas
+    produto.partes.forEach((parte, parteIndex) => {
+        const radioName = `combo-${produto.id}-parte-${parteIndex}`;
+        const radioSelecionado = document.querySelector(`input[name="${radioName}"]:checked`);
+        if (radioSelecionado) {
+            const opcaoIndex = parseInt(radioSelecionado.value);
+            const opcao = parte.opcoes[opcaoIndex];
+            if (opcao && opcao.preco) {
+                precoTotal += opcao.preco;
+            }
+        }
+    });
+    
+    // Calcular preço dos adicionais selecionados
+    if (produto.adicionais) {
+        produto.adicionais.forEach((adicional, adicionalIndex) => {
+            const checkbox = document.getElementById(`combo-${produto.id}-adicional-${adicionalIndex}`);
+            if (checkbox && checkbox.checked) {
+                precoTotal += adicional.preco;
+            }
+        });
+    }
+    
+    // Multiplicar pela quantidade
+    precoTotal *= (window.comboQuantidade || 1);
+    
+    // Atualizar exibição
+    const precoElement = document.getElementById('combo-preco-total');
+    if (precoElement) {
+        precoElement.textContent = `R$ ${precoTotal.toFixed(2)}`;
+    }
+}
+
+// Validar máximo de adicionais
+function validarAdicionaisMaximo() {
+    if (!window.comboAtual || !window.comboAtual.adicionaisMaximo) return;
+    
+    const produto = window.comboAtual;
+    const adicionaisSelecionados = produto.adicionais.filter((_, index) => {
+        const checkbox = document.getElementById(`combo-${produto.id}-adicional-${index}`);
+        return checkbox && checkbox.checked;
+    }).length;
+    
+    if (adicionaisSelecionados > produto.adicionaisMaximo) {
+        alert(`Você pode selecionar no máximo ${produto.adicionaisMaximo} adicionais.`);
+        event.target.checked = false;
+        atualizarPrecoCombo();
+    }
+}
+
+// Adicionar combo ao carrinho
+function adicionarComboAoCarrinho(produtoId, quantidade) {
+    if (!window.comboAtual) return;
+    
+    const produto = window.comboAtual;
+    
+    // Validar partes obrigatórias
+    for (let i = 0; i < produto.partes.length; i++) {
+        const parte = produto.partes[i];
+        if (parte.obrigatorio) {
+            const radioName = `combo-${produtoId}-parte-${i}`;
+            const selecionado = document.querySelector(`input[name="${radioName}"]:checked`);
+            if (!selecionado) {
+                alert(`Por favor, selecione uma opção na ${parte.nome}.`);
+                return;
+            }
+        }
+    }
+    
+    // Coletar seleções
+    const selecoes = {
+        partes: [],
+        adicionais: []
+    };
+    
+    produto.partes.forEach((parte, parteIndex) => {
+        const radioName = `combo-${produtoId}-parte-${parteIndex}`;
+        const radioSelecionado = document.querySelector(`input[name="${radioName}"]:checked`);
+        if (radioSelecionado) {
+            const opcaoIndex = parseInt(radioSelecionado.value);
+            selecoes.partes.push({
+                parte: parte.nome,
+                opcao: parte.opcoes[opcaoIndex].nome,
+                precoAdicional: parte.opcoes[opcaoIndex].preco || 0
+            });
+        }
+    });
+    
+    if (produto.adicionais) {
+        produto.adicionais.forEach((adicional, adicionalIndex) => {
+            const checkbox = document.getElementById(`combo-${produtoId}-adicional-${adicionalIndex}`);
+            if (checkbox && checkbox.checked) {
+                selecoes.adicionais.push({
+                    nome: adicional.nome,
+                    preco: adicional.preco
+                });
+            }
+        });
+    }
+    
+    // Calcular preço total
+    let precoTotal = produto.preco;
+    selecoes.partes.forEach(p => precoTotal += (p.precoAdicional || 0));
+    selecoes.adicionais.forEach(a => precoTotal += (a.preco || 0));
+    
+    // SOLUÇÃO DEFINITIVA: Implementar a lógica diretamente aqui, sem depender do método da classe
+    const carrinhoInstance = window.carrinho;
+    
+    if (!carrinhoInstance) {
+        console.error('[MAIN] Erro: carrinho não está disponível');
+        alert('Erro ao adicionar combo ao carrinho. Por favor, recarregue a página.');
+        return;
+    }
+    
+    // O produto já foi obtido no início da função (linha 1355: const produto = window.comboAtual)
+    // Verificar se produto está válido
+    if (!produto || produto.ativo === false) {
+        console.error('[MAIN] Produto não encontrado ou inativo:', produtoId);
+        alert('Produto não encontrado.');
+        return;
+    }
+    
+    // Verificar se o ID corresponde (usar produtoId da função, não buscar novo)
+    if (produto.id && produto.id !== produtoId) {
+        console.warn('[MAIN] ID do produto não corresponde, usando o ID da função:', produtoId);
+    }
+    
+    // Garantir que o produtoId usado seja o correto
+    const produtoIdFinal = produto.id || produtoId;
+    
+    // Criar nome do item com resumo das seleções
+    let nomeCompleto = produto.nome;
+    if (selecoes.partes && selecoes.partes.length > 0) {
+        nomeCompleto += ' - ' + selecoes.partes.map(p => p.opcao).join(', ');
+    }
+    if (selecoes.adicionais && selecoes.adicionais.length > 0) {
+        nomeCompleto += ' + ' + selecoes.adicionais.map(a => a.nome).join(', ');
+    }
+    
+    // Usar produtoIdFinal para busca
+    const produtoIdParaBusca = produtoIdFinal || produtoId;
+    
+    // Obter itens atuais do carrinho
+    let itens = carrinhoInstance.getItens();
+    
+    // Verificar se já existe item igual (mesmo produto com mesmas seleções)
+    const itemExistenteIndex = itens.findIndex(item => 
+        item.produtoId === produtoIdParaBusca && 
+        JSON.stringify(item.selecoes) === JSON.stringify(selecoes)
+    );
+    
+    if (itemExistenteIndex >= 0) {
+        // Item igual existe - somar quantidade
+        const itemExistente = itens[itemExistenteIndex];
+        itemExistente.quantidade = (parseInt(itemExistente.quantidade) || 0) + quantidade;
+        itemExistente.preco = precoTotal;
+        
+        // Atualizar array e salvar
+        itens[itemExistenteIndex] = itemExistente;
+        carrinhoInstance.itens = itens;
+        carrinhoInstance.salvarCarrinho();
+    } else {
+        // Novo item - adicionar
+        const novoItem = {
+            produtoId: produtoIdParaBusca,
+            nome: nomeCompleto,
+            nomeOriginal: produto.nome,
+            preco: precoTotal,
+            quantidade: quantidade,
+            imagem: produto.imagem || null,
+            tipo: 'combo',
+            selecoes: selecoes
+        };
+        
+        // Adicionar ao array de itens do carrinho
+        itens.push(novoItem);
+        carrinhoInstance.itens = itens;
+        
+        // Salvar no localStorage
+        carrinhoInstance.salvarCarrinho();
+    }
+    
+    // Renderizar carrinho
+    carrinhoInstance.renderizar();
+    
+    // Mostrar feedback
+    if (typeof carrinhoInstance.mostrarFeedback === 'function') {
+        const totalItens = carrinhoInstance.contarItens();
+        carrinhoInstance.mostrarFeedback(`${quantidade} ${quantidade === 1 ? 'combo' : 'combos'} adicionado${quantidade === 1 ? '' : 's'}! Total no carrinho: ${totalItens} itens`);
+    }
+    
+    // Atualizar quantidades visíveis
+    setTimeout(() => {
+        if (typeof atualizarQuantidadesVisiveis === 'function') {
+            atualizarQuantidadesVisiveis();
+        }
+    }, 50);
+    
+    // Fechar modal e atualizar quantidade no card
+    fecharModalCombo();
+    
+    setTimeout(() => {
+        const qtdElement = document.getElementById(`qtd-${produtoIdParaBusca || produtoId}`);
+        if (qtdElement) {
+            const itensCarrinho = carrinhoInstance.getItens();
+            // Buscar todos os itens do mesmo produto (pode ter seleções diferentes)
+            const produtoIdBusca = produtoIdParaBusca || produtoId;
+            const itensMesmoProduto = itensCarrinho.filter(item => item.produtoId === produtoIdBusca);
+            const totalQuantidade = itensMesmoProduto.reduce((sum, item) => sum + (parseInt(item.quantidade) || 0), 0);
+            qtdElement.textContent = totalQuantidade;
+        }
+    }, 100);
+}
+
+// Tornar função global
+window.adicionarComboAoCarrinho = adicionarComboAoCarrinho;
+
+// Fechar modal de combo
+function fecharModalCombo() {
+    const modal = document.getElementById('modal-combo');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    window.comboAtual = null;
+    window.comboQuantidade = null;
+}
+
+// Função para abrir modal de finalizações
+function abrirModalFinalizacoes(produto, quantidade = 1) {
+    let modal = document.getElementById('modal-finalizacoes');
+    if (!modal) {
+        modal = document.createElement('div');
+        modal.id = 'modal-finalizacoes';
+        modal.className = 'modal-overlay';
+        modal.innerHTML = `
+            <div class="modal" style="max-width: 700px; max-height: 90vh; overflow-y: auto;">
+                <div class="modal-header">
+                    <h2 class="modal-title" id="modal-finalizacoes-titulo"></h2>
+                    <button class="modal-close" onclick="fecharModalFinalizacoes()"><i class="fas fa-times"></i></button>
+                </div>
+                <div id="modal-finalizacoes-conteudo" style="padding: 20px;">
+                    <!-- Conteúdo será inserido aqui -->
+                </div>
+            </div>
+        `;
+        document.body.appendChild(modal);
+    }
+    
+    const titulo = document.getElementById('modal-finalizacoes-titulo');
+    const conteudo = document.getElementById('modal-finalizacoes-conteudo');
+    
+    titulo.textContent = produto.nome + (quantidade > 1 ? ` (${quantidade}x)` : '');
+    
+    let html = `
+        <div style="margin-bottom: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--borda);">
+            <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">${produto.descricao || ''}</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--vermelho-claro);">R$ ${produto.preco.toFixed(2)}</div>
+        </div>
+        <div style="margin-bottom: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--borda);">
+            <h3 style="margin: 0 0 10px 0; color: var(--text-primary); font-size: 1rem; font-weight: 700;">
+                Finalização - Escolha pelo menos ${produto.finalizacoesMinimas || 1} opção(ões)
+            </h3>
+            <div style="display: flex; flex-direction: column; gap: 10px;">
+    `;
+    
+    produto.finalizacoes.forEach((finalizacao, index) => {
+        const finalizacaoId = `finalizacao-${produto.id}-${index}`;
+        const precoAdicional = finalizacao.preco > 0 ? ` <span style="color: var(--vermelho-claro); font-weight: 600;">+ R$ ${finalizacao.preco.toFixed(2)}</span>` : '';
+        
+        html += `
+            <label style="display: flex; align-items: center; gap: 12px; padding: 12px; background: var(--bg-primary); border: 2px solid var(--borda); border-radius: 8px; cursor: pointer; transition: all 0.2s;" 
+                   onmouseover="this.style.borderColor='var(--vermelho-claro)'; this.style.background='rgba(220,38,38,0.05)'" 
+                   onmouseout="this.style.borderColor='var(--borda)'; this.style.background='var(--bg-primary)'">
+                <input type="checkbox" 
+                       id="${finalizacaoId}"
+                       value="${index}"
+                       style="width: 20px; height: 20px; accent-color: var(--vermelho-claro); cursor: pointer;"
+                       onchange="validarFinalizacoesMinimas(); atualizarPrecoFinalizacoes()">
+                <span style="flex: 1; color: var(--text-primary); font-size: 0.95rem;">${finalizacao.nome}${precoAdicional}</span>
+            </label>
+        `;
+    });
+    
+    html += `
+            </div>
+            <div id="finalizacoes-contador" style="margin-top: 10px; font-size: 0.9rem; color: var(--texto-medio);">
+                <span id="finalizacoes-selecionadas">0</span>/${produto.finalizacoesMaximo || produto.finalizacoesMinimas || 3} selecionada(s)
+            </div>
+        </div>
+    `;
+    
+    // Preço total e botão adicionar
+    html += `
+        <div style="margin-top: 25px; padding: 20px; background: var(--bg-secondary); border-radius: 12px; border: 2px solid var(--vermelho-claro);">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                <span style="font-size: 1.2rem; font-weight: 600; color: var(--text-primary);">Total:</span>
+                <span id="finalizacoes-preco-total" style="font-size: 1.8rem; font-weight: 700; color: var(--vermelho-claro);">R$ ${produto.preco.toFixed(2)}</span>
+            </div>
+            <button onclick="adicionarComFinalizacoes(${produto.id}, ${quantidade})" 
+                    class="btn btn-primary" 
+                    id="btn-adicionar-finalizacoes"
+                    style="width: 100%; padding: 15px; font-size: 1.1rem; font-weight: 700;">
+                Adicionar ao Carrinho
+            </button>
+        </div>
+    `;
+    
+    conteudo.innerHTML = html;
+    modal.style.display = 'flex';
+    
+    window.produtoFinalizacoes = produto;
+    window.quantidadeFinalizacoes = quantidade;
+    
+    validarFinalizacoesMinimas();
+    atualizarPrecoFinalizacoes();
+}
+
+// Validar mínimo de finalizações
+function validarFinalizacoesMinimas() {
+    if (!window.produtoFinalizacoes) return;
+    
+    const produto = window.produtoFinalizacoes;
+    const minimo = produto.finalizacoesMinimas || 1;
+    
+    const selecionados = produto.finalizacoes.filter((_, index) => {
+        const checkbox = document.getElementById(`finalizacao-${produto.id}-${index}`);
+        return checkbox && checkbox.checked;
+    }).length;
+    
+    const contador = document.getElementById('finalizacoes-contador');
+    const btnAdicionar = document.getElementById('btn-adicionar-finalizacoes');
+    const selecionadasSpan = document.getElementById('finalizacoes-selecionadas');
+    
+    if (selecionadasSpan) {
+        selecionadasSpan.textContent = selecionados;
+        selecionadasSpan.style.color = selecionados >= minimo ? 'var(--vermelho-claro)' : 'var(--texto-medio)';
+    }
+    
+    if (btnAdicionar) {
+        btnAdicionar.disabled = selecionados < minimo;
+        btnAdicionar.style.opacity = selecionados < minimo ? '0.5' : '1';
+        btnAdicionar.style.cursor = selecionados < minimo ? 'not-allowed' : 'pointer';
+    }
+    
+    if (contador) {
+        contador.style.color = selecionados >= minimo ? 'var(--text-primary)' : 'var(--vermelho-claro)';
+    }
+}
+
+// Atualizar preço total das finalizações
+function atualizarPrecoFinalizacoes() {
+    if (!window.produtoFinalizacoes) return;
+    
+    const produto = window.produtoFinalizacoes;
+    let precoTotal = produto.preco;
+    
+    produto.finalizacoes.forEach((finalizacao, index) => {
+        const checkbox = document.getElementById(`finalizacao-${produto.id}-${index}`);
+        if (checkbox && checkbox.checked && finalizacao.preco) {
+            precoTotal += finalizacao.preco;
+        }
+    });
+    
+    precoTotal *= (window.quantidadeFinalizacoes || 1);
+    
+    const precoElement = document.getElementById('finalizacoes-preco-total');
+    if (precoElement) {
+        precoElement.textContent = `R$ ${precoTotal.toFixed(2)}`;
+    }
+}
+
+// Adicionar produto com finalizações ao carrinho
+function adicionarComFinalizacoes(produtoId, quantidade) {
+    console.log('[DEBUG] adicionarComFinalizacoes chamada', { produtoId, quantidade });
+    console.log('[DEBUG] window.carrinho:', window.carrinho);
+    console.log('[DEBUG] carrinho.adicionarItemComFinalizacoes:', typeof carrinho?.adicionarItemComFinalizacoes);
+    
+    if (!window.produtoFinalizacoes) return;
+    
+    const produto = window.produtoFinalizacoes;
+    const minimo = produto.finalizacoesMinimas || 1;
+    
+    // Coletar finalizações selecionadas
+    const finalizacoesSelecionadas = [];
+    produto.finalizacoes.forEach((finalizacao, index) => {
+        const checkbox = document.getElementById(`finalizacao-${produtoId}-${index}`);
+        if (checkbox && checkbox.checked) {
+            finalizacoesSelecionadas.push({
+                nome: finalizacao.nome,
+                preco: finalizacao.preco || 0
+            });
+        }
+    });
+    
+    if (finalizacoesSelecionadas.length < minimo) {
+        alert(`Por favor, selecione pelo menos ${minimo} finalização(ões).`);
+        return;
+    }
+    
+    // Calcular preço total
+    let precoTotal = produto.preco;
+    finalizacoesSelecionadas.forEach(f => precoTotal += (f.preco || 0));
+    
+    // Adicionar ao carrinho
+    if (typeof carrinho !== 'undefined' && typeof carrinho.adicionarItemComFinalizacoes === 'function') {
+        carrinho.adicionarItemComFinalizacoes(produtoId, quantidade, finalizacoesSelecionadas, precoTotal);
+    } else {
+        console.error('[MAIN] Erro: carrinho.adicionarItemComFinalizacoes não está disponível');
+        alert('Erro ao adicionar produto ao carrinho. Por favor, recarregue a página.');
+        return;
+    }
+    
+    // Fechar modal
+    fecharModalFinalizacoes();
+    
+    // Atualizar quantidade no card
+    setTimeout(() => {
+        const qtdElement = document.getElementById(`qtd-${produtoId}`);
+        if (qtdElement) {
+            const itensCarrinho = carrinho.getItens();
+            const itemNoCarrinho = itensCarrinho.find(item => item.produtoId === produtoId && JSON.stringify(item.finalizacoes) === JSON.stringify(finalizacoesSelecionadas));
+            if (itemNoCarrinho) {
+                qtdElement.textContent = itemNoCarrinho.quantidade;
+            }
+        }
+    }, 100);
+}
+
+// Tornar função global
+window.adicionarComFinalizacoes = adicionarComFinalizacoes;
+
+// Fechar modal de finalizações
+function fecharModalFinalizacoes() {
+    const modal = document.getElementById('modal-finalizacoes');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+    window.produtoFinalizacoes = null;
+    window.quantidadeFinalizacoes = null;
 }
 
 // Abrir checkout (modal do carrinho)
@@ -1359,14 +2013,115 @@ function finalizarPedido() {
     abrirCheckoutModal();
 }
 
+// Modal de loja fechada
+function mostrarModalLojaFechada(mensagem) {
+    // Remover modal existente se houver
+    const existente = document.getElementById('modal-loja-fechada');
+    if (existente) existente.remove();
+    
+    const overlay = document.createElement('div');
+    overlay.id = 'modal-loja-fechada';
+    overlay.style.cssText = `
+        position: fixed;
+        inset: 0;
+        z-index: 99999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 20px;
+        background: rgba(0, 0, 0, 0.75);
+        animation: fadeIn 0.3s ease;
+    `;
+    
+    const card = document.createElement('div');
+    card.style.cssText = `
+        width: min(450px, 95vw);
+        border-radius: 16px;
+        overflow: hidden;
+        background: linear-gradient(145deg, #1a1a1f, #0f0f12);
+        border: 1px solid rgba(239, 68, 68, 0.3);
+        box-shadow: 0 25px 80px rgba(239, 68, 68, 0.15), 0 0 0 1px rgba(255,255,255,0.05);
+        animation: slideUp 0.3s ease;
+    `;
+    
+    // Header
+    const header = document.createElement('div');
+    header.style.cssText = `
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 25px 20px 15px;
+        background: linear-gradient(180deg, rgba(239, 68, 68, 0.15) 0%, transparent 100%);
+    `;
+    
+    const iconContainer = document.createElement('div');
+    iconContainer.style.cssText = `
+        width: 70px;
+        height: 70px;
+        border-radius: 50%;
+        background: rgba(239, 68, 68, 0.15);
+        border: 2px solid rgba(239, 68, 68, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    `;
+    iconContainer.innerHTML = '<i class="fas fa-store-slash" style="font-size: 28px; color: #ef4444;"></i>';
+    header.appendChild(iconContainer);
+    
+    // Body
+    const body = document.createElement('div');
+    body.style.cssText = 'padding: 20px 25px 25px; text-align: center;';
+    
+    const titulo = document.createElement('h2');
+    titulo.textContent = 'Loja Fechada';
+    titulo.style.cssText = 'margin: 0 0 12px; font-size: 22px; font-weight: 700; color: #fff;';
+    
+    const texto = document.createElement('p');
+    texto.textContent = mensagem || 'No momento estamos fechados. Tente novamente mais tarde!';
+    texto.style.cssText = 'margin: 0 0 20px; font-size: 15px; color: rgba(255,255,255,0.7); line-height: 1.5;';
+    
+    const btnFechar = document.createElement('button');
+    btnFechar.textContent = 'Entendi';
+    btnFechar.style.cssText = `
+        width: 100%;
+        padding: 14px 20px;
+        background: linear-gradient(135deg, #dc2626, #b91c1c);
+        border: none;
+        border-radius: 10px;
+        color: #fff;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+    `;
+    btnFechar.onmouseover = () => btnFechar.style.transform = 'translateY(-2px)';
+    btnFechar.onmouseout = () => btnFechar.style.transform = 'translateY(0)';
+    btnFechar.onclick = () => overlay.remove();
+    
+    body.appendChild(titulo);
+    body.appendChild(texto);
+    body.appendChild(btnFechar);
+    
+    card.appendChild(header);
+    card.appendChild(body);
+    overlay.appendChild(card);
+    
+    // Fechar ao clicar fora
+    overlay.onclick = (e) => {
+        if (e.target === overlay) overlay.remove();
+    };
+    
+    document.body.appendChild(overlay);
+}
+
 // Abrir modal de checkout
 function abrirCheckoutModal() {
     // Verificar se a loja está aberta
     if (typeof verificarStatusLoja === 'function') {
         const status = verificarStatusLoja();
         if (!status.aberta) {
-            // Não usar alert, apenas não abrir o modal
-            // A mensagem já está visível na tela
+            // Mostrar modal informativo de loja fechada
+            mostrarModalLojaFechada(status.mensagem);
             return;
         }
     }
@@ -1755,8 +2510,9 @@ async function processarPedidoCheckout() {
     if (typeof verificarStatusLoja === 'function') {
         const status = verificarStatusLoja();
         if (!status.aberta) {
-            // Não usar alert, apenas não processar
-            // A mensagem já está visível na tela
+            // Mostrar popup de loja fechada
+            const mensagem = status.mensagem || 'A loja está fechada no momento. Tente novamente mais tarde.';
+            mostrarPopupLojaFechada(mensagem);
             return;
         }
     }
@@ -2019,9 +2775,134 @@ async function processarPedidoCheckout() {
         mostrarQRCodePix(pedido);
     } else if (pedido) {
         // Outras formas: mostrar apenas mensagem simples
-        alert('Pedido feito! Qualquer coisa o administrador entrará em contato com você pelo seu número de telefone.');
+        // Mostrar página de desconto após pedido
+        mostrarPaginaDesconto(pedido);
     }
 }
+
+// Gerar código de cupom único e aleatório (alphanumérico)
+function gerarCodigoCupomAleatorio() {
+    const caracteres = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    let codigo = '';
+    // Gerar 6 caracteres alfanuméricos
+    for (let i = 0; i < 6; i++) {
+        codigo += caracteres.charAt(Math.floor(Math.random() * caracteres.length));
+    }
+    return codigo;
+}
+
+// Verificar se cupom já existe
+function cupomJaExiste(codigo) {
+    if (!db || !db.data || !db.data.cupons) return false;
+    const codigoUpper = codigo.toUpperCase();
+    return db.data.cupons.some(c => (c.codigo || '').toUpperCase() === codigoUpper);
+}
+
+// Mostrar página de desconto após pedido
+async function mostrarPaginaDesconto(pedido) {
+    // Gerar cupom único (alphanumérico de 6 caracteres)
+    let cupomCodigo = gerarCodigoCupomAleatorio();
+    let tentativas = 0;
+    const maxTentativas = 10;
+    
+    // Garantir que o código é único
+    while (cupomJaExiste(cupomCodigo) && tentativas < maxTentativas) {
+        cupomCodigo = gerarCodigoCupomAleatorio();
+        tentativas++;
+    }
+    
+    // Se ainda não for único após tentativas, adicionar timestamp
+    if (cupomJaExiste(cupomCodigo)) {
+        cupomCodigo = gerarCodigoCupomAleatorio() + Date.now().toString().slice(-4);
+    }
+    
+    // Calcular data de validade (30 dias a partir de hoje)
+    const dataValidade = new Date();
+    dataValidade.setDate(dataValidade.getDate() + 30);
+    const dataValidadeStr = dataValidade.toISOString().split('T')[0]; // Formato YYYY-MM-DD
+    
+    // Criar cupom no banco de dados
+    try {
+        const cupom = {
+            id: Date.now(),
+            codigo: cupomCodigo.toUpperCase(),
+            tipo: 'percentual',
+            valor: 5,
+            valorMinimo: 0,
+            limiteUsos: 1, // Campo correto para limite de usos
+            usosAtuais: 0,
+            usosMaximos: 1, // Mantido para compatibilidade
+            ativo: true,
+            validade: dataValidadeStr, // Formato de data para validade
+            dataValidade: dataValidade.toISOString(), // Também salvar em formato ISO
+            descricao: 'Cupom de desconto ganho após pedido - 5% OFF',
+            freteGratis: false,
+            distanciaMaxFreteGratis: null
+        };
+        
+        console.log('[MAIN] Criando cupom:', cupom);
+        
+        // Salvar cupom no banco (local e servidor)
+        const cupomSalvo = await db.salvarCupom(cupom);
+        
+        console.log('[MAIN] Cupom salvo:', cupomSalvo);
+        
+        // Verificar se foi salvo corretamente
+        const cupomVerificado = db.getCupom(cupomCodigo);
+        if (!cupomVerificado) {
+            console.warn('[MAIN] Aviso: Cupom não encontrado após salvar');
+        }
+        
+        // Mostrar modal de desconto
+        const modal = document.getElementById('modal-desconto');
+        const codigoElement = document.getElementById('cupom-codigo');
+        if (modal && codigoElement) {
+            codigoElement.textContent = cupomCodigo.toUpperCase();
+            modal.classList.add('active');
+        } else {
+            console.error('[MAIN] Modal de desconto não encontrado');
+        }
+    } catch (error) {
+        console.error('[MAIN] Erro ao criar cupom:', error);
+        // Mostrar mensagem de sucesso mesmo com erro no cupom
+        alert('Pedido feito com sucesso! Qualquer coisa o administrador entrará em contato com você pelo seu número de telefone.');
+    }
+}
+
+// Copiar cupom para área de transferência
+function copiarCupom() {
+    const codigoElement = document.getElementById('cupom-codigo');
+    if (codigoElement) {
+        const codigo = codigoElement.textContent.trim();
+        navigator.clipboard.writeText(codigo).then(() => {
+            alert('Cupom copiado! Use-o no próximo pedido.');
+        }).catch(() => {
+            // Fallback para navegadores antigos
+            const textarea = document.createElement('textarea');
+            textarea.value = codigo;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+            alert('Cupom copiado! Use-o no próximo pedido.');
+        });
+    }
+}
+window.copiarCupom = copiarCupom;
+
+// Mostrar popup de loja fechada
+function mostrarPopupLojaFechada(mensagem) {
+    const modal = document.getElementById('modal-loja-fechada');
+    const mensagemEl = document.getElementById('modal-loja-fechada-mensagem');
+    if (modal && mensagemEl) {
+        mensagemEl.textContent = mensagem || 'A loja está fechada no momento. Tente novamente mais tarde.';
+        modal.classList.add('active');
+    } else {
+        // Fallback: alert
+        alert(mensagem || 'A loja está fechada no momento. Tente novamente mais tarde.');
+    }
+}
+window.mostrarPopupLojaFechada = mostrarPopupLojaFechada;
 
 // Mostrar QR Code PIX
 function mostrarQRCodePix(pedido) {
@@ -2050,7 +2931,7 @@ function mostrarQRCodePix(pedido) {
     modal.style.display = 'flex';
     
     // Renderizar QR Code
-    const nomeLoja = (typeof db !== 'undefined' && db.getConfiguracoes) ? (db.getConfiguracoes().nomeEstabelecimento || 'Minha Loja') : 'Minha Loja';
+    const nomeLoja = (typeof db !== 'undefined' && db.getConfiguracoes) ? (db.getConfiguracoes().nomeEstabelecimento || 'Vetera Sushi') : 'Vetera Sushi';
     pixPayment.renderizarQRCode('pix-container', chavePix, pedido.total, `Pedido #${pedido.id} - ${nomeLoja}`);
     
     // Adicionar mensagem de aprovação manual após o QR Code

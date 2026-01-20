@@ -176,6 +176,20 @@ class Auth {
       } else {
         console.error('[AUTH] ❌ API retornou erro:', response.status);
 
+        // Logar detalhes do servidor (principalmente em 500)
+        try {
+          const ct = String(response.headers.get('content-type') || '').toLowerCase();
+          let payload = null;
+          if (ct.includes('application/json')) {
+            payload = await response.json();
+          } else {
+            payload = await response.text();
+          }
+          console.error('[AUTH] ❌ Detalhes do erro da API:', payload);
+        } catch (e) {
+          // ignora
+        }
+
         // Tratar 401: credenciais inválidas.
         if (response.status === 401) {
           console.warn('[AUTH] ⚠️ Credenciais inválidas (401) da API. Tentando fallback local');

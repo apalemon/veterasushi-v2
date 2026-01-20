@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cardápio Online</title>
+    <title>Vetera Sushi</title>
     <link rel="icon" type="image/png" href="/logo.png">
     <link rel="shortcut icon" type="image/png" href="/logo.png">
     <link rel="stylesheet" href="/css/style.css">
@@ -39,6 +39,8 @@
     </script>
     <!-- Security functions -->
     <script src="/js/security.js"></script>
+    <!-- Environment configuration -->
+    <script src="/js/env.js"></script>
 </head>
 <body>
     <div id="site-loading-overlay" aria-hidden="false">
@@ -98,7 +100,7 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label">Senha</label>
-                            <input type="password" class="form-input" id="cliente-senha-login" required>
+                            <input type="password" class="form-input" id="cliente-senha-login" autocomplete="current-password" required>
                         </div>
                         <div id="cliente-mensagem" style="margin-bottom: 1rem; text-align: center; color: var(--vermelho-claro); min-height: 20px;"></div>
                         <button type="submit" class="btn btn-primary" style="width: 100%;">Entrar</button>
@@ -126,7 +128,7 @@
                         </div>
                         <div class="form-group">
                             <label class="form-label">Senha *</label>
-                            <input type="password" class="form-input" id="cliente-senha-registro" required>
+                            <input type="password" class="form-input" id="cliente-senha-registro" autocomplete="new-password" required>
                         </div>
                         <div class="form-group">
                             <label class="form-label">Endereço *</label>
@@ -180,7 +182,7 @@
         
         <div style="text-align: center; margin-bottom: 2rem;">
             <h1 id="titulo-loja" style="color: var(--vermelho-claro); font-size: 2.5rem; font-weight: 700; margin-bottom: 0.5rem;">
-                (Nome da Loja)
+                Vetera Sushi
             </h1>
             <p style="color: var(--texto-medio); font-size: 1rem;">Powered by Nurhb</p>
             <div id="status-loja-indicador" style="margin-top: 13px; display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; background: rgba(220, 38, 38, 0.1); border-radius: 20px; border: 1px solid rgba(220, 38, 38, 0.3);">
@@ -368,6 +370,54 @@
             </div>
             <div id="pix-container">
                 <!-- QR Code será inserido aqui -->
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL DESCONTO -->
+    <div class="modal-overlay" id="modal-desconto" style="z-index: 10003;" role="dialog" aria-labelledby="modal-desconto-title" aria-modal="true">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-desconto-title"><i class="fas fa-gift"></i> Você Ganhou um Desconto!</h2>
+                <button class="modal-close" onclick="fecharModal('modal-desconto')" aria-label="Fechar"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="text-align: center; padding: 2rem;">
+                <div style="font-size: 3rem; color: var(--vermelho-claro); margin-bottom: 1rem;">
+                    <i class="fas fa-tag"></i>
+                </div>
+                <h3 style="color: var(--texto-claro); margin-bottom: 1rem; font-size: 1.5rem;">Parabéns!</h3>
+                <p style="color: var(--texto-medio); margin-bottom: 2rem;">Você ganhou <strong style="color: var(--vermelho-claro); font-size: 1.2rem;">5% de desconto</strong> no seu próximo pedido!</p>
+                <div style="background: var(--cinza-medio); padding: 1.5rem; border-radius: 10px; margin-bottom: 1.5rem; border: 2px dashed var(--vermelho-claro);">
+                    <p style="color: var(--texto-medio); margin-bottom: 0.5rem; font-size: 0.9rem;">Use o cupom:</p>
+                    <div id="cupom-codigo" style="font-size: 2rem; font-weight: bold; color: var(--vermelho-claro); letter-spacing: 0.2rem; font-family: monospace; margin-bottom: 0.5rem;"></div>
+                    <button onclick="copiarCupom()" style="background: var(--vermelho-claro); color: white; border: none; padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; font-size: 0.9rem;">
+                        <i class="fas fa-copy"></i> Copiar Cupom
+                    </button>
+                </div>
+                <p style="color: var(--texto-medio); font-size: 0.85rem; margin-bottom: 1rem;">Este cupom pode ser usado apenas <strong>uma vez</strong> e é válido por 30 dias.</p>
+                <button onclick="fecharModal('modal-desconto')" style="background: var(--vermelho-claro); color: white; border: none; padding: 0.75rem 2rem; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600;">
+                    Obrigado!
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL LOJA FECHADA -->
+    <div class="modal-overlay" id="modal-loja-fechada" style="z-index: 10004;" role="dialog" aria-labelledby="modal-loja-fechada-title" aria-modal="true">
+        <div class="modal-content" style="max-width: 500px;">
+            <div class="modal-header">
+                <h2 class="modal-title" id="modal-loja-fechada-title"><i class="fas fa-store-slash"></i> Loja Fechada</h2>
+                <button class="modal-close" onclick="fecharModal('modal-loja-fechada')" aria-label="Fechar"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-body" style="text-align: center; padding: 2rem;">
+                <div style="font-size: 4rem; color: var(--status-fechada); margin-bottom: 1rem;">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <h3 style="color: var(--texto-claro); margin-bottom: 1rem; font-size: 1.5rem;">Loja Fechada</h3>
+                <p id="modal-loja-fechada-mensagem" style="color: var(--texto-medio); margin-bottom: 2rem; font-size: 1rem;"></p>
+                <button onclick="fecharModal('modal-loja-fechada')" style="background: var(--vermelho-claro); color: white; border: none; padding: 0.75rem 2rem; border-radius: 8px; cursor: pointer; font-size: 1rem; font-weight: 600;">
+                    Entendi
+                </button>
             </div>
         </div>
     </div>

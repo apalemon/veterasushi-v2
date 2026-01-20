@@ -3,8 +3,9 @@ const { getCollection } = require('../../mongodb');
 const { signJwt } = require('../../jwt');
 
 module.exports = async (req, res) => {
+
     res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
     res.setHeader('Content-Type', 'application/json');
 
@@ -15,14 +16,36 @@ module.exports = async (req, res) => {
         const { usuario, senha } = req.body || {};
         if (!usuario || !senha) return res.status(400).json({ error: 'Usuário e senha são obrigatórios' });
 
-        const jwtSecret = process.env.JWT_SECRET;
-        if (!jwtSecret) {
+        const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+        const jwtSecret = process.env.JWT_SECRET || (!isProd ? 'vetera_dev_jwt_secret' : '');
+        if (!jwtSecret && isProd) {
             return res.status(500).json({ error: 'JWT não configurado', detalhes: 'Defina JWT_SECRET nas variáveis de ambiente (Vercel).' });
         }
 
-        const usuariosCollection = await getCollection('usuarios');
-        const totalUsers = await usuariosCollection.countDocuments();
-        console.log('[AUTH/LOGIN] total usuarios in DB:', totalUsers);
+        // Fallback quando Mongo está fora (não derrubar login com 500 em dev)
+        let usuariosCollection = null;
+        let totalUsers = null;
+        try {
+            usuariosCollection = await getCollection('usuarios');
+            totalUsers = await usuariosCollection.countDocuments();
+            console.log('[AUTH/LOGIN] total usuarios in DB:', totalUsers);
+        } catch (dbErr) {
+            console.error('[AUTH/LOGIN] falha ao acessar MongoDB (usuarios):', dbErr && dbErr.message ? dbErr.message : dbErr);
+
+            const envUser = String(process.env.ADMIN_USER || 'admin');
+            const envPass = String(process.env.ADMIN_PASS || 'admin');
+            const isAdminOverride = (!isProd) && String(usuario) === envUser && String(senha) === envPass;
+
+            if (isAdminOverride) {
+                console.warn('[AUTH/LOGIN] Mongo indisponível - concedendo login admin via override em dev');
+                const adminUser = { id: envUser, usuario: envUser, nome: 'Administrador (dev override)', nivel: 'admin', ativo: true };
+                const token = signJwt({ sub: envUser, usuario: envUser, nivel: 'admin', tipo: 'admin' }, jwtSecret, { expiresInSeconds: 7 * 24 * 60 * 60 });
+                return res.status(200).json({ success: true, user: adminUser, token });
+            }
+
+            // Se não for override, tratar como credencial inválida (não 500)
+            return res.status(401).json({ error: 'Credenciais inválidas' });
+        }
 
         // Helper: reproduce client hash algorithm
         function serverHashPassword(password) {
@@ -60,6 +83,7 @@ module.exports = async (req, res) => {
                 const token = signJwt({ sub: 'admin', usuario: 'admin', nivel: 'admin', tipo: 'admin' }, jwtSecret, { expiresInSeconds: 7 * 24 * 60 * 60 });
                 return res.status(200).json({ success: true, user: adminUser, token });
             }
+
             if (totalUsers === 0 && String(usuario) === 'admin' && String(senha) === 'admin') {
                 console.warn('[AUTH/LOGIN] No users in DB - granting temporary admin login (admin/admin)');
                 const adminUser = { id: 'admin', usuario: 'admin', nome: 'Administrador (seed)', nivel: 'admin', ativo: true };
@@ -114,7 +138,12 @@ module.exports = async (req, res) => {
         );
         return res.status(200).json({ success: true, user, token });
     } catch (err) {
-        console.error('[AUTH/LOGIN] ❌', err.message);
-        return res.status(500).json({ error: 'Erro interno', detalhes: err.message });
+        console.error('[AUTH/LOGIN] ❌', err);
+        const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+        return res.status(500).json({
+            error: 'Erro interno',
+            detalhes: err && err.message ? err.message : String(err),
+            ...(isProd ? {} : { stack: err && err.stack ? String(err.stack) : null })
+        });
     }
 };

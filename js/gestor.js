@@ -87,7 +87,7 @@ window.carregarMinhaLojaConfig = async function() {
     }
 };
 
-// Variável global para armazenar logo em base64 temporariamente
+// Upload de logo via arquivo foi descontinuado (Vercel não persiste disco). Use URL/path.
 let _logoBase64Temp = null;
 
 function _exibirUrlsLoja(slug) {
@@ -148,19 +148,15 @@ function _configurarUploadLogo() {
             return;
         }
         
-        // Converter para base64
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const base64 = event.target.result;
-            _logoBase64Temp = base64;
-            
-            // Atualizar preview
-            if (preview) preview.src = base64;
-            
-            // Limpar campo URL (base64 tem prioridade)
-            if (urlInput) urlInput.value = '';
-        };
-        reader.readAsDataURL(file);
+        // Não salvar base64. Apenas orientar o usuário.
+        try {
+            alert('Upload por arquivo (base64) foi desativado.\n\nUse um link/URL ou um caminho como /Fotos/arquivo.png (coloque a imagem na pasta Fotos do projeto).');
+        } catch (e2) {}
+        try {
+            // Preview local apenas (não persiste)
+            if (preview) preview.src = URL.createObjectURL(file);
+        } catch (e3) {}
+        try { e.target.value = ''; } catch (e4) {}
     });
     
     // Quando URL é digitada, atualizar preview
@@ -250,13 +246,8 @@ window.salvarMinhaLojaConfig = async function(event) {
         const taxaEntrega = parseFloat(document.getElementById('minha-loja-taxa')?.value) || 0;
         const tempoPreparo = parseInt(document.getElementById('minha-loja-tempo')?.value) || 30;
         
-        // Logo: prioridade para upload base64, depois URL digitada
-        let logoUrl = '';
-        if (_logoBase64Temp) {
-            logoUrl = _logoBase64Temp;
-        } else {
-            logoUrl = document.getElementById('minha-loja-logo')?.value?.trim() || '';
-        }
+        // Logo: somente URL/path (ex.: /Fotos/logo.png ou https://...)
+        const logoUrl = document.getElementById('minha-loja-logo')?.value?.trim() || '';
         
         // Gerar slug a partir do nome
         const slug = nome ? nome.toLowerCase()
@@ -297,7 +288,7 @@ window.salvarMinhaLojaConfig = async function(event) {
             tema: tema
         };
         
-        // Limpar logo temporário após salvar
+        // Limpar logo temporário após salvar (mantido por compatibilidade)
         _logoBase64Temp = null;
 
         const token = (() => {
@@ -848,7 +839,7 @@ window.toggleProdutoAtivo = toggleProdutoAtivo;
 let pedidosVistos = new Set();
 let pedidosOcultos = new Set();
 let ultimoPedidoId = 0;
-let filtroStatus = 'todos';
+let filtroStatus = 'aguardando_pagamento';
 let termoBusca = '';
 let menuItemsPDV = [];
 let orderPDV = [];
@@ -1336,10 +1327,25 @@ async function verificarNovosPedidos() {
         atualizarContadorNovos();
         renderizarPedidos();
         
-        // Mostrar notificação visual
-        mostrarNotificacaoNovoPedido(novosPedidos.length);
+        // Verificar se algum novo pedido é PIX e mostrar aviso
+        const pedidosPix = novosPedidos.filter(p => (p.formaPagamento || '').toLowerCase() === 'pix');
+        if (pedidosPix.length > 0) {
+            // Mostrar popup sobre PIX não automático
+            mostrarAvisoPixNaoAutomatico();
+        }
+        
+        // Notificação removida conforme solicitado
     }
 }
+
+// Mostrar aviso sobre PIX não automático
+function mostrarAvisoPixNaoAutomatico() {
+    const modal = document.getElementById('modal-aviso-pix');
+    if (modal) {
+        modal.classList.add('active');
+    }
+}
+window.mostrarAvisoPixNaoAutomatico = mostrarAvisoPixNaoAutomatico;
 
 // Ouvir evento de novo pedido - RECARREGAR IMEDIATAMENTE DO SERVIDOR
 let processandoNovoPedido = false;
@@ -1371,8 +1377,17 @@ window.addEventListener('storage', function(e) {
 
 
 // Mostrar notificação visual de novo pedido
+let ultimaNotificacaoTimestamp = 0;
 function mostrarNotificacaoNovoPedido(quantidade) {
+    const agora = Date.now();
+    // Evitar animações duplicadas se já mostrou há menos de 1 segundo
+    if (agora - ultimaNotificacaoTimestamp < 1000 && document.getElementById('notificacao-novo-pedido')) {
+        return;
+    }
+    ultimaNotificacaoTimestamp = agora;
+    
     let notif = document.getElementById('notificacao-novo-pedido');
+    const isNew = !notif;
     if (!notif) {
         notif = document.createElement('div');
         notif.id = 'notificacao-novo-pedido';
@@ -1385,10 +1400,17 @@ function mostrarNotificacaoNovoPedido(quantidade) {
         notif.style.borderRadius = '15px';
         notif.style.boxShadow = '0 8px 30px var(--sombra-vermelha)';
         notif.style.zIndex = '3000';
-        notif.style.animation = 'slideInRight 0.5s ease';
         notif.style.fontWeight = '700';
         notif.style.fontSize = '1.1rem';
         document.body.appendChild(notif);
+    }
+
+    // Só aplicar animação se for um elemento novo ou se estava escondido
+    if (isNew || notif.style.display === 'none') {
+        notif.style.animation = 'none';
+        // Força reflow para reiniciar animação
+        void notif.offsetWidth;
+        notif.style.animation = 'slideInRight 0.5s ease';
     }
 
     const texto = quantidade === 1 ? 'novo pedido' : 'novos pedidos';
@@ -1396,7 +1418,9 @@ function mostrarNotificacaoNovoPedido(quantidade) {
     notif.style.display = 'block';
 
     setTimeout(function() {
-        notif.style.display = 'none';
+        if (notif) {
+            notif.style.display = 'none';
+        }
     }, 5000);
 }
 
@@ -1550,6 +1574,7 @@ function mostrarSecao(secao) {
 
     // Atualizar item ativo no menu
     const nomesSecoes = {
+        'inicio': 'Dashboard',
         'nova-venda': 'Nova Venda',
         'pedidos': 'Pedidos',
         'ocultos': 'Pedidos Ocultos',
@@ -1559,8 +1584,6 @@ function mostrarSecao(secao) {
         'cupons': 'Cupons',
         'categorias': 'Categorias',
         'pagamentos': 'Formas de Pagamento',
-        'minha-loja': 'Minha Loja',
-        'usuarios': 'Usuários',
         'entradas': 'Entradas',
         'condicionais': 'Regras Condicionais',
         'horarios': 'Horários de Funcionamento'
@@ -1576,14 +1599,11 @@ function mostrarSecao(secao) {
     // Reaplicar permissões ao trocar seção
     window.atualizarHeaderGestor();
 
-    if (secao === 'minha-loja') {
-        try { window.carregarMinhaLojaConfig(); } catch (e) {}
+    if (secao === 'inicio') {
+        try { window.carregarDashboard(); } catch (e) {}
     }
     if (secao === 'pagamentos') {
         try { window.carregarPagamentosConfig(); } catch (e) {}
-    }
-    if (secao === 'usuarios') {
-        try { window.carregarUsuarios(); } catch (e) {}
     }
 }
 
@@ -1732,9 +1752,17 @@ function renderizarPedidos() {
     // Garantir que temos os pedidos mais recentes
     const pedidosDisponiveis = db.getPedidos();
 
-    let pedidos = filtroStatus === 'todos' 
-        ? pedidosDisponiveis 
-        : pedidosDisponiveis.filter(function(p) { return p.status === filtroStatus; });
+    // Filtrar por status (sem opção "todos")
+    let pedidos = pedidosDisponiveis.filter(function(p) { 
+        // Se o status for 'aguardando_pagamento', incluir também 'aguardando_aprovacao' e 'aguardando_aprovacao_pix'
+        if (filtroStatus === 'aguardando_pagamento') {
+            return p.status === 'aguardando_pagamento' || 
+                   p.status === 'aguardando_aprovacao' || 
+                   p.status === 'aguardando_aprovacao_pix' ||
+                   (p.status === 'pendente' && (p.statusPagamento === 'pendente' || p.statusPagamento === 'aguardando_aprovacao'));
+        }
+        return p.status === filtroStatus; 
+    });
 
     // FILTRAR: Pedidos recusados e ocultos NÃO aparecem na lista principal
     pedidos = pedidos.filter(function(p) {
@@ -1852,14 +1880,53 @@ function abrirDetalhesPedido(pedidoId) {
             const nomeSeguro = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(item.nome) : String(item.nome || '').replace(/[<>]/g, '');
             const imagemSegura = typeof escapeHTML !== 'undefined' ? escapeHTML(imagem) : String(imagem || '').replace(/[<>'"]/g, '');
             
-            html += '<div style="display: flex; gap: 1rem; padding: 1rem; background: var(--cinza-escuro); border-radius: 8px; margin-bottom: 0.5rem; align-items: center;">';
+            html += '<div style="display: flex; gap: 1rem; padding: 1rem; background: var(--cinza-escuro); border-radius: 8px; margin-bottom: 0.5rem; align-items: flex-start;">';
             html += '<div style="flex-shrink: 0;"><img src="' + imagemSegura + '" alt="' + nomeSeguro + '" style="width: 60px; height: 60px; object-fit: cover; border-radius: 8px; border: 2px solid var(--borda);" onerror="this.src=\'logo.png\'; this.style.width=\'60px\'; this.style.height=\'60px\';"></div>';
             const precoItem = Number(item.preco) || 0;
             const qty = Number(item.quantidade) || 0;
             const totalItem = precoItem * qty;
-            html += '<div style="flex: 1;"><strong style="color: var(--texto-claro);">' + nomeSeguro + '</strong><br>';
-            html += '<span style="color: var(--texto-medio);">' + currencyFmt.format(precoItem) + ' x ' + qty + '</span></div>';
-            html += '<div style="color: var(--vermelho-claro); font-weight: bold; font-size: 1.1rem;">' + currencyFmt.format(totalItem) + '</div>';
+            html += '<div style="flex: 1;"><strong style="color: var(--texto-claro); display: block; margin-bottom: 0.5rem;">' + nomeSeguro + '</strong>';
+            html += '<span style="color: var(--texto-medio); display: block; margin-bottom: 0.5rem;">' + currencyFmt.format(precoItem) + ' x ' + qty + '</span>';
+            
+            // Mostrar seleções de combo se existirem
+            if (item.selecoes && item.selecoes.partes && item.selecoes.partes.length > 0) {
+                html += '<div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(220, 38, 38, 0.1); border-radius: 6px; border-left: 3px solid var(--vermelho-claro);">';
+                html += '<div style="color: var(--vermelho-claro); font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem;"><i class="fas fa-list-check"></i> Seleções Escolhidas:</div>';
+                item.selecoes.partes.forEach(function(parte) {
+                    const parteNomeSeguro = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(parte.parte || '') : String(parte.parte || '').replace(/[<>]/g, '');
+                    const opcaoSegura = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(parte.opcao || '') : String(parte.opcao || '').replace(/[<>]/g, '');
+                    html += '<div style="color: var(--texto-claro); font-size: 0.8rem; margin-left: 0.5rem; margin-bottom: 0.2rem;">';
+                    html += '<strong>' + parteNomeSeguro + ':</strong> ' + opcaoSegura;
+                    if (parte.precoAdicional && parte.precoAdicional > 0) {
+                        html += ' <span style="color: var(--sucesso);">(+' + currencyFmt.format(parte.precoAdicional) + ')</span>';
+                    }
+                    html += '</div>';
+                });
+                if (item.selecoes.adicionais && item.selecoes.adicionais.length > 0) {
+                    html += '<div style="color: var(--texto-claro); font-size: 0.8rem; margin-left: 0.5rem; margin-top: 0.3rem;"><strong>Adicionais:</strong> ';
+                    html += item.selecoes.adicionais.map(function(adicional) {
+                        const nomeSeguro = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(adicional.nome || '') : String(adicional.nome || '').replace(/[<>]/g, '');
+                        return nomeSeguro + (adicional.preco > 0 ? ' (+' + currencyFmt.format(adicional.preco) + ')' : '');
+                    }).join(', ');
+                    html += '</div>';
+                }
+                html += '</div>';
+            }
+            
+            // Mostrar finalizações de poke se existirem
+            if (item.finalizacoes && item.finalizacoes.length > 0) {
+                html += '<div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(34, 197, 94, 0.1); border-radius: 6px; border-left: 3px solid var(--sucesso);">';
+                html += '<div style="color: var(--sucesso); font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem;"><i class="fas fa-sparkles"></i> Finalizações Escolhidas:</div>';
+                html += '<div style="color: var(--texto-claro); font-size: 0.8rem; margin-left: 0.5rem;">';
+                html += item.finalizacoes.map(function(finalizacao) {
+                    const nomeSeguro = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(finalizacao.nome || '') : String(finalizacao.nome || '').replace(/[<>]/g, '');
+                    return nomeSeguro + (finalizacao.preco > 0 ? ' (+' + currencyFmt.format(finalizacao.preco) + ')' : '');
+                }).join(', ');
+                html += '</div></div>';
+            }
+            
+            html += '</div>';
+            html += '<div style="color: var(--vermelho-claro); font-weight: bold; font-size: 1.1rem; align-self: flex-start;">' + currencyFmt.format(totalItem) + '</div>';
             html += '</div>';
         });
     }
@@ -2302,22 +2369,21 @@ async function getStoreLogo() {
         if (logoLocalStorage) {
             return logoLocalStorage;
         }
-        
+
         // Tentar carregar logo.png
         try {
             const response = await fetch('logo.png');
             if (response.ok) {
-                const blob = await response.blob();
-                return new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result);
-                    reader.readAsDataURL(blob);
-                });
+                // Base64 desativado: não converter blob em dataURL.
+                // Retornar vazio e seguir sem logo no PDF.
+                return '';
             }
+
+            return '';
         } catch (e) {
-            // Logo não encontrado, usar texto
+            return '';
         }
-        
+
         return null;
     } catch (e) {
         console.error('Erro ao carregar logo:', e);
@@ -2325,29 +2391,35 @@ async function getStoreLogo() {
     }
 }
 
-// Gerar nota fiscal idêntica ao PDV
+// ========== DADOS DA LOJA ==========
+const DADOS_LOJA = {
+    nome: 'Vetera Sushi',
+    cnpj: '58.429.088/0001-41',
+    endereco: 'R. Doutor João Palombini, 580',
+    bairro: 'Ipanema',
+    cidade: 'Porto Alegre - RS',
+    telefone: '(51) 98414-9137'
+};
+
+// ========== FUNÇÕES AUXILIARES NOTAS ==========
+function splitTextToSizeNota(text, maxChars) {
+    if (!text) return [''];
+    if (text.length <= maxChars) return [text];
+    const parts = [];
+    let i = 0;
+    while (i < text.length) {
+        const end = Math.min(i + maxChars, text.length);
+        parts.push(text.substring(i, end));
+        i = end;
+    }
+    return parts;
+}
+
+// Gerar nota fiscal - Abre duas notas: Cozinha e Cliente
 async function gerarNotaFiscal(pedidoId) {
-    
     const pedido = db.getPedido(pedidoId);
     if (!pedido) return;
-    
-    const config = db.getConfiguracoes();
-    const now = new Date(pedido.data || new Date());
-    const dateStr = now.toLocaleString('pt-BR');
-    
-    // Calcular valores
-    const orderSubtotal = pedido.subtotal || 0;
-    const discount = pedido.desconto || 0;
-    const deliveryFee = pedido.taxaEntrega || 0;
-    const finalTotal = pedido.total || 0;
-    
-    // Calcular altura necessária
-    const lineHeight = 7;
-    const headerHeight = 50;
-    const footerHeight = 40;
-    const linesNeeded = (pedido.itens ? pedido.itens.length : 0) * 1.2 + 8;
-    const pageHeight = Math.max(150, headerHeight + footerHeight + linesNeeded * lineHeight);
-    
+
     // Verificar se jsPDF está disponível
     if (typeof window.jspdf === 'undefined') {
         alert('Biblioteca jsPDF não encontrada. Carregando...');
@@ -2359,216 +2431,417 @@ async function gerarNotaFiscal(pedidoId) {
         document.head.appendChild(script);
         return;
     }
-    
+
+    // Gerar ambas as notas
+    await gerarNotaCozinha(pedido);
+    await gerarNotaCliente(pedido);
+
+    // Salvar no histórico
+    try {
+        let historicoNotas = JSON.parse(localStorage.getItem('vetera_notas_fiscais') || '[]');
+        historicoNotas.push({
+            id: Date.now(),
+            pedidoId: pedido.id,
+            data: new Date().toISOString(),
+            timestamp: Date.now(),
+            clienteNome: pedido.clienteNome,
+            total: pedido.total || 0,
+            itens: pedido.itens || []
+        });
+        localStorage.setItem('vetera_notas_fiscais', JSON.stringify(historicoNotas));
+    } catch (e) {}
+}
+
+// ========== NOTA DA COZINHA ==========
+async function gerarNotaCozinha(pedido) {
     const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({
-        unit: 'mm',
-        format: [80, pageHeight]
+    
+    // Calcular altura necessária (mais espaço para complementos)
+    let alturaItens = 0;
+    (pedido.itens || []).forEach(item => {
+        alturaItens += 8; // Nome do item
+        if (item.complementos && item.complementos.length > 0) {
+            alturaItens += item.complementos.length * 5;
+        }
+        if (item.observacao) alturaItens += 6;
     });
     
+    const pageHeight = Math.max(200, 120 + alturaItens + 50);
+    
+    const doc = new jsPDF({
+        unit: 'mm',
+        format: [80, pageHeight],
+        orientation: 'portrait'
+    });
+
+    const corPreto = [0, 0, 0];
+    const corCinza = [100, 100, 100];
     const margin = 5;
     let y = margin;
+
+    // ========== CABEÇALHO COZINHA ==========
+    doc.setFillColor(30, 30, 30);
+    doc.rect(0, 0, 80, 18, 'F');
     
-    // Header - Com logo ou texto (igual ao PDV)
-    let storeLogo = localStorage.getItem('vetera_store_logo');
-    if (!storeLogo) {
-        // Tentar carregar logo.png
-        try {
-            const response = await fetch('logo.png');
-            if (response.ok) {
-                const blob = await response.blob();
-                storeLogo = await new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result);
-                    reader.readAsDataURL(blob);
-                });
-            }
-        } catch (e) {
-            // Logo não encontrado, usar texto
-        }
-    }
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(14);
+    doc.setTextColor(255, 255, 255);
+    doc.text('PEDIDO COZINHA', 40, 8, {align: 'center'});
     
-    if (storeLogo) {
-        try {
-            let format = 'PNG';
-            if (storeLogo.includes('data:image/jpeg') || storeLogo.includes('data:image/jpg')) {
-                format = 'JPEG';
-            } else if (storeLogo.includes('data:image/png')) {
-                format = 'PNG';
-            }
-            
-            const logoWidth = 30;
-            const logoHeight = 30;
-            doc.addImage(storeLogo, format, 40 - logoWidth/2, y, logoWidth, logoHeight);
-            y += logoHeight + 5;
-        } catch (e) {
-            // Erro ao adicionar logo, usar texto
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(24);
-            doc.setTextColor(0, 0, 0);
-            doc.text(config.nomeEstabelecimento || 'MINHA LOJA', 40, y + 7, {align:'center'});
-            y += 12;
-        }
-    } else {
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(24);
-        doc.setTextColor(0, 0, 0);
-        doc.text(config.nomeEstabelecimento || 'MINHA LOJA', 40, y + 7, {align:'center'});
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        if (config.endereco) {
-            doc.text(config.endereco, 40, y + 14, {align:'center'});
-        }
-        if (config.telefone) {
-            doc.text('Tel: ' + config.telefone, 40, y + 20, {align:'center'});
-        }
-        y += 32;
-    }
+    doc.setFontSize(10);
+    doc.text('#' + pedido.id, 40, 14, {align: 'center'});
     
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.3);
-    doc.line(margin, y, 80 - margin, y);
-    y += 6;
-    
-    // Data e Cliente
-    doc.setFont('helvetica', 'normal');
+    y = 22;
+
+    // ========== DATA E HORA ==========
+    const dataPedido = new Date(pedido.data || pedido.timestamp || Date.now());
+    doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0);
-    doc.text('Data/Hora: ' + dateStr, margin, y);
+    doc.setTextColor(...corPreto);
+    doc.text(dataPedido.toLocaleDateString('pt-BR') + ' - ' + dataPedido.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'}), 40, y, {align: 'center'});
     y += 6;
+
+    // ========== CLIENTE ==========
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(10);
-    doc.text('Cliente: ' + (pedido.clienteNome || ''), margin, y);
-    y += 6;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
+    doc.text('Cliente: ' + (pedido.clienteNome || 'N/A'), margin, y);
+    y += 5;
+    
+    if (pedido.clienteTelefone) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.text('Tel: ' + pedido.clienteTelefone, margin, y);
+        y += 5;
+    }
+    
     if (pedido.clienteEndereco) {
-        const addressLines = splitTextToSize(pedido.clienteEndereco, 30);
-        addressLines.forEach(line => {
-            doc.text('Endereco: ' + line, margin, y);
-            y += 5;
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...corCinza);
+        const endLines = splitTextToSizeNota(pedido.clienteEndereco, 38);
+        endLines.forEach(line => {
+            doc.text(line, margin, y);
+            y += 4;
         });
     }
+    y += 3;
+
+    // ========== LINHA DIVISÓRIA ==========
+    doc.setDrawColor(...corPreto);
+    doc.setLineWidth(0.8);
+    doc.line(margin, y, 80 - margin, y);
     y += 5;
-    
-    // Tabela de itens
+
+    // ========== ITENS COM DETALHES COMPLETOS ==========
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0);
-    doc.text('PRODUTO', margin, y);
-    doc.text('QTD', 48, y);
-    doc.text('VL.UN', 58, y);
-    doc.text('TOTAL', 80 - margin, y, {align:'right'});
-    y += 5;
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.2);
-    doc.line(margin, y, 80 - margin, y);
+    doc.setTextColor(...corPreto);
+    doc.text('ITENS DO PEDIDO:', margin, y);
     y += 6;
-    
-    // Itens
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(0, 0, 0);
-    if (pedido.itens && pedido.itens.length > 0) {
-        pedido.itens.forEach(function(item) {
-            const lines = splitTextToSize(item.nome, 18);
-            doc.text(lines.join(' '), margin, y);
-            doc.text(String(item.quantidade), 48, y);
-            doc.text('R$' + fmt(item.preco), 58, y);
-            doc.text('R$' + fmt(item.preco * item.quantidade), 80 - margin, y, {align:'right'});
+
+    (pedido.itens || []).forEach((item, idx) => {
+        const qtd = parseInt(item.quantidade || 1);
+        
+        // Nome do item com quantidade destacada
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10);
+        doc.setTextColor(...corPreto);
+        doc.text(qtd + 'x ' + (item.nome || 'Item'), margin, y);
+        y += 6;
+        
+        // Complementos (se houver)
+        if (item.complementos && item.complementos.length > 0) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.setTextColor(...corCinza);
+            item.complementos.forEach(comp => {
+                const compNome = typeof comp === 'string' ? comp : (comp.nome || comp);
+                doc.text('  + ' + compNome, margin + 2, y);
+                y += 5;
+            });
+        }
+        
+        // Observação do item
+        if (item.observacao) {
+            doc.setFont('helvetica', 'italic');
+            doc.setFontSize(8);
+            doc.setTextColor(150, 50, 50);
+            doc.text('  OBS: ' + item.observacao, margin + 2, y);
             y += 6;
+        }
+        
+        y += 2;
+    });
+
+    // ========== OBSERVAÇÕES GERAIS ==========
+    if (pedido.observacoes) {
+        y += 3;
+        doc.setDrawColor(...corPreto);
+        doc.setLineWidth(0.3);
+        doc.line(margin, y, 80 - margin, y);
+        y += 5;
+        
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9);
+        doc.setTextColor(150, 50, 50);
+        doc.text('OBSERVAÇÕES:', margin, y);
+        y += 5;
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        const obsLines = splitTextToSizeNota(pedido.observacoes, 38);
+        obsLines.forEach(line => {
+            doc.text(line, margin, y);
+            y += 4;
         });
     }
-    
-    // Totais
+
+    // ========== FORMA DE PAGAMENTO ==========
     y += 4;
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.2);
-    doc.line(margin, y, 80 - margin, y);
-    y += 6;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0);
-    
-    if (discount > 0) {
-        doc.text('Desconto:', margin, y);
-        doc.text('R$' + fmt(discount), 80 - margin, y, {align:'right'});
-        y += 6;
-    }
-    if (deliveryFee > 0) {
-        doc.text('Taxa de Entrega:', margin, y);
-        doc.text('R$' + fmt(deliveryFee), 80 - margin, y, {align:'right'});
-        y += 6;
-    }
-    
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.setTextColor(0, 0, 0);
-    y += 2;
-    doc.text('TOTAL:', margin, y);
-    doc.text('R$' + fmt(finalTotal), 80 - margin, y, {align:'right'});
-    y += 10;
-    
-    // Forma de pagamento
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0);
-    doc.text('Forma de Pagamento:', margin, y);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text(formatarFormaPagamento(pedido.formaPagamento), margin, y + 5);
-    y += 10;
-    
-    // Rodapé
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(0, 0, 0);
-    doc.text('Obrigado pela preferencia!', 40, y, {align:'center'});
-    doc.text('Volte sempre!', 40, y + 5, {align:'center'});
-    
-    // Abrir no navegador ao invés de baixar
+    doc.setTextColor(...corPreto);
+    doc.text('Pagamento: ' + formatarFormaPagamento(pedido.formaPagamento), margin, y);
+
+    // Abrir no navegador
     const pdfBlob = doc.output('blob');
     const pdfUrl = URL.createObjectURL(pdfBlob);
     window.open(pdfUrl, '_blank');
+}
+
+// ========== NOTA DO CLIENTE ==========
+async function gerarNotaCliente(pedido) {
+    const { jsPDF } = window.jspdf;
+    const config = db.getConfiguracoes();
     
-    // Também salvar no sistema (não criar pedido, apenas adicionar registro)
-    const notaFiscal = {
-        id: Date.now(),
-        pedidoId: pedido.id,
-        data: new Date().toISOString(),
-        timestamp: Date.now(),
-        clienteNome: pedido.clienteNome,
-        total: finalTotal,
-        itens: pedido.itens || []
-    };
-    
-    // Salvar em localStorage como histórico
-    try {
-        let historicoNotas = JSON.parse(localStorage.getItem('vetera_notas_fiscais') || '[]');
-        historicoNotas.push(notaFiscal);
-        localStorage.setItem('vetera_notas_fiscais', JSON.stringify(historicoNotas));
-    } catch (e) {
-        // Erro silencioso
-    }
-    
-    // Funções auxiliares
-    function splitTextToSize(text, maxChars) {
-        if (!text) return [''];
-        if (text.length <= maxChars) return [text];
-        const parts = [];
-        let i = 0;
-        while (i < text.length) {
-            parts.push(text.substr(i, maxChars));
-            i += maxChars;
+    // Calcular valores
+    const orderSubtotal = pedido.subtotal || 0;
+    const discount = pedido.desconto || 0;
+    const deliveryFee = pedido.taxaEntrega || 0;
+    const finalTotal = pedido.total || 0;
+
+    // Calcular altura necessária
+    let alturaItens = 0;
+    (pedido.itens || []).forEach(item => {
+        alturaItens += 7;
+        if (item.complementos && item.complementos.length > 0) {
+            alturaItens += Math.min(item.complementos.length, 3) * 4;
         }
-        return parts;
+    });
+    
+    const pageHeight = Math.max(220, 180 + alturaItens);
+    
+    const doc = new jsPDF({
+        unit: 'mm',
+        format: [80, pageHeight],
+        orientation: 'portrait'
+    });
+
+    const corPreto = [0, 0, 0];
+    const corCinza = [80, 80, 80];
+    const corVermelho = [180, 40, 40];
+    const margin = 6;
+    let y = margin;
+
+    // ========== LOGO ==========
+    try {
+        const logoResponse = await fetch('logo.png');
+        if (logoResponse.ok) {
+            const logoBlob = await logoResponse.blob();
+            const logoBase64 = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(logoBlob);
+            });
+            doc.addImage(logoBase64, 'PNG', 40 - 12, y, 24, 14);
+            y += 16;
+        } else {
+            throw new Error('Logo não encontrado');
+        }
+    } catch (e) {
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(...corVermelho);
+        doc.text(DADOS_LOJA.nome, 40, y + 6, {align: 'center'});
+        y += 10;
+    }
+
+    // ========== DADOS DA LOJA ==========
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(...corCinza);
+    doc.text(DADOS_LOJA.endereco, 40, y, {align: 'center'});
+    y += 4;
+    doc.text(DADOS_LOJA.bairro + ' - ' + DADOS_LOJA.cidade, 40, y, {align: 'center'});
+    y += 4;
+    doc.text('CNPJ: ' + DADOS_LOJA.cnpj, 40, y, {align: 'center'});
+    y += 4;
+    doc.text('Tel: ' + DADOS_LOJA.telefone, 40, y, {align: 'center'});
+    y += 6;
+
+    // ========== LINHA DIVISÓRIA ==========
+    doc.setDrawColor(...corPreto);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, 80 - margin, y);
+    y += 5;
+
+    // ========== NÚMERO DO PEDIDO E DATA ==========
+    const dataPedido = new Date(pedido.data || pedido.timestamp || Date.now());
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...corPreto);
+    doc.text('Pedido #' + pedido.id, margin, y);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(dataPedido.toLocaleDateString('pt-BR') + ' ' + dataPedido.toLocaleTimeString('pt-BR', {hour: '2-digit', minute: '2-digit'}), 80 - margin, y, {align: 'right'});
+    y += 6;
+
+    // ========== DADOS DO CLIENTE ==========
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.text('Cliente: ' + (pedido.clienteNome || 'N/A'), margin, y);
+    y += 5;
+    
+    if (pedido.clienteEndereco) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(...corCinza);
+        const endLines = splitTextToSizeNota(pedido.clienteEndereco, 40);
+        endLines.forEach(line => {
+            doc.text(line, margin, y);
+            y += 4;
+        });
+    }
+    y += 3;
+
+    // ========== LINHA DIVISÓRIA ==========
+    doc.setDrawColor(...corPreto);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, 80 - margin, y);
+    y += 5;
+
+    // ========== ITENS DO PEDIDO ==========
+    (pedido.itens || []).forEach((item) => {
+        const itemPreco = parseFloat(item.preco || 0);
+        const itemQtd = parseInt(item.quantidade || 1);
+        const itemTotal = itemPreco * itemQtd;
+
+        // Nome do item
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...corPreto);
+        const nomeItem = itemQtd + 'x ' + (item.nome || 'Item');
+        const nomeLimitado = nomeItem.length > 32 ? nomeItem.substring(0, 29) + '...' : nomeItem;
+        doc.text(nomeLimitado, margin, y);
+        
+        // Valor à direita
+        doc.setFont('helvetica', 'bold');
+        doc.text('R$ ' + fmt(itemTotal), 80 - margin, y, {align: 'right'});
+        y += 5;
+        
+        // Complementos (resumido)
+        if (item.complementos && item.complementos.length > 0) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(7);
+            doc.setTextColor(...corCinza);
+            const compsText = item.complementos.map(c => typeof c === 'string' ? c : (c.nome || c)).join(', ');
+            const compsLimitado = compsText.length > 45 ? compsText.substring(0, 42) + '...' : compsText;
+            doc.text('  ' + compsLimitado, margin, y);
+            y += 4;
+        }
+        
+        y += 2;
+    });
+
+    y += 3;
+
+    // ========== LINHA DIVISÓRIA ==========
+    doc.setDrawColor(...corPreto);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, 80 - margin, y);
+    y += 5;
+
+    // ========== TOTAIS ==========
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...corCinza);
+    
+    doc.text('Subtotal:', margin, y);
+    doc.text('R$ ' + fmt(orderSubtotal), 80 - margin, y, {align: 'right'});
+    y += 5;
+    
+    if (discount > 0) {
+        doc.setTextColor(34, 139, 34);
+        doc.text('Desconto:', margin, y);
+        doc.text('- R$ ' + fmt(discount), 80 - margin, y, {align: 'right'});
+        y += 5;
     }
     
-    function formatFilenameDate(d) {
-        const pad = n => String(n).padStart(2, '0');
-        return d.getFullYear() + pad(d.getMonth() + 1) + pad(d.getDate()) + '_' + 
-               pad(d.getHours()) + pad(d.getMinutes()) + pad(d.getSeconds());
+    if (deliveryFee > 0) {
+        doc.setTextColor(...corCinza);
+        doc.text('Taxa de Entrega:', margin, y);
+        doc.text('R$ ' + fmt(deliveryFee), 80 - margin, y, {align: 'right'});
+        y += 5;
     }
+    
+    y += 2;
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(...corPreto);
+    doc.text('TOTAL:', margin, y);
+    doc.text('R$ ' + fmt(finalTotal), 80 - margin, y, {align: 'right'});
+    y += 6;
+
+    // ========== FORMA DE PAGAMENTO ==========
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...corCinza);
+    doc.text('Pagamento: ' + formatarFormaPagamento(pedido.formaPagamento), margin, y);
+    y += 8;
+
+    // ========== LINHA DIVISÓRIA ==========
+    doc.setDrawColor(...corPreto);
+    doc.setLineWidth(0.3);
+    doc.line(margin, y, 80 - margin, y);
+    y += 6;
+
+    // ========== QR CODE DO BRINDE ==========
+    const codigoBrinde = 'BR' + pedido.id.toString().slice(-6) + Date.now().toString().slice(-4);
+    const urlBrinde = window.location.origin + '/brinde.html?codigo=' + codigoBrinde;
+    
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8);
+    doc.setTextColor(...corVermelho);
+    doc.text('Wow! Você ganhou um brinde!', 40, y, {align: 'center'});
+    y += 5;
+
+    try {
+        const qrCodeUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(urlBrinde);
+        const qrResponse = await fetch(qrCodeUrl);
+        if (qrResponse.ok) {
+            const qrBlob = await qrResponse.blob();
+            const qrBase64 = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(qrBlob);
+            });
+            doc.addImage(qrBase64, 'PNG', 40 - 10, y, 20, 20);
+            y += 22;
+        }
+    } catch (e) {}
+
+    // ========== AGRADECIMENTO ==========
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(7);
+    doc.setTextColor(...corCinza);
+    doc.text('Obrigado pela preferência!', 40, y, {align: 'center'});
+    y += 4;
+    doc.text(DADOS_LOJA.nome + ' - Sabor que conquista!', 40, y, {align: 'center'});
+
+    // Abrir no navegador
+    const pdfBlob = doc.output('blob');
+    const pdfUrl = URL.createObjectURL(pdfBlob);
+    window.open(pdfUrl, '_blank');
 }
 
 // Tornar função global
@@ -2585,7 +2858,7 @@ window.mostrarSecao = mostrarSecao;
 // Formatar status
 function formatarStatus(status) {
     if (!status) return 'Pendente';
-    
+
     const statusMap = {
         'pendente': 'Pendente',
         'aguardando_pagamento': 'Aguardando Pagamento',
@@ -2602,7 +2875,7 @@ function formatarStatus(status) {
         'cancelado': 'CANCELADO',
         'cancelado_cliente': 'CANCELADO'
     };
-    
+
     const statusLower = (status || '').toLowerCase().trim();
     return statusMap[statusLower] || statusMap[status] || status;
 }
@@ -2631,12 +2904,12 @@ function renderizarProdutos() {
     if (!container) return;
 
     const produtos = db.getProdutos();
-    
+
     container.innerHTML = produtos.map(function(produto) {
         let html = '<div class="produto-card-admin">';
-        
+
         if (produto.imagem) {
-            const imagemUrl = (produto.imagem.startsWith('data:') || produto.imagem.startsWith('http') || produto.imagem.startsWith('/')) ? produto.imagem : '/Fotos/' + produto.imagem;
+            const imagemUrl = (produto.imagem.startsWith('http') || produto.imagem.startsWith('/')) ? produto.imagem : '/Fotos/' + produto.imagem;
             html += '<div style="width: 100%; height: 150px; border-radius: 10px; overflow: hidden; margin-bottom: 1rem; background: var(--cinza-escuro); position: relative;">';
             html += '<img src="' + imagemUrl + '" alt="' + produto.nome + '" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.style.display=\'none\'; this.nextElementSibling.style.display=\'flex\';">';
             html += '<div style="display: none; width: 100%; height: 100%; align-items: center; justify-content: center; font-size: 1rem; color: var(--texto-medio);">Sem imagem</div>';
@@ -2644,7 +2917,7 @@ function renderizarProdutos() {
         } else {
             html += '<div style="width: 100%; height: 150px; border-radius: 10px; margin-bottom: 1rem; background: var(--cinza-escuro); display: flex; align-items: center; justify-content: center; font-size: 1rem; color: var(--texto-medio);">Sem imagem</div>';
         }
-        
+
         html += '<h3 style="color: var(--texto-claro); margin-bottom: 0.5rem;">' + produto.nome + '</h3>';
         html += '<p style="color: var(--texto-medio); font-size: 0.9rem; margin-bottom: 1rem;">' + produto.descricao + '</p>';
         html += '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">';
@@ -2659,7 +2932,7 @@ function renderizarProdutos() {
         html += '<button class="btn btn-secondary btn-small" onclick="excluirProdutoGestor(' + produto.id + ')" style="flex: 1; min-width: 100px;">Excluir</button>';
         html += '</div>';
         html += '</div>';
-        
+
         return html;
     }).join('');
 }
@@ -2728,7 +3001,7 @@ function renderizarCupons() {
     if (!container) return;
 
     const cupons = db.getCupons();
-    
+
     if (cupons.length === 0) {
         container.innerHTML = '<p style="text-align: center; color: var(--texto-medio); padding: 3rem;">Nenhum cupom cadastrado</p>';
         return;
@@ -2763,7 +3036,7 @@ function renderizarCupons() {
         html += '<button class="btn btn-secondary btn-small" onclick="excluirCupomGestor(' + cupom.id + ')" style="flex: 1;">Excluir</button>';
         html += '</div>';
         html += '</div>';
-        
+
         return html;
     }).join('');
 }
@@ -2771,7 +3044,7 @@ function renderizarCupons() {
 function abrirModalCupomGestor(cupomId = null) {
     const modal = document.getElementById('modal-cupom');
     const titulo = document.getElementById('modal-cupom-titulo');
-    
+
     // Limpar formulário
     document.getElementById('cupom-id').value = '';
     document.getElementById('cupom-codigo-input').value = '';
@@ -2781,7 +3054,7 @@ function abrirModalCupomGestor(cupomId = null) {
     document.getElementById('cupom-limite').value = '';
     document.getElementById('cupom-validade').value = '';
     document.getElementById('cupom-ativo').checked = true;
-    
+
     if (cupomId) {
         // Editar cupom existente
         titulo.textContent = 'Editar Cupom';
@@ -2804,7 +3077,7 @@ function abrirModalCupomGestor(cupomId = null) {
     } else {
         titulo.textContent = 'Adicionar Cupom';
     }
-    
+
     modal.classList.add('active');
 }
 
@@ -2843,7 +3116,7 @@ function excluirCupomGestor(id) {
 
 async function salvarCupomGestor(event) {
     event.preventDefault();
-    
+
     const id = document.getElementById('cupom-id').value;
     const codigo = document.getElementById('cupom-codigo-input').value.toUpperCase().trim();
     const tipo = document.getElementById('cupom-tipo').value;
@@ -2854,14 +3127,14 @@ async function salvarCupomGestor(event) {
     const ativo = document.getElementById('cupom-ativo').checked;
     const freteGratis = document.getElementById('cupom-frete-gratis').checked;
     const distanciaMax = document.getElementById('cupom-distancia-max').value ? parseFloat(document.getElementById('cupom-distancia-max').value) : null;
-    
+
     if (!codigo || (valor <= 0 && !freteGratis)) {
         alert('Preencha o código e o valor do cupom (ou marque frete grátis)!');
         return;
     }
-    
+
     if (!db.data.cupons) db.data.cupons = [];
-    
+
     const cupomData = {
         codigo,
         tipo,
@@ -2874,7 +3147,7 @@ async function salvarCupomGestor(event) {
         distanciaMaxFreteGratis: freteGratis ? distanciaMax : null,
         usosAtuais: 0
     };
-    
+
     if (id) {
         // Atualizar existente
         const index = db.data.cupons.findIndex(c => c.id === parseInt(id));
@@ -2892,10 +3165,10 @@ async function salvarCupomGestor(event) {
         cupomData.id = Date.now();
         db.data.cupons.push(cupomData);
     }
-    
+
     // Salvar no banco de dados
     db.saveData();
-    
+
     // IMPORTANTE: Salvar também no database.json via API
     try {
         const token = (() => {
@@ -2909,7 +3182,7 @@ async function salvarCupomGestor(event) {
             },
             body: JSON.stringify(db.data.cupons || [])
         });
-        
+
         if (response.ok) {
             // Cupons salvos no servidor
             // Recarregar cupons do servidor para garantir sincronização
@@ -2920,7 +3193,7 @@ async function salvarCupomGestor(event) {
     } catch (e) {
         // Servidor não disponível, cupons salvos apenas localmente
     }
-    
+
     fecharModal('modal-cupom');
     renderizarCupons();
 }
@@ -3001,7 +3274,7 @@ window.excluirProdutoGestor = excluirProdutoGestor;
 window.toggleDescontoProduto = function() {
     const checkbox = document.getElementById('produto-desconto-ativo');
     const campos = document.getElementById('produto-desconto-campos');
-    
+
     if (checkbox && campos) {
         campos.style.display = checkbox.checked ? 'block' : 'none';
         if (!checkbox.checked) {
@@ -3016,7 +3289,7 @@ window.toggleDescontoProduto = function() {
 window.atualizarCampoDesconto = function() {
     const tipo = document.getElementById('produto-desconto-tipo').value;
     const label = document.getElementById('produto-desconto-valor-label');
-    
+
     if (label) {
         if (tipo === 'percentual') {
             label.textContent = 'Valor do Desconto (%)';
@@ -3026,19 +3299,18 @@ window.atualizarCampoDesconto = function() {
     }
 };
 
-
 // Renderizar categorias
 function renderizarCategorias() {
     const container = document.getElementById('categorias-list');
     if (!container) return;
 
     const categoriasDados = db.getCategoriasDados();
-    
+
     if (categoriasDados.length === 0) {
         container.innerHTML = '<p style="text-align: center; color: var(--texto-medio); padding: 3rem;">Nenhuma categoria cadastrada</p>';
         return;
     }
-    
+
     container.innerHTML = categoriasDados.map(function(categoria, index) {
         return '<div style="display: flex; justify-content: space-between; align-items: center; padding: 1rem; background: var(--cinza-medio); border-radius: 8px; margin-bottom: 1rem;">' +
             '<div style="flex: 1;">' +
@@ -3063,16 +3335,16 @@ function renderizarCategorias() {
 function abrirModalCategoria() {
     const nome = prompt('Digite o nome da categoria:');
     if (!nome || !nome.trim()) return;
-    
+
     const nomeCategoria = nome.trim();
     const categoriasDados = db.getCategoriasDados();
-    
+
     // Verificar se categoria já existe
     if (categoriasDados.some(c => c.nome === nomeCategoria)) {
         alert('Esta categoria já existe!');
         return;
     }
-    
+
     // Adicionar nova categoria no final
     if (!db.data.categorias) db.data.categorias = [];
     db.data.categorias.push({
@@ -3087,12 +3359,12 @@ function abrirModalCategoria() {
 
 function excluirCategoria(nome) {
     if (!confirm('Deseja realmente excluir a categoria "' + nome + '"?')) return;
-    
+
     if (db.data.categorias) {
         db.data.categorias = db.data.categorias.filter(function(c) { 
             return (c.nome || c) !== nome; 
         });
-        
+
         // Reordenar as categorias restantes
         db.data.categorias.forEach((cat, index) => {
             if (typeof cat === 'object') {
@@ -3102,7 +3374,7 @@ function excluirCategoria(nome) {
                 db.data.categorias[index] = { nome: cat, ordem: index, divisoria: false };
             }
         });
-        
+
         db.saveData();
         db.salvarCategorias(); // Salvar no servidor
         renderizarCategorias();
@@ -3112,7 +3384,7 @@ function excluirCategoria(nome) {
 // Ativar/desativar divisória da categoria
 window.toggleDivisoriaCategoria = function(nome, ativo) {
     if (!db.data.categorias) return;
-    
+
     const categoria = db.data.categorias.find(c => (c.nome || c) === nome);
     if (categoria) {
         if (typeof categoria === 'string') {
@@ -3130,10 +3402,10 @@ window.toggleDivisoriaCategoria = function(nome, ativo) {
 // Mover categoria para cima ou para baixo
 window.moverCategoria = function(nome, direcao) {
     if (!db.data.categorias) return;
-    
+
     const categorias = db.getCategoriasDados();
     const index = categorias.findIndex(c => c.nome === nome);
-    
+
     if (direcao === 'up' && index > 0) {
         // Trocar com a anterior
         const temp = categorias[index];
@@ -3145,7 +3417,7 @@ window.moverCategoria = function(nome, direcao) {
         categorias[index] = categorias[index + 1];
         categorias[index + 1] = temp;
     }
-    
+
     // Atualizar ordens no banco
     categorias.forEach((cat, i) => {
         cat.ordem = i;
@@ -3159,10 +3431,10 @@ window.moverCategoria = function(nome, direcao) {
             }
         }
     });
-    
+
     db.saveData();
     db.salvarCategorias(); // Salvar no servidor
-    
+
     renderizarCategorias();
 };
 
@@ -3172,12 +3444,12 @@ function renderizarUsuarios() {
     if (!tbody) return;
 
     const usuarios = db.data.usuarios || [];
-    
+
     if (usuarios.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--texto-medio); padding: 3rem;">Nenhum usuário cadastrado</td></tr>';
         return;
     }
-    
+
     tbody.innerHTML = usuarios.map(function(usuario) {
         return '<tr>' +
             '<td>' + usuario.id + '</td>' +
@@ -3194,7 +3466,7 @@ function renderizarUsuarios() {
 function _abrirModalUsuarioLegacy() {
     const id = prompt('ID do usuário (deixe vazio para novo):');
     if (id === null) return;
-    
+
     if (id === '') {
         // Novo usuário
         const usuario = prompt('Nome de usuário:');
@@ -3205,13 +3477,13 @@ function _abrirModalUsuarioLegacy() {
         if (!senha) return;
         const nivel = prompt('Nível (gerente/admin):', 'gerente');
         if (!nivel) return;
-        
+
         if (!db.data.usuarios) db.data.usuarios = [];
-        
+
         const novoId = db.data.usuarios.length > 0 
             ? Math.max.apply(null, db.data.usuarios.map(function(u) { return u.id || 0; })) + 1 
             : 1;
-        
+
         db.data.usuarios.push({
             id: novoId,
             usuario: usuario,
@@ -3220,7 +3492,7 @@ function _abrirModalUsuarioLegacy() {
             nivel: nivel,
             ativo: true
         });
-        
+
         db.saveData();
         // Persistir no servidor (usuarios admin)
         (async () => {
@@ -3244,19 +3516,19 @@ function _abrirModalUsuarioLegacy() {
 function _editarUsuarioGestorLegacy(id) {
     const usuario = (db.data.usuarios || []).find(function(u) { return u.id === id; });
     if (!usuario) return;
-    
+
     const novoNome = prompt('Nome completo (atual: ' + usuario.nome + '):', usuario.nome);
     if (novoNome === null) return;
-    
+
     const novoNivel = prompt('Nível (atual: ' + usuario.nivel + '):', usuario.nivel);
     if (novoNivel === null) return;
-    
+
     const novoAtivo = confirm('Usuário ativo? (atual: ' + (usuario.ativo ? 'Sim' : 'Não') + ')');
-    
+
     usuario.nome = novoNome;
     usuario.nivel = novoNivel;
     usuario.ativo = novoAtivo;
-    
+
     db.saveData();
     // Persistir no servidor (usuarios admin)
     (async () => {
@@ -3420,7 +3692,6 @@ if (formDestaque) {
     });
 }
 
-
 function renderizarDestaques() {
     const container = document.getElementById('destaques-list');
     if (!container) return;
@@ -3511,16 +3782,16 @@ window.previewImagemProdutoGestor = function(event) {
         const input = event.target;
         if (!input || !input.files || input.files.length === 0) return;
         const file = input.files[0];
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const preview = document.getElementById('produto-imagem-preview');
-            if (preview) {
-                preview.innerHTML = '<img src="' + e.target.result + '" style="width:100%; height:100%; object-fit:cover; border-radius:8px;">';
+        const preview = document.getElementById('produto-imagem-preview');
+        if (preview) {
+            try {
+                preview.src = URL.createObjectURL(file);
+            } catch (e) {
+                // ignora
             }
-            const removerBtn = document.getElementById('produto-remover-foto');
-            if (removerBtn) removerBtn.style.display = 'inline-block';
-        };
-        reader.readAsDataURL(file);
+        }
+        const removerBtn = document.getElementById('produto-remover-foto');
+        if (removerBtn) removerBtn.style.display = 'inline-block';
     } catch (err) {
         console.warn('Erro ao mostrar preview da imagem:', err);
     }
@@ -3769,7 +4040,7 @@ function limparPedidoPDV() {
     atualizarPedidoPDV();
 }
 
-// Gerar nota fiscal do PDV
+// Gerar nota fiscal do PDV - Igual à nota fiscal do gestor
 async function gerarNotaFiscalPDV() {
     const order = orderPDV;
     if (order.length === 0) {
@@ -3812,16 +4083,15 @@ async function gerarNotaFiscalPDV() {
     const discount = manualDiscount + paymentDiscountAmount;
     const deliveryFee = Math.max(0, Number(document.getElementById('delivery-fee-pdv')?.value || 0));
     
-    const now = new Date();
-    const dateStr = now.toLocaleString('pt-BR');
-    
-    // Calcular altura
-    const lineHeight = 7;
-    const headerHeight = 50;
-    const footerHeight = 40;
-    const linesNeeded = order.length * 1.2 + 8;
-    const pageHeight = Math.max(150, headerHeight + footerHeight + linesNeeded * lineHeight);
-    
+    const config = db.getConfiguracoes();
+    const CNPJ = '58.429.088/0001-41';
+
+    // Calcular altura necessária
+    const itemCount = order.length;
+    const baseHeight = 150;
+    const itemsHeight = itemCount * 8;
+    const pageHeight = Math.max(200, baseHeight + itemsHeight + 100);
+
     if (typeof window.jspdf === 'undefined') {
         alert('Biblioteca jsPDF não encontrada. Carregando...');
         const script = document.createElement('script');
@@ -3836,191 +4106,180 @@ async function gerarNotaFiscalPDV() {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({
         unit: 'mm',
-        format: [80, pageHeight]
+        format: [80, pageHeight],
+        orientation: 'portrait'
     });
-    
-    const margin = 5;
+
+    // Cores: preto para destaques, fonte padrão
+    const corPreto = [0, 0, 0];
+    const corCinza = [80, 80, 80];
+    const corTexto = [50, 50, 50];
+
+    const margin = 8;
     let y = margin;
-    
-    // Header
-    let storeLogo = localStorage.getItem('vetera_store_logo');
-    if (!storeLogo) {
-        // Tentar carregar logo.png
-        try {
-            const response = await fetch('logo.png');
-            if (response.ok) {
-                const blob = await response.blob();
-                storeLogo = await new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result);
-                    reader.readAsDataURL(blob);
-                });
-            }
-        } catch (e) {
-            // Logo não encontrado, usar texto
-        }
-    }
-    const config = db.getConfiguracoes();
-    
-    if (storeLogo) {
-        try {
-            let format = 'PNG';
-            if (storeLogo.includes('data:image/jpeg') || storeLogo.includes('data:image/jpg')) {
-                format = 'JPEG';
-            } else if (storeLogo.includes('data:image/png')) {
-                format = 'PNG';
-            }
+
+    // ========== LOGO NO TOPO ==========
+    try {
+        const logoResponse = await fetch('logo.png');
+        if (logoResponse.ok) {
+            const logoBlob = await logoResponse.blob();
+            const logoBase64 = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(logoBlob);
+            });
             
-            const logoWidth = 30;
-            const logoHeight = 30;
-            doc.addImage(storeLogo, format, 40 - logoWidth/2, y, logoWidth, logoHeight);
-            y += logoHeight + 5;
-        } catch (e) {
-            // Erro ao adicionar logo, usar texto
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(24);
-            doc.setTextColor(0, 0, 0);
-            doc.text(config.nomeEstabelecimento || 'MINHA LOJA', 40, y + 7, {align:'center'});
-            y += 12;
+            // Adicionar logo centralizado
+            doc.addImage(logoBase64, 'PNG', 40 - 15, y, 30, 18);
+            y += 20;
+        } else {
+            throw new Error('Logo não encontrado');
         }
-    } else {
+    } catch (e) {
+        // Se não conseguir, usar nome do estabelecimento
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(24);
-        doc.setTextColor(0, 0, 0);
-        doc.text(config.nomeEstabelecimento || 'MINHA LOJA', 40, y + 7, {align:'center'});
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        if (config.endereco) {
-            doc.text(config.endereco, 40, y + 14, {align:'center'});
-        }
-        if (config.telefone) {
-            doc.text('Tel: ' + config.telefone, 40, y + 20, {align:'center'});
-        }
-        y += 32;
+        doc.setFontSize(16);
+        doc.setTextColor(...corPreto);
+        doc.text((config.nomeEstabelecimento || 'Vetera Sushi'), 40, y + 8, {align:'center'});
+        y += 12;
     }
-    
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.3);
-    doc.line(margin, y, 80 - margin, y);
-    y += 6;
-    
-    // Data e Cliente
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0);
-    doc.text('Data/Hora: ' + dateStr, margin, y);
-    y += 6;
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text('Cliente: ' + customerName, margin, y);
-    y += 6;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    const addressLines = splitTextToSizePDV(customerAddress, 30);
-    addressLines.forEach(function(line) {
-        doc.text('Endereco: ' + line, margin, y);
-        y += 5;
-    });
-    y += 5;
-    
-    // Tabela
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0);
-    doc.text('PRODUTO', margin, y);
-    doc.text('QTD', 48, y);
-    doc.text('VL.UN', 58, y);
-    doc.text('TOTAL', 80 - margin, y, {align:'right'});
-    y += 5;
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.2);
-    doc.line(margin, y, 80 - margin, y);
-    y += 6;
-    
-    // Itens
+
+    y += 3;
+
+    // ========== CNPJ ==========
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8);
-    doc.setTextColor(0, 0, 0);
-    order.forEach(function(o) {
-        const lines = splitTextToSizePDV(o.name, 18);
-        doc.text(lines.join(' '), margin, y);
-        doc.text(String(o.qty), 48, y);
-        doc.text('R$' + fmt(o.price), 58, y);
-        doc.text('R$' + fmt(o.total), 80 - margin, y, {align:'right'});
-        y += 6;
-    });
-    
-    // Totais
-    y += 4;
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(0.2);
+    doc.setTextColor(...corTexto);
+    doc.text('CNPJ: ' + CNPJ, 40, y, {align:'center'});
+    y += 6;
+
+    // ========== NOME DO CLIENTE ==========
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(9);
+    doc.setTextColor(...corPreto);
+    doc.text(customerName, margin, y);
+    y += 6;
+
+    // ========== ENDEREÇO ==========
+    if (customerAddress) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...corTexto);
+        const addressLines = splitTextToSizePDV(customerAddress, 30);
+        addressLines.forEach(line => {
+            doc.text(line, margin, y);
+            y += 5;
+        });
+    }
+
+    // ========== FORMA DE PAGAMENTO ==========
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...corTexto);
+    doc.text('Pagamento: ' + payment, margin, y);
+    y += 7;
+
+    // ========== LINHA DIVISÓRIA ==========
+    doc.setDrawColor(...corPreto);
+    doc.setLineWidth(0.5);
     doc.line(margin, y, 80 - margin, y);
     y += 6;
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0);
-    
-    if (paymentDiscountPct > 0) {
-        doc.text('Desconto ' + payment + ' (' + paymentDiscountPct + '%):', margin, y);
-        doc.text('R$' + fmt(paymentDiscountAmount), 80 - margin, y, {align:'right'});
-        y += 6;
-    }
-    
-    if (manualDiscount > 0) {
-        doc.text('Desconto Manual:', margin, y);
-        doc.text('R$' + fmt(manualDiscount), 80 - margin, y, {align:'right'});
-        y += 6;
-    }
-    
-    if (discount > 0 && paymentDiscountPct > 0 && manualDiscount > 0) {
-        doc.setFont('helvetica', 'bold');
-        doc.text('Total Desconto:', margin, y);
-        doc.text('R$' + fmt(discount), 80 - margin, y, {align:'right'});
+
+    // ========== ITENS DO PEDIDO ==========
+    order.forEach(function(o) {
+        // Nome do item (simplificado, não detalhado)
         doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...corTexto);
+        const itemNome = o.name || 'Item sem nome';
+        // Limitar nome a 35 caracteres
+        const itemNomeLimitado = itemNome.length > 35 ? itemNome.substring(0, 32) + '...' : itemNome;
+        doc.text(itemNomeLimitado, margin, y);
+        
+        // Valor do item à direita
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(...corPreto);
+        doc.text('R$ ' + fmt(o.total), 80 - margin, y, {align:'right'});
+        
         y += 6;
-    }
-    
-    if (deliveryFee > 0) {
-        doc.text('Taxa de Entrega:', margin, y);
-        doc.text('R$' + fmt(deliveryFee), 80 - margin, y, {align:'right'});
-        y += 6;
-    }
-    
+    });
+
+    y += 4;
+
+    // ========== TOTAL ==========
     const finalTotal = Math.max(0, orderSubtotal - discount + deliveryFee);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(12);
-    doc.setTextColor(0, 0, 0);
-    y += 2;
-    doc.text('TOTAL:', margin, y);
-    doc.text('R$' + fmt(finalTotal), 80 - margin, y, {align:'right'});
-    y += 10;
+    doc.setFontSize(10);
+    doc.setTextColor(...corPreto);
+    doc.text('Total: R$ ' + fmt(finalTotal), margin, y);
+    y += 6;
+
+    // ========== VALOR DA ENTREGA ==========
+    if (deliveryFee > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...corTexto);
+        doc.text('Taxa de Entrega: R$ ' + fmt(deliveryFee), margin, y);
+        y += 5;
+    }
+
+    // ========== DESCONTO ==========
+    if (discount > 0) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(...corTexto);
+        doc.text('Desconto: R$ ' + fmt(discount), margin, y);
+        y += 5;
+    }
+
+    // ========== LINHA DIVISÓRIA ANTES DO QR CODE ==========
+    y += 3;
+    doc.setDrawColor(...corPreto);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, 80 - margin, y);
+    y += 6;
+
+    // ========== QR CODE DO BRINDE (5% DESCONTO) ==========
+    // Gerar código único para o brinde
+    const pedidoId = Date.now();
+    const codigoBrinde = 'BR' + pedidoId.toString().slice(-6) + Date.now().toString().slice(-4);
+    const urlBrinde = window.location.origin + '/brinde.html?codigo=' + codigoBrinde;
     
-    // Forma de pagamento
+    // Texto acima do QR Code
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
-    doc.setTextColor(0, 0, 0);
-    doc.text('Forma de Pagamento:', margin, y);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text(payment, margin, y + 5);
-    y += 10;
-    
-    // Rodapé
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(0, 0, 0);
-    doc.text('Obrigado pela preferencia!', 40, y, {align:'center'});
-    doc.text('Volte sempre!', 40, y + 5, {align:'center'});
-    
-    // Mostrar mensagem de início
-    
+    doc.setTextColor(...corPreto);
+    doc.text('Cupom de 5% de Desconto', 40, y, {align:'center'});
+    y += 5;
+
+    // Gerar QR Code usando API pública
+    try {
+        const qrCodeUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(urlBrinde);
+        const qrResponse = await fetch(qrCodeUrl);
+        if (qrResponse.ok) {
+            const qrBlob = await qrResponse.blob();
+            const qrBase64 = await new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result);
+                reader.readAsDataURL(qrBlob);
+            });
+            
+            // Adicionar QR Code centralizado (20mm x 20mm)
+            doc.addImage(qrBase64, 'PNG', 40 - 10, y, 20, 20);
+            y += 22;
+        }
+    } catch (e) {
+        console.error('Erro ao gerar QR Code:', e);
+    }
+
     // Abrir no navegador ao invés de baixar
     const pdfBlob = doc.output('blob');
     const pdfUrl = URL.createObjectURL(pdfBlob);
     window.open(pdfUrl, '_blank');
     
     // Criar pedido completo e salvar em pedidos.json
-    const pedidoId = Date.now();
+    // pedidoId já foi declarado acima na linha do QR Code do brinde
     const itensPedido = order.map(o => {
         const produto = menuItemsPDV.find(p => p.id === o.id);
         return {
@@ -4201,7 +4460,11 @@ function inicializarDetalhes() {
 
 function getMonthKey(timestamp) {
     const date = new Date(timestamp);
-    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    // Usar fuso horário de São Paulo para consistência
+    const options = { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit' };
+    const parts = date.toLocaleDateString('pt-BR', options).split('/');
+    // parts = ['DD', 'MM', 'YYYY']
+    return `${parts[2]}-${parts[1]}`;
 }
 
 function formatMonthLabel(key) {
@@ -4215,53 +4478,24 @@ async function renderizarDetalhes() {
     const monthFilter = document.getElementById('month-filter-detalhes');
     const selectedKey = monthFilter ? monthFilter.value : getMonthKey(new Date().toISOString());
     
-    // IMPORTANTE: SEMPRE carregar pedidos DIRETAMENTE de pedidos.json via API
+    // IMPORTANTE: GET /api/pedidos (sem ids) é protegido (exige Bearer token).
+    // Usar a função padrão do gestor, que já envia o token.
     try {
-        const response = await fetch(window.location.origin + '/api/pedidos');
-        let pedidos = [];
-        
-        if (response.ok) {
-            const raw = await response.json();
-            // Aceitar tanto um array direto quanto um objeto { pedidos: [...] }
-            if (Array.isArray(raw)) {
-                pedidos = raw;
-            } else if (raw && Array.isArray(raw.pedidos)) {
-                pedidos = raw.pedidos;
-            } else {
-                pedidos = [];
-            }
-            // Atualizar db.data.pedidos com os pedidos do servidor (normalizar)
-            if (!db.data) db.data = {};
-            db.data.pedidos = Array.isArray(pedidos) ? pedidos : [];
-            db.saveData();
-        } else {
-            // Fallback: usar pedidos do db
-            pedidos = db.getPedidos();
-        }
-        
-        // Em relatórios, mostrar TODOS os pedidos (incluindo recusados)
-        const filtered = pedidos.filter(p => {
-            if (!p || (!p.data && !p.timestamp)) return false;
-            const pedidoKey = getMonthKey(p.data || p.timestamp || new Date().toISOString());
-            return pedidoKey === selectedKey;
-        });
-        
-        renderizarResumoDetalhes(filtered);
-        renderizarTabelaDetalhes(filtered);
-        renderizarResumoItensDetalhes(filtered);
-    } catch (error) {
-        // Fallback: usar pedidos do db
-        const pedidos = db.getPedidos();
-        const filtered = pedidos.filter(p => {
-            if (!p || (!p.data && !p.timestamp)) return false;
-            const pedidoKey = getMonthKey(p.data || p.timestamp || new Date().toISOString());
-            return pedidoKey === selectedKey;
-        });
-        
-        renderizarResumoDetalhes(filtered);
-        renderizarTabelaDetalhes(filtered);
-        renderizarResumoItensDetalhes(filtered);
+        await carregarPedidosDoServidor();
+    } catch (e) {
+        // ignora: segue com cache local
     }
+
+    const pedidos = db.getPedidos();
+    const filtered = (pedidos || []).filter(p => {
+        if (!p || (!p.data && !p.timestamp)) return false;
+        const pedidoKey = getMonthKey(p.data || p.timestamp || new Date().toISOString());
+        return pedidoKey === selectedKey;
+    });
+
+    renderizarResumoDetalhes(filtered);
+    renderizarTabelaDetalhes(filtered);
+    renderizarResumoItensDetalhes(filtered);
 }
 
 function renderizarResumoDetalhes(pedidos) {
@@ -4290,11 +4524,23 @@ function renderizarTabelaDetalhes(pedidos) {
         return;
     }
     
-    // Agrupar por dia
+    // Agrupar por dia - usar fuso horário de São Paulo
     const groupedByDay = new Map();
     pedidos.forEach(p => {
-        const date = new Date(p.data || p.timestamp);
-        const dayKey = date.toLocaleDateString('pt-BR');
+        // Garantir que estamos usando a data correta do pedido
+        let dataRef = p.data || p.dataCriacao;
+        
+        // Se não tiver data ISO, usar timestamp
+        if (!dataRef && p.timestamp) {
+            dataRef = new Date(p.timestamp).toISOString();
+        }
+        
+        if (!dataRef) return;
+        
+        // Converter para data local (fuso Brasil)
+        const date = new Date(dataRef);
+        const dayKey = date.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+        
         if (!groupedByDay.has(dayKey)) {
             groupedByDay.set(dayKey, []);
         }
@@ -4335,7 +4581,8 @@ function renderizarTabelaDetalhes(pedidos) {
         html += `</tr></thead><tbody>`;
         
         dayPedidos.forEach(p => {
-            const hora = new Date(p.data || p.timestamp).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            const dataRef = p.data || p.dataCriacao || (p.timestamp ? new Date(p.timestamp).toISOString() : null);
+            const hora = dataRef ? new Date(dataRef).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : '--:--';
             const itensList = (p.itens || []).map(i => `${i.nome} (${i.quantidade})`).join(', ');
             const clienteNomeSeguro = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(p.clienteNome || 'N/A') : String(p.clienteNome || 'N/A').replace(/[<>]/g, '');
             const itensListSeguro = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(itensList || 'N/A') : String(itensList || 'N/A').replace(/[<>]/g, '');
@@ -4384,9 +4631,15 @@ async function excluirPedidoDetalhes(pedidoId) {
         // Primeiro, excluir do MongoDB
         let excluidoMongoDB = false;
         try {
+            const token = (() => {
+                try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+            })();
             const response = await fetch(window.location.origin + '/api/pedidos', {
                 method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+                },
                 body: JSON.stringify({ pedidoId: pedidoId })
             });
             
@@ -4552,9 +4805,17 @@ async function fazerBackup() {
         // Carregar todos os dados atualizados do servidor
         await carregarPedidosDoServidor();
         
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
+
         // Buscar cupons do servidor
         try {
-            const responseCupons = await fetch(window.location.origin + '/api/cupons');
+            const responseCupons = await fetch(window.location.origin + '/api/cupons', {
+                headers: {
+                    ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+                }
+            });
             if (responseCupons.ok) {
                 const cupons = await responseCupons.json();
                 if (Array.isArray(cupons)) {
@@ -4568,7 +4829,11 @@ async function fazerBackup() {
         
         // Buscar produtos do servidor
         try {
-            const responseDatabase = await fetch(window.location.origin + '/api/database');
+            const responseDatabase = await fetch(window.location.origin + '/api/database', {
+                headers: {
+                    ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+                }
+            });
             if (responseDatabase.ok) {
                 const dadosPublicos = await responseDatabase.json();
                 if (!db.data) db.data = {};
@@ -4580,9 +4845,13 @@ async function fazerBackup() {
             // Erro ao carregar produtos
         }
         
-        // Buscar usuários do painel (admin/gerente) do servidor (se disponível)
+        // Buscar usuários do painel (admin/gerente) do servidor (protegido)
         try {
-            const responseUsuarios = await fetch(window.location.origin + '/api/usuarios-admin');
+            const responseUsuarios = await fetch(window.location.origin + '/api/usuarios-admin', {
+                headers: {
+                    ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+                }
+            });
             if (responseUsuarios.ok) {
                 const usuarios = await responseUsuarios.json();
                 if (Array.isArray(usuarios)) {

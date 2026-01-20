@@ -33,6 +33,7 @@ module.exports = async (req, res) => {
         'configuracoes',
         'categorias',
         'condicionais',
+        'complementos',
         'usuarios-admin',
         'entradas',
         'loja'
@@ -157,6 +158,11 @@ module.exports = async (req, res) => {
     return await handler(req, res);
   } catch (err) {
     console.error('[API ROUTER] erro ao executar', err);
-    return res.status(500).json({ error: 'Erro interno ao executar handler', detalhes: err.message });
+    const isProd = String(process.env.NODE_ENV || '').toLowerCase() === 'production';
+    return res.status(500).json({
+      error: 'Erro interno ao executar handler',
+      detalhes: err && err.message ? err.message : String(err),
+      ...(isProd ? {} : { stack: err && err.stack ? String(err.stack) : null })
+    });
   }
 };

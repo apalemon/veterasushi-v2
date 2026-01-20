@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brinde - Vetera Sushi</title>
+    <link rel="stylesheet" href="/css/style.css">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            background: var(--bg);
+            padding: 2rem;
+        }
+        .brinde-container {
+            background: var(--cinza-medio);
+            padding: 3rem;
+            border-radius: 15px;
+            text-align: center;
+            max-width: 500px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+        }
+        .brinde-container h1 {
+            color: var(--vermelho-claro);
+            margin-bottom: 1rem;
+            font-size: 2rem;
+        }
+        .brinde-container p {
+            color: var(--texto-medio);
+            margin-bottom: 1rem;
+            font-size: 1.1rem;
+        }
+        .codigo-brinde {
+            background: var(--cinza-escuro);
+            padding: 1rem;
+            border-radius: 8px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: var(--vermelho-claro);
+            font-family: monospace;
+            margin: 1.5rem 0;
+            letter-spacing: 0.2rem;
+        }
+        .btn-voltar {
+            background: var(--vermelho-claro);
+            color: white;
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            margin-top: 1rem;
+        }
+        .btn-voltar:hover {
+            background: var(--vermelho-escuro);
+        }
+    </style>
+</head>
+<body>
+    <div class="brinde-container">
+        <h1>🎉 Parabéns!</h1>
+        <p>Você ganhou <strong>5% de desconto</strong> no seu próximo pedido!</p>
+        <div class="codigo-brinde" id="codigo-brinde"></div>
+        <p style="font-size: 0.9rem; color: var(--texto-medio);">Apresente este código no restaurante para resgatar seu brinde.</p>
+        <button class="btn-voltar" onclick="window.location.href='/'">Voltar ao Cardápio</button>
+    </div>
+    <script>
+        // Obter código da URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const codigo = urlParams.get('codigo');
+        if (codigo) {
+            document.getElementById('codigo-brinde').textContent = codigo;
+        } else {
+            document.getElementById('codigo-brinde').textContent = 'Código não encontrado';
+        }
+    </script>
+</body>
+</html>

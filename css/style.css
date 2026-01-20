@@ -40,7 +40,7 @@
   --radius-lg: 16px;
   --radius-xl: 20px;
   --transition-fast: 0.2s ease;
-  --transition-normal: 0.3s ease;
+   --transition-normal: 0.3s ease;
   --transition-slow: 0.5s ease;
 }
 
@@ -1159,6 +1159,14 @@ header {
 
   .categorias {
     padding: 0.75rem 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .categorias::-webkit-scrollbar {
+    display: none;
   }
 
   .categoria-btn {
@@ -1168,6 +1176,20 @@ header {
     flex-shrink: 0;
     white-space: nowrap;
     font-weight: 600;
+  }
+
+  /* Divisórias de categorias no mobile */
+  .categoria-divisoria {
+    margin: 2rem 0 1.5rem !important;
+  }
+
+  .categoria-divisoria h2 {
+    font-size: 1rem !important;
+    padding: 0.5rem 1.5rem !important;
+  }
+
+  .categoria-divisoria div[style*="max-width: 100px"] {
+    max-width: 30px !important;
   }
 
   .produtos-grid {

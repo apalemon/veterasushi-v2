@@ -140,6 +140,111 @@ class Carrinho {
     return true;
   }
 
+  // Adicionar combo ao carrinho (com seleções de partes e adicionais)
+  adicionarItemCombo(produtoId, quantidade, selecoes, precoTotal) {
+    const produto = db.getProduto(produtoId);
+    if (!produto || produto.ativo === false) {
+      console.error('[CARRINHO] Produto não encontrado ou inativo:', produtoId);
+      return false;
+    }
+
+    // Criar nome do item com resumo das seleções
+    let nomeCompleto = produto.nome;
+    if (selecoes.partes && selecoes.partes.length > 0) {
+      nomeCompleto += ' - ' + selecoes.partes.map(p => p.opcao).join(', ');
+    }
+    if (selecoes.adicionais && selecoes.adicionais.length > 0) {
+      nomeCompleto += ' + ' + selecoes.adicionais.map(a => a.nome).join(', ');
+    }
+
+    // Verificar se já existe item igual (mesmo produto com mesmas seleções)
+    const itemExistente = this.itens.find(item => 
+      item.produtoId === produtoId && 
+      JSON.stringify(item.selecoes) === JSON.stringify(selecoes)
+    );
+
+    if (itemExistente) {
+      // Item igual existe - somar quantidade
+      itemExistente.quantidade += quantidade;
+      itemExistente.preco = precoTotal; // Atualizar preço
+    } else {
+      // Novo item - adicionar
+      this.itens.push({
+        produtoId: produto.id,
+        nome: nomeCompleto,
+        nomeOriginal: produto.nome,
+        preco: precoTotal,
+        quantidade: quantidade,
+        imagem: produto.imagem || null,
+        tipo: 'combo',
+        selecoes: selecoes // Salvar seleções completas
+      });
+    }
+
+    // Salvar e renderizar
+    this.salvarCarrinho();
+    this.renderizar();
+
+    // Atualizar quantidades visíveis
+    setTimeout(() => {
+      if (typeof atualizarQuantidadesVisiveis === 'function') {
+        atualizarQuantidadesVisiveis();
+      }
+    }, 50);
+
+    this.mostrarFeedback(`${quantidade} ${quantidade === 1 ? 'combo' : 'combos'} adicionado${quantidade === 1 ? '' : 's'}! Total no carrinho: ${this.contarItens()} itens`);
+    return true;
+  }
+
+  // Adicionar produto com finalizações ao carrinho
+  adicionarItemComFinalizacoes(produtoId, quantidade, finalizacoes, precoTotal) {
+    const produto = db.getProduto(produtoId);
+    if (!produto || produto.ativo === false) {
+      console.error('[CARRINHO] Produto não encontrado ou inativo:', produtoId);
+      return false;
+    }
+
+    // Criar nome do item com finalizações
+    let nomeCompleto = produto.nome;
+    if (finalizacoes && finalizacoes.length > 0) {
+      nomeCompleto += ' - ' + finalizacoes.map(f => f.nome).join(', ');
+    }
+
+    // Verificar se já existe item igual
+    const itemExistente = this.itens.find(item => 
+      item.produtoId === produtoId && 
+      JSON.stringify(item.finalizacoes) === JSON.stringify(finalizacoes)
+    );
+
+    if (itemExistente) {
+      itemExistente.quantidade += quantidade;
+      itemExistente.preco = precoTotal;
+    } else {
+      this.itens.push({
+        produtoId: produto.id,
+        nome: nomeCompleto,
+        nomeOriginal: produto.nome,
+        preco: precoTotal,
+        quantidade: quantidade,
+        imagem: produto.imagem || null,
+        tipo: 'produto',
+        finalizacoes: finalizacoes
+      });
+    }
+
+    this.salvarCarrinho();
+    this.renderizar();
+
+    setTimeout(() => {
+      if (typeof atualizarQuantidadesVisiveis === 'function') {
+        atualizarQuantidadesVisiveis();
+      }
+    }, 50);
+
+    this.mostrarFeedback(`${quantidade} ${quantidade === 1 ? 'item' : 'itens'} adicionado${quantidade === 1 ? '' : 's'}! Total no carrinho: ${this.contarItens()} itens`);
+    return true;
+  }
+
   // Remover item do carrinho
   removerItem(produtoId) {
     this.itens = this.itens.filter(item => item.produtoId !== produtoId);
@@ -268,4 +373,165 @@ class Carrinho {
 
 // Instância global do carrinho
 const carrinho = new Carrinho();
-window.carrinho = carrinho; // Tornar global
+
+// GARANTIR que os métodos estejam no prototype (fallback caso não estejam)
+if (!carrinho.adicionarItemCombo) {
+  Carrinho.prototype.adicionarItemCombo = function(produtoId, quantidade, selecoes, precoTotal) {
+    const produto = db.getProduto(produtoId);
+    if (!produto || produto.ativo === false) {
+      console.error('[CARRINHO] Produto não encontrado ou inativo:', produtoId);
+      return false;
+    }
+
+    let nomeCompleto = produto.nome;
+    if (selecoes.partes && selecoes.partes.length > 0) {
+      nomeCompleto += ' - ' + selecoes.partes.map(p => p.opcao).join(', ');
+    }
+    if (selecoes.adicionais && selecoes.adicionais.length > 0) {
+      nomeCompleto += ' + ' + selecoes.adicionais.map(a => a.nome).join(', ');
+    }
+
+    const itemExistente = this.itens.find(item => 
+      item.produtoId === produtoId && 
+      JSON.stringify(item.selecoes) === JSON.stringify(selecoes)
+    );
+
+    if (itemExistente) {
+      itemExistente.quantidade += quantidade;
+      itemExistente.preco = precoTotal;
+    } else {
+      this.itens.push({
+        produtoId: produto.id,
+        nome: nomeCompleto,
+        nomeOriginal: produto.nome,
+        preco: precoTotal,
+        quantidade: quantidade,
+        imagem: produto.imagem || null,
+        tipo: 'combo',
+        selecoes: selecoes
+      });
+    }
+
+    this.salvarCarrinho();
+    this.renderizar();
+
+    setTimeout(() => {
+      if (typeof atualizarQuantidadesVisiveis === 'function') {
+        atualizarQuantidadesVisiveis();
+      }
+    }, 50);
+
+    this.mostrarFeedback(`${quantidade} ${quantidade === 1 ? 'combo' : 'combos'} adicionado${quantidade === 1 ? '' : 's'}! Total no carrinho: ${this.contarItens()} itens`);
+    return true;
+  };
+}
+
+if (!carrinho.adicionarItemComFinalizacoes) {
+  Carrinho.prototype.adicionarItemComFinalizacoes = function(produtoId, quantidade, finalizacoes, precoTotal) {
+    const produto = db.getProduto(produtoId);
+    if (!produto || produto.ativo === false) {
+      console.error('[CARRINHO] Produto não encontrado ou inativo:', produtoId);
+      return false;
+    }
+
+    let nomeCompleto = produto.nome;
+    if (finalizacoes && finalizacoes.length > 0) {
+      nomeCompleto += ' - ' + finalizacoes.map(f => f.nome).join(', ');
+    }
+
+    const itemExistente = this.itens.find(item => 
+      item.produtoId === produtoId && 
+      JSON.stringify(item.finalizacoes) === JSON.stringify(finalizacoes)
+    );
+
+    if (itemExistente) {
+      itemExistente.quantidade += quantidade;
+      itemExistente.preco = precoTotal;
+    } else {
+      this.itens.push({
+        produtoId: produto.id,
+        nome: nomeCompleto,
+        nomeOriginal: produto.nome,
+        preco: precoTotal,
+        quantidade: quantidade,
+        imagem: produto.imagem || null,
+        tipo: 'produto',
+        finalizacoes: finalizacoes
+      });
+    }
+
+    this.salvarCarrinho();
+    this.renderizar();
+
+    setTimeout(() => {
+      if (typeof atualizarQuantidadesVisiveis === 'function') {
+        atualizarQuantidadesVisiveis();
+      }
+    }, 50);
+
+    this.mostrarFeedback(`${quantidade} ${quantidade === 1 ? 'item' : 'itens'} adicionado${quantidade === 1 ? '' : 's'}! Total no carrinho: ${this.contarItens()} itens`);
+    return true;
+  };
+}
+
+// Garantir que os métodos estejam diretamente na instância também
+if (Carrinho.prototype.adicionarItemCombo) {
+  carrinho.adicionarItemCombo = Carrinho.prototype.adicionarItemCombo.bind(carrinho);
+}
+if (Carrinho.prototype.adicionarItemComFinalizacoes) {
+  carrinho.adicionarItemComFinalizacoes = Carrinho.prototype.adicionarItemComFinalizacoes.bind(carrinho);
+}
+
+// Garantir que a instância seja acessível globalmente
+window.carrinho = carrinho;
+
+// Log para debug
+console.log('[CARRINHO] ✅ Instância criada. Métodos disponíveis:', {
+  temAdicionarItemCombo: typeof carrinho.adicionarItemCombo === 'function',
+  temAdicionarItemComFinalizacoes: typeof carrinho.adicionarItemComFinalizacoes === 'function',
+  prototypeMetodos: Object.getOwnPropertyNames(Object.getPrototypeOf(carrinho))
+});
+
+// Criar função wrapper global para garantir acesso ao método
+window.adicionarItemComboAoCarrinho = function(produtoId, quantidade, selecoes, precoTotal) {
+    // Verificar se carrinho existe
+    if (!window.carrinho) {
+        console.error('[CARRINHO] ❌ ERRO: window.carrinho não existe!');
+        return false;
+    }
+    
+    // Tentar chamar o método diretamente
+    if (typeof window.carrinho.adicionarItemCombo === 'function') {
+        try {
+            return window.carrinho.adicionarItemCombo(produtoId, quantidade, selecoes, precoTotal);
+        } catch (e) {
+            console.error('[CARRINHO] Erro ao chamar método diretamente:', e);
+        }
+    }
+    
+    // Fallback: tentar via prototype
+    try {
+        const prototype = Object.getPrototypeOf(window.carrinho);
+        if (prototype && typeof prototype.adicionarItemCombo === 'function') {
+            return prototype.adicionarItemCombo.call(window.carrinho, produtoId, quantidade, selecoes, precoTotal);
+        }
+    } catch (e) {
+        console.error('[CARRINHO] Erro ao chamar via prototype:', e);
+    }
+    
+    console.error('[CARRINHO] ❌ ERRO CRÍTICO: Método adicionarItemCombo não encontrado!', {
+        temCarrinho: !!window.carrinho,
+        tipoMetodo: typeof window.carrinho?.adicionarItemCombo,
+        prototype: window.carrinho ? Object.getPrototypeOf(window.carrinho) : null
+    });
+    return false;
+};
+
+// Verificar se tudo foi carregado corretamente
+setTimeout(() => {
+    if (window.carrinho && typeof window.carrinho.adicionarItemCombo === 'function') {
+        console.log('[CARRINHO] ✅ Método adicionarItemCombo disponível');
+    } else {
+        console.warn('[CARRINHO] ⚠️ Método adicionarItemCombo não encontrado no objeto, mas wrapper disponível');
+    }
+}, 100);
