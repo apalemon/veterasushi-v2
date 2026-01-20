@@ -73,11 +73,13 @@ module.exports = async (req, res) => {
             const pedidos = req.body;
             if (!pedidos || !Array.isArray(pedidos)) return res.status(400).json({ error: 'Dados inválidos. Esperado array.' });
             console.log(`[PEDIDOS] 📥 Recebendo ${pedidos.length} pedidos para salvar`);
+
             if (!process.env.MONGODB_URI) {
                 console.error('[PEDIDOS] ❌ MONGODB_URI não está configurada!');
                 return res.status(500).json({ error: 'MongoDB não configurado', detalhes: 'Variável de ambiente MONGODB_URI não encontrada. Configure na Vercel.' });
             }
             const pedidosCollection = await getCollection('pedidos');
+            const chatsCollection = await getCollection('chats');
             let salvos = 0; let atualizados = 0; const erros = [];
             for (const pedido of pedidos) {
                 try {
@@ -85,11 +87,30 @@ module.exports = async (req, res) => {
                     if (!pedido.dataCriacao && !pedido.data) { pedido.dataCriacao = new Date(); } else if (pedido.data && !pedido.dataCriacao) { pedido.dataCriacao = new Date(pedido.data); }
                     const result = await pedidosCollection.updateOne({ id: pedido.id }, { $set: pedido }, { upsert: true });
                     if (result.upsertedCount > 0) salvos++; else if (result.modifiedCount > 0) atualizados++; else atualizados++;
+
+                    // Garantir chat existente para o pedido (permite admin iniciar conversa)
+                    try {
+                        await chatsCollection.updateOne(
+                            { pedidoId: pedido.id },
+                            {
+                                $setOnInsert: { pedidoId: pedido.id, createdAt: new Date().toISOString() },
+                                $set: {
+                                    updatedAt: new Date().toISOString(),
+                                    clienteTelefone: pedido.clienteTelefone || '',
+                                    clienteNome: pedido.clienteNome || ''
+                                }
+                            },
+                            { upsert: true }
+                        );
+                    } catch (e) {
+                        // ignora
+                    }
                 } catch (pedidoErr) {
                     console.error(`[PEDIDOS] ❌ Erro ao processar pedido ${pedido.id}:`, pedidoErr.message);
                     erros.push({ id: pedido.id, erro: pedidoErr.message });
                 }
             }
+
             console.log(`[PEDIDOS] ✅ Processados: ${salvos} novos, ${atualizados} atualizados`);
             return res.status(200).json({ success: true, message: 'Pedidos salvos com sucesso', total: pedidos.length, salvos, atualizados, erros: erros.length > 0 ? erros : undefined });
         } catch (err) {

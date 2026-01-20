@@ -49,7 +49,7 @@ module.exports = async (req, res) => {
 
       // CHAT:
       // - /api/chat/cliente: público (mas validado no handler via token do pedido)
-      // - /api/chat/* (restante): somente admin (ex.: /api/chat/admin)
+      // - /api/chat/admin: somente admin
       if (first === 'chat') {
         if (second === 'cliente') return false;
         return true;

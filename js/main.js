@@ -612,6 +612,23 @@ async function verificarAtualizacoesStatusPedidosCliente() {
 
             // Aceito / em preparo
             if (statusAtual === 'em_preparo' && statusAnterior !== 'em_preparo') {
+                // Se houver GUI de pagamento aberta (PIX aguardando aprovação), fechar automaticamente
+                try {
+                    const aguardandoPixId = localStorage.getItem('vetera_pedido_aguardando_pix');
+                    if (aguardandoPixId && String(aguardandoPixId) === String(id)) {
+                        localStorage.removeItem('vetera_pedido_aguardando_pix');
+                    }
+                } catch (e) {}
+
+                try {
+                    if (typeof window.fecharModalPix === 'function') {
+                        window.fecharModalPix();
+                    } else {
+                        const modalPix = document.getElementById('modal-pix');
+                        if (modalPix) modalPix.classList.remove('active');
+                    }
+                } catch (e) {}
+
                 // Abrir GUI (uma vez por pedido)
                 if (!_jaMostrouPopupPreparo(id)) {
                     _marcarPopupPreparoMostrado(id);
@@ -1235,6 +1252,13 @@ function initChatWidgetCliente() {
             const input = document.getElementById('vetera-chat-input');
             const text = String(input && input.value ? input.value : '').trim();
             if (!text) return;
+
+            try {
+                if (typeof window.exigirEscolhaNotificacoesCliente === 'function') {
+                    const choice = await window.exigirEscolhaNotificacoesCliente();
+                    if (!choice) return;
+                }
+            } catch (e) {}
 
             // otimista: já renderiza
             const box = document.getElementById('vetera-chat-messages');
@@ -3195,6 +3219,13 @@ async function processarPedidoCheckout() {
         if (typeof window.sugerirNotificacoes === 'function') {
             window.sugerirNotificacoes();
         }
+
+        // Exigir escolha explícita (ativar vs aceitar risco)
+        try {
+            if (typeof window.exigirEscolhaNotificacoesCliente === 'function') {
+                await window.exigirEscolhaNotificacoesCliente();
+            }
+        } catch (e) {}
         
         // Iniciar verificação de status do pedido
         if (typeof window.verificarStatusPedido === 'function') {

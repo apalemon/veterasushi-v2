@@ -8,7 +8,6 @@ async function solicitarPermissaoNotificacoes() {
         console.log('Este navegador não suporta notificações');
         return false;
     }
-
     if (Notification.permission === 'granted') {
         return true;
     }
@@ -19,6 +18,100 @@ async function solicitarPermissaoNotificacoes() {
     }
 
     return false;
+}
+
+function _getEscolhaNotificacoesCliente() {
+    try {
+        const raw = localStorage.getItem('vetera_notificacoes_escolha');
+        return raw ? String(raw) : '';
+    } catch (e) {
+        return '';
+    }
+}
+
+function _setEscolhaNotificacoesCliente(v) {
+    try {
+        localStorage.setItem('vetera_notificacoes_escolha', String(v || ''));
+    } catch (e) {}
+}
+
+async function exigirEscolhaNotificacoesCliente() {
+    try {
+        const ja = _getEscolhaNotificacoesCliente();
+        if (ja === 'ativar' || ja === 'risco') return ja;
+
+        let overlay = document.getElementById('modal-notificacoes-obrigatorio');
+        if (overlay) overlay.remove();
+
+        overlay = document.createElement('div');
+        overlay.id = 'modal-notificacoes-obrigatorio';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,0.78);';
+
+        const card = document.createElement('div');
+        card.style.cssText = 'width:min(520px,95vw);border-radius:16px;overflow:hidden;background:linear-gradient(145deg,#1a1a1f,#0f0f12);border:1px solid rgba(255,255,255,0.10);box-shadow:0 25px 90px rgba(0,0,0,0.65);';
+
+        const header = document.createElement('div');
+        header.style.cssText = 'padding:22px 20px 14px;background:linear-gradient(180deg,rgba(220,38,38,0.18) 0%,transparent 100%);display:flex;flex-direction:column;gap:6px;';
+        header.innerHTML = '<div style="font-weight:900;color:#fff;font-size:18px;">Ative as notificações</div>' +
+            '<div style="color:rgba(255,255,255,0.72);font-size:13px;line-height:1.45;">Para acompanhar seu pedido e qualquer pendência (ex.: aprovação, mensagens do atendimento), recomendamos ativar as notificações.</div>';
+
+        const body = document.createElement('div');
+        body.style.cssText = 'padding:16px 20px 20px;display:flex;flex-direction:column;gap:12px;';
+
+        const info = document.createElement('div');
+        info.style.cssText = 'background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:12px;color:rgba(255,255,255,0.85);font-size:13px;line-height:1.5;';
+        info.innerHTML = '<div style="font-weight:800;margin-bottom:6px;">Importante</div>' +
+            '<div>Se você não ativar, pode não ver mensagens do gestor ou atualizações do pedido.</div>';
+
+        const actions = document.createElement('div');
+        actions.style.cssText = 'display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;';
+
+        const btnAtivar = document.createElement('button');
+        btnAtivar.type = 'button';
+        btnAtivar.textContent = 'Ativar';
+        btnAtivar.style.cssText = 'flex:1;min-width:200px;background:linear-gradient(135deg,#22c55e,#16a34a);border:none;color:#fff;border-radius:12px;padding:12px 14px;font-weight:900;cursor:pointer;';
+
+        const btnRisco = document.createElement('button');
+        btnRisco.type = 'button';
+        btnRisco.textContent = 'Aceito o risco';
+        btnRisco.style.cssText = 'flex:1;min-width:200px;background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.14);color:#fff;border-radius:12px;padding:12px 14px;font-weight:800;cursor:pointer;';
+
+        actions.appendChild(btnAtivar);
+        actions.appendChild(btnRisco);
+
+        body.appendChild(info);
+        body.appendChild(actions);
+
+        card.appendChild(header);
+        card.appendChild(body);
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+
+        return await new Promise((resolve) => {
+            const close = (choice) => {
+                try { _setEscolhaNotificacoesCliente(choice); } catch (e) {}
+                try { overlay.remove(); } catch (e) {}
+                resolve(choice);
+            };
+
+            btnRisco.addEventListener('click', () => close('risco'));
+
+            btnAtivar.addEventListener('click', async () => {
+                try {
+                    const ok = await solicitarPermissaoNotificacoes();
+                    if (ok) {
+                        close('ativar');
+                    } else {
+                        mostrarNotificacaoInApp('Notificações', 'Não foi possível ativar. Você pode tentar novamente ou aceitar o risco.');
+                    }
+                } catch (e) {
+                    mostrarNotificacaoInApp('Notificações', 'Não foi possível ativar. Você pode aceitar o risco.');
+                }
+            });
+        });
+    } catch (e) {
+        return 'risco';
+    }
 }
 
 // Mostrar notificação (com emoji opcional)
@@ -232,6 +325,8 @@ async function verificarStatusPedido(pedidoId) {
 // Exportar funções
 window.solicitarPermissaoNotificacoes = solicitarPermissaoNotificacoes;
 window.mostrarNotificacao = mostrarNotificacao;
+window.mostrarNotificacaoInApp = mostrarNotificacaoInApp;
 window.sugerirNotificacoes = sugerirNotificacoes;
 window.verificarStatusPedido = verificarStatusPedido;
+window.exigirEscolhaNotificacoesCliente = exigirEscolhaNotificacoesCliente;
 
