@@ -1001,6 +1001,25 @@ function obterChatTokenPedidoLocal(pedidoId) {
     }
 }
 
+async function _recuperarChatTokenDoServidor(pedidoId) {
+    try {
+        if (!pedidoId) return '';
+        const resp = await fetch(window.location.origin + '/api/pedidos?ids=' + encodeURIComponent(String(pedidoId)));
+        if (!resp.ok) return '';
+        const data = await resp.json();
+        const arr = Array.isArray(data) ? data : [];
+        const p = arr.find(x => String(x && x.id) === String(pedidoId) || Number(x && x.id) === Number(pedidoId));
+        const token = p && p.chatToken ? String(p.chatToken) : '';
+        if (token) {
+            salvarChatTokenPedidoLocal(pedidoId, token);
+            return token;
+        }
+    } catch (e) {
+        // ignora
+    }
+    return '';
+}
+
 // ============================================
 // CHAT (CLIENTE) - Bolinha + Janela + Polling
 // ============================================
@@ -1149,14 +1168,31 @@ function initChatWidgetCliente() {
 
         async function pollOnce() {
             if (!activePedidoId) return;
-            const token = obterChatTokenPedidoLocal(activePedidoId);
-            if (!token) return;
+            let token = obterChatTokenPedidoLocal(activePedidoId);
+            if (!token) {
+                token = await _recuperarChatTokenDoServidor(activePedidoId);
+            }
+            if (!token) {
+                console.warn('[CHAT] Sem chatToken para o pedido', activePedidoId);
+                return;
+            }
 
             const qs = '?pedidoId=' + encodeURIComponent(activePedidoId) + '&token=' + encodeURIComponent(token) + (lastSince ? '&since=' + encodeURIComponent(lastSince) : '');
             const resp = await fetch(window.location.origin + '/api/chat/cliente' + qs);
-            if (!resp.ok) return;
+            if (!resp.ok) {
+                try {
+                    const payload = await resp.json();
+                    console.warn('[CHAT] GET falhou:', resp.status, payload);
+                } catch (e) {
+                    console.warn('[CHAT] GET falhou:', resp.status);
+                }
+                return;
+            }
             const data = await resp.json();
-            if (!data || !data.ok) return;
+            if (!data || !data.ok) {
+                console.warn('[CHAT] GET retornou ok=false:', data);
+                return;
+            }
 
             const msgs = Array.isArray(data.messages) ? data.messages : [];
             if (msgs.length > 0) {
@@ -1247,8 +1283,17 @@ function initChatWidgetCliente() {
 
         async function sendMessage() {
             if (!activePedidoId) return;
-            const token = obterChatTokenPedidoLocal(activePedidoId);
-            if (!token) return;
+            let token = obterChatTokenPedidoLocal(activePedidoId);
+            if (!token) {
+                token = await _recuperarChatTokenDoServidor(activePedidoId);
+            }
+            if (!token) {
+                console.warn('[CHAT] Sem chatToken para enviar mensagem no pedido', activePedidoId);
+                if (typeof window.mostrarNotificacaoInApp === 'function') {
+                    window.mostrarNotificacaoInApp('Chat', 'Não foi possível iniciar o chat deste pedido (token ausente). Atualize a página e tente novamente.');
+                }
+                return;
+            }
             const input = document.getElementById('vetera-chat-input');
             const text = String(input && input.value ? input.value : '').trim();
             if (!text) return;
@@ -1279,11 +1324,25 @@ function initChatWidgetCliente() {
                     if (typeof window.mostrarNotificacaoInApp === 'function') {
                         window.mostrarNotificacaoInApp('Chat', 'Não foi possível enviar a mensagem. Tente novamente.');
                     }
+                    try {
+                        const payload = await resp.json();
+                        console.warn('[CHAT] POST falhou:', resp.status, payload);
+                    } catch (e) {
+                        console.warn('[CHAT] POST falhou:', resp.status);
+                    }
+                } else {
+                    try {
+                        const payload = await resp.json();
+                        if (!payload || !payload.ok) {
+                            console.warn('[CHAT] POST retornou ok=false:', payload);
+                        }
+                    } catch (e) {}
                 }
             } catch (e) {
                 if (typeof window.mostrarNotificacaoInApp === 'function') {
                     window.mostrarNotificacaoInApp('Chat', 'Não foi possível enviar a mensagem. Verifique sua conexão.');
                 }
+                console.warn('[CHAT] POST erro:', e);
             }
         }
 

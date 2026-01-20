@@ -1659,12 +1659,21 @@ async function atualizarChatGestor() {
             headers: { ...(token ? { 'Authorization': 'Bearer ' + token } : {}) }
         });
         if (!resp.ok) {
-            if (statusEl) statusEl.textContent = 'Erro';
+            let details = '';
+            try {
+                const payload = await resp.json();
+                details = payload && (payload.detalhes || payload.error || payload.message) ? String(payload.detalhes || payload.error || payload.message) : '';
+                console.warn('[CHAT/ADMIN UI] GET /api/chat/admin falhou:', resp.status, payload);
+            } catch (e) {
+                details = '';
+                console.warn('[CHAT/ADMIN UI] GET /api/chat/admin falhou:', resp.status);
+            }
+            if (statusEl) statusEl.textContent = 'Erro (' + resp.status + ')' + (details ? ' - ' + details : '');
             return;
         }
         const data = await resp.json();
         if (!data || !data.ok) {
-            if (statusEl) statusEl.textContent = 'Erro';
+            if (statusEl) statusEl.textContent = 'Erro (resposta inválida)';
             return;
         }
 
@@ -1700,7 +1709,8 @@ async function atualizarChatGestor() {
             await _carregarMensagensChatAdmin(__chatAdminPedidoId);
         }
     } catch (e) {
-        if (statusEl) statusEl.textContent = 'Erro';
+        console.warn('[CHAT/ADMIN UI] atualizarChatGestor erro:', e);
+        if (statusEl) statusEl.textContent = 'Erro (exceção)';
     }
 }
 

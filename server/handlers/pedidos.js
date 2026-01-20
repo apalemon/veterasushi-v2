@@ -2,6 +2,7 @@
 const { getCollection } = require('../mongodb');
 
 module.exports = async (req, res) => {
+
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
     res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
@@ -90,6 +91,28 @@ module.exports = async (req, res) => {
                     const idQuery = Number.isFinite(idNum)
                         ? { $or: [{ id: idNum }, { id: String(idNum) }] }
                         : { $or: [{ id: String(pedido.id) }, { id: Number(pedido.id) }] };
+
+                    // Preservar campos críticos quando atualizações chegam incompletas
+                    // (ex.: gestor/PDV pode reenviar pedido sem chatToken e isso invalidaria o chat do cliente)
+                    let existing = null;
+                    try {
+                        existing = await pedidosCollection.findOne(idQuery);
+                    } catch (e) {
+                        existing = null;
+                    }
+
+                    if (existing) {
+                        if (!pedido.chatToken && existing.chatToken) {
+                            pedido.chatToken = existing.chatToken;
+                        }
+                        if (!pedido.clienteNome && existing.clienteNome) {
+                            pedido.clienteNome = existing.clienteNome;
+                        }
+                        if (!pedido.clienteTelefone && existing.clienteTelefone) {
+                            pedido.clienteTelefone = existing.clienteTelefone;
+                        }
+                    }
+
                     const result = await pedidosCollection.updateOne(idQuery, { $set: pedido }, { upsert: true });
                     if (result.upsertedCount > 0) salvos++; else if (result.modifiedCount > 0) atualizados++; else atualizados++;
 
