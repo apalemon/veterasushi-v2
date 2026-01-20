@@ -5269,6 +5269,7 @@ function abrirModalPagamento(id = null) {
         if (el('pagamento-descricao')) el('pagamento-descricao').value = '';
         // Campo de opções sempre visível agora
         if (el('aceita_pix')) el('aceita_pix').checked = false;
+        if (el('aceita_mercadopago')) el('aceita_mercadopago').checked = false;
         if (el('aceita_debito')) el('aceita_debito').checked = false;
         if (el('aceita_credito')) el('aceita_credito').checked = false;
         if (el('aceita_dinheiro')) el('aceita_dinheiro').checked = false;
@@ -5290,6 +5291,7 @@ function abrirModalPagamento(id = null) {
                 if (p.opcoesEntrega) {
                     // Campo de opções sempre visível agora
                     if (el('aceita_pix')) el('aceita_pix').checked = (p.opcoesEntrega || []).includes('pix');
+                    if (el('aceita_mercadopago')) el('aceita_mercadopago').checked = (p.opcoesEntrega || []).includes('mercadopago');
                     if (el('aceita_debito')) el('aceita_debito').checked = (p.opcoesEntrega || []).includes('debito');
                     if (el('aceita_credito')) el('aceita_credito').checked = (p.opcoesEntrega || []).includes('credito');
                     if (el('aceita_dinheiro')) el('aceita_dinheiro').checked = (p.opcoesEntrega || []).includes('dinheiro');
@@ -5370,6 +5372,7 @@ async function salvarPagamentoFromForm() {
 
     const opcoes = [];
     if (getElChecked(['aceita_pix_inline', 'aceita_pix'])) opcoes.push('pix');
+    if (getElChecked(['aceita_mercadopago_inline', 'aceita_mercadopago'])) opcoes.push('mercadopago');
     if (getElChecked(['aceita_debito_inline', 'aceita_debito'])) opcoes.push('debito');
     if (getElChecked(['aceita_credito_inline', 'aceita_credito'])) opcoes.push('credito');
     if (getElChecked(['aceita_dinheiro_inline', 'aceita_dinheiro'])) opcoes.push('dinheiro');

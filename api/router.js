@@ -55,6 +55,13 @@ module.exports = async (req, res) => {
         return true;
       }
 
+      // MERCADO PAGO:
+      // - /api/mercadopago/preference: público (cliente cria pagamento)
+      // - /api/mercadopago/webhook: público (MP notifica)
+      if (first === 'mercadopago') {
+        return false;
+      }
+
       // usuarios-admin: sempre protegido
       if (first === 'usuarios-admin') return true;
 

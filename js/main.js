@@ -2832,6 +2832,7 @@ function renderizarFormasPagamentoCheckout() {
     const nomeFormaPagamento = (valor) => {
         const map = {
             'pix': 'Pix',
+            'mercadopago': 'Mercado Pago',
             'debito': 'Débito',
             'credito': 'Crédito',
             'dinheiro': 'Dinheiro',
@@ -3221,10 +3222,12 @@ async function processarPedidoCheckout() {
     
     let pedido;
     try {
-        // Todos os pedidos devem aguardar aprovação manual do gestor
-        const statusInicial = 'aguardando_aprovacao';
-        const statusPagamentoInicial = 'pendente_aprovacao';
-            const chatToken = _gerarChatToken();
+        // Status inicial depende da forma de pagamento
+        // - pix: aprovação manual
+        // - mercadopago: automático via webhook
+        const statusInicial = (formaPagamento === 'mercadopago') ? 'aguardando_pagamento' : 'aguardando_aprovacao';
+        const statusPagamentoInicial = (formaPagamento === 'mercadopago') ? 'pendente' : 'pendente_aprovacao';
+        const chatToken = _gerarChatToken();
         
         pedido = db.criarPedido({
             clienteId: clienteId,
@@ -3329,14 +3332,58 @@ async function processarPedidoCheckout() {
     
     // Fechar modal de checkout
     fecharModal('modal-checkout');
-    
-    // Mostrar QR Code PIX ou mensagem simples
+
+    // Fluxos por forma de pagamento
     if (formaPagamento === 'pix' && pedido) {
         // PIX: abrir modal para aprovação manual do gestor
         mostrarQRCodePix(pedido);
-    } else if (pedido) {
+        return;
+    }
+
+    if (formaPagamento === 'mercadopago' && pedido) {
+        try {
+            if (typeof window.mostrarNotificacaoInApp === 'function') {
+                window.mostrarNotificacaoInApp('Pagamento', 'Redirecionando para o Mercado Pago...');
+            }
+        } catch (e) {}
+
+        try {
+            const resp = await fetch(window.location.origin + '/api/mercadopago/preference', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    pedidoId: pedido.id,
+                    amount: Number(pedido.total || total),
+                    title: 'Pedido #' + pedido.id + ' - Vetera Sushi'
+                })
+            });
+
+            if (!resp.ok) {
+                let payload = null;
+                try { payload = await resp.json(); } catch (e) {}
+                console.warn('[MP] preference falhou:', resp.status, payload);
+                alert('Não foi possível iniciar o pagamento no Mercado Pago. Tente novamente.');
+                return;
+            }
+            const data = await resp.json();
+            if (!data || !data.ok || !data.init_point) {
+                console.warn('[MP] preference inválida:', data);
+                alert('Não foi possível iniciar o pagamento no Mercado Pago.');
+                return;
+            }
+
+            // Redirecionar
+            window.location.href = String(data.init_point);
+            return;
+        } catch (e) {
+            console.warn('[MP] erro ao criar preference:', e);
+            alert('Erro ao iniciar o pagamento. Verifique sua conexão e tente novamente.');
+            return;
+        }
+    }
+
+    if (pedido) {
         // Outras formas: mostrar apenas mensagem simples
-        // Mostrar página de desconto após pedido
         mostrarPaginaDesconto(pedido);
     }
 }
