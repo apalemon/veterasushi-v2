@@ -2498,8 +2498,12 @@ function fecharModalPedido() {
 // Ações do pedido - SEM CONFIRMAÇÃO (ação direta)
 async function confirmarPagamento(pedidoId) {
     try {
+        const pidStr = String(pedidoId);
+        const pidNum = Number(pedidoId);
+        const pid = Number.isFinite(pidNum) ? pidNum : pidStr;
+
         // Atualizar pedido
-        const pedido = await db.atualizarPedido(pedidoId, { 
+        const pedido = await db.atualizarPedido(pid, { 
             statusPagamento: 'pago',
             status: 'em_preparo' // Ao confirmar pagamento, já inicia preparo
         });
@@ -2529,8 +2533,28 @@ async function confirmarPagamento(pedidoId) {
         // Fechar e reabrir modal para mostrar dados atualizados
         fecharModalPedido();
         setTimeout(() => {
-            abrirDetalhesPedido(pedidoId);
+            abrirDetalhesPedido(pid);
         }, 200);
+
+        // Abrir chat automaticamente para o gestor assim que o pedido é aprovado
+        try {
+            // Garantir que a seção de chat esteja ativa
+            if (typeof window.mostrarSecao === 'function') {
+                window.mostrarSecao('chat');
+            }
+            if (typeof window.initChatGestor === 'function') {
+                window.initChatGestor();
+            }
+            if (typeof window.atualizarChatGestor === 'function') {
+                await window.atualizarChatGestor();
+            }
+            if (typeof window.abrirChatAdmin === 'function') {
+                window.abrirChatAdmin(pid);
+            }
+        } catch (e) {
+            // não bloquear aprovação por causa do chat
+            console.warn('[GESTOR] Falha ao abrir chat automaticamente:', e);
+        }
     } catch (error) {
         console.error('[GESTOR] ❌ Erro ao aprovar pedido:', error);
         alert('Erro ao aprovar pedido: ' + error.message);

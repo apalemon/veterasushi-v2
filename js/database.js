@@ -561,7 +561,15 @@ class Database {
 
   getPedido(id) {
     if (!this.data || !this.data.pedidos) return null;
-    return this.data.pedidos.find(p => p.id === id);
+    const idStr = String(id);
+    const idNum = Number(id);
+    return this.data.pedidos.find(p => {
+      if (!p) return false;
+      if (p.id === id) return true;
+      if (String(p.id) === idStr) return true;
+      if (Number.isFinite(idNum) && Number(p.id) === idNum) return true;
+      return false;
+    });
   }
 
   criarPedido(pedidoData) {
@@ -682,8 +690,16 @@ class Database {
       console.error('[DATABASE] ❌ data.pedidos não existe');
       return null;
     }
-    
-    const index = this.data.pedidos.findIndex(p => p.id === id);
+
+    const idStr = String(id);
+    const idNum = Number(id);
+    const index = this.data.pedidos.findIndex(p => {
+      if (!p) return false;
+      if (p.id === id) return true;
+      if (String(p.id) === idStr) return true;
+      if (Number.isFinite(idNum) && Number(p.id) === idNum) return true;
+      return false;
+    });
     if (index === -1) {
       console.error('[DATABASE] ❌ Pedido não encontrado:', id);
       return null;
