@@ -1579,6 +1579,7 @@ function mostrarSecao(secao) {
         'pedidos': 'Pedidos',
         'ocultos': 'Pedidos Ocultos',
         'detalhes': 'Detalhes de Vendas',
+        'chat': 'Chat',
         'produtos': 'Produtos',
         'destaque': 'Destaque',
         'cupons': 'Cupons',
@@ -1605,10 +1606,223 @@ function mostrarSecao(secao) {
     if (secao === 'pagamentos') {
         try { window.carregarPagamentosConfig(); } catch (e) {}
     }
+    if (secao === 'chat') {
+        try { initChatGestor(); } catch (e) {}
+        try { atualizarChatGestor(); } catch (e) {}
+    }
 }
 
 // Tornar função global
 window.mostrarSecao = mostrarSecao;
+
+// ============================================
+// CHAT (GESTOR / ADMIN)
+// ============================================
+let __chatAdminInterval = null;
+let __chatAdminPedidoId = null;
+let __chatAdminLastRenderedLen = 0;
+
+function _getChatAdminSeenMap() {
+    try {
+        const raw = localStorage.getItem('vetera_chat_admin_seen');
+        const parsed = raw ? JSON.parse(raw) : {};
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function _setChatAdminSeenMap(map) {
+    try { localStorage.setItem('vetera_chat_admin_seen', JSON.stringify(map || {})); } catch (e) {}
+}
+
+function _getAdminToken() {
+    try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+}
+
+function initChatGestor() {
+    if (__chatAdminInterval) return;
+    __chatAdminInterval = setInterval(() => {
+        try { atualizarChatGestor(); } catch (e) {}
+    }, 3000);
+}
+
+async function atualizarChatGestor() {
+    const statusEl = document.getElementById('chat-admin-status');
+    const listEl = document.getElementById('chat-admin-list');
+    if (!listEl) return;
+
+    try {
+        if (statusEl) statusEl.textContent = 'Carregando...';
+        const token = _getAdminToken();
+        const resp = await fetch(window.location.origin + '/api/chat/admin', {
+            headers: { ...(token ? { 'Authorization': 'Bearer ' + token } : {}) }
+        });
+        if (!resp.ok) {
+            if (statusEl) statusEl.textContent = 'Erro';
+            return;
+        }
+        const data = await resp.json();
+        if (!data || !data.ok) {
+            if (statusEl) statusEl.textContent = 'Erro';
+            return;
+        }
+
+        const seen = _getChatAdminSeenMap();
+        const chats = Array.isArray(data.chats) ? data.chats : [];
+
+        if (statusEl) statusEl.textContent = chats.length + ' conversa(s)';
+
+        listEl.innerHTML = chats.map(c => {
+            const pid = c.pedidoId;
+            const last = c.lastMessage;
+            const lastTs = last && last.ts ? String(last.ts) : '';
+            const seenTs = seen[String(pid)] || '';
+            const hasUnread = last && last.from === 'cliente' && lastTs && (!seenTs || new Date(lastTs).getTime() > new Date(seenTs).getTime());
+            const title = 'Pedido #' + pid;
+            const subtitle = (c.clienteNome ? c.clienteNome + ' • ' : '') + (c.clienteTelefone ? c.clienteTelefone : '');
+            const preview = last && last.text ? String(last.text).slice(0, 80) : 'Sem mensagens';
+
+            return `
+                <button type="button" onclick="abrirChatAdmin(${pid})" style="width:100%; text-align:left; padding:12px 14px; background:${__chatAdminPedidoId===pid?'rgba(220,38,38,0.12)':'transparent'}; border:none; border-bottom:1px solid rgba(255,255,255,0.06); cursor:pointer;">
+                    <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+                        <div style="font-weight:900; color:#fff;">${title}</div>
+                        ${hasUnread ? '<span style="background:#22c55e;color:#0b0b0d;font-weight:900;border-radius:999px;padding:2px 8px;font-size:12px;">Novo</span>' : ''}
+                    </div>
+                    <div style="margin-top:2px; font-size:12px; color: var(--texto-medio); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${subtitle}</div>
+                    <div style="margin-top:8px; font-size:13px; color: rgba(255,255,255,0.82); white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${preview}</div>
+                </button>
+            `;
+        }).join('') || '<div style="padding:14px; color: var(--texto-medio);">Nenhuma conversa ainda.</div>';
+
+        // se tem chat aberto, atualizar mensagens também
+        if (__chatAdminPedidoId) {
+            await _carregarMensagensChatAdmin(__chatAdminPedidoId);
+        }
+    } catch (e) {
+        if (statusEl) statusEl.textContent = 'Erro';
+    }
+}
+
+async function abrirChatAdmin(pedidoId) {
+    __chatAdminPedidoId = Number(pedidoId);
+    __chatAdminLastRenderedLen = 0;
+    const box = document.getElementById('chat-admin-messages');
+    if (box) box.innerHTML = '';
+    const title = document.getElementById('chat-admin-title');
+    const subtitle = document.getElementById('chat-admin-subtitle');
+    if (title) title.textContent = 'Pedido #' + pedidoId;
+    if (subtitle) subtitle.textContent = '';
+    await _carregarMensagensChatAdmin(__chatAdminPedidoId);
+    await atualizarChatGestor();
+}
+
+async function _carregarMensagensChatAdmin(pedidoId) {
+    const box = document.getElementById('chat-admin-messages');
+    if (!box) return;
+    const token = _getAdminToken();
+    const resp = await fetch(window.location.origin + '/api/chat/admin?pedidoId=' + encodeURIComponent(String(pedidoId)), {
+        headers: { ...(token ? { 'Authorization': 'Bearer ' + token } : {}) }
+    });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    if (!data || !data.ok || !data.chat) return;
+
+    const msgs = Array.isArray(data.chat.messages) ? data.chat.messages : [];
+    const subtitle = document.getElementById('chat-admin-subtitle');
+    if (subtitle) {
+        const meta = [];
+        if (data.chat.clienteNome) meta.push(data.chat.clienteNome);
+        if (data.chat.clienteTelefone) meta.push(data.chat.clienteTelefone);
+        subtitle.textContent = meta.join(' • ');
+    }
+
+    // render incremental
+    if (__chatAdminLastRenderedLen === 0) box.innerHTML = '';
+    const slice = msgs.slice(__chatAdminLastRenderedLen);
+    slice.forEach(m => {
+        const isAdmin = String(m.from) === 'admin';
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;justify-content:' + (isAdmin ? 'flex-end' : 'flex-start') + ';';
+        const b = document.createElement('div');
+        b.style.cssText =
+            'max-width:85%;padding:10px 12px;border-radius:14px;' +
+            (isAdmin
+                ? 'background:rgba(220,38,38,0.18);border:1px solid rgba(220,38,38,0.28);color:#fff;'
+                : 'background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.10);color:#fff;');
+        b.textContent = String(m.text || '');
+        row.appendChild(b);
+        box.appendChild(row);
+    });
+    __chatAdminLastRenderedLen = msgs.length;
+    box.scrollTop = box.scrollHeight;
+
+    // marcar como visto se última mensagem é do cliente
+    const last = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+    if (last && String(last.from) === 'cliente' && last.ts) {
+        const seen = _getChatAdminSeenMap();
+        seen[String(pedidoId)] = String(last.ts);
+        _setChatAdminSeenMap(seen);
+    }
+}
+
+async function enviarMensagemChatAdmin() {
+    if (!__chatAdminPedidoId) return;
+    const input = document.getElementById('chat-admin-input');
+    const text = String(input && input.value ? input.value : '').trim();
+    if (!text) return;
+    if (input) input.value = '';
+
+    // otimista
+    const box = document.getElementById('chat-admin-messages');
+    if (box) {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex;justify-content:flex-end;';
+        const b = document.createElement('div');
+        b.style.cssText = 'max-width:85%;padding:10px 12px;border-radius:14px;background:rgba(220,38,38,0.18);border:1px solid rgba(220,38,38,0.28);color:#fff;';
+        b.textContent = text;
+        row.appendChild(b);
+        box.appendChild(row);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    try {
+        const token = _getAdminToken();
+        const resp = await fetch(window.location.origin + '/api/chat/admin', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            },
+            body: JSON.stringify({ pedidoId: __chatAdminPedidoId, text })
+        });
+        if (!resp.ok) {
+            alert('Não foi possível enviar a mensagem (verifique login/token).');
+        } else {
+            await _carregarMensagensChatAdmin(__chatAdminPedidoId);
+            await atualizarChatGestor();
+        }
+    } catch (e) {
+        alert('Erro ao enviar mensagem.');
+    }
+}
+
+function fecharChatAdminAtual() {
+    __chatAdminPedidoId = null;
+    __chatAdminLastRenderedLen = 0;
+    const box = document.getElementById('chat-admin-messages');
+    if (box) box.innerHTML = '';
+    const title = document.getElementById('chat-admin-title');
+    const subtitle = document.getElementById('chat-admin-subtitle');
+    if (title) title.textContent = 'Selecione uma conversa';
+    if (subtitle) subtitle.textContent = '';
+}
+
+window.atualizarChatGestor = atualizarChatGestor;
+window.abrirChatAdmin = abrirChatAdmin;
+window.enviarMensagemChatAdmin = enviarMensagemChatAdmin;
+window.fecharChatAdminAtual = fecharChatAdminAtual;
+window.initChatGestor = initChatGestor;
 
 async function carregarEntradasDoServidor() {
     try {

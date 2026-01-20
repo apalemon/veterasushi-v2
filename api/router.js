@@ -47,6 +47,14 @@ module.exports = async (req, res) => {
       // Exceções públicas específicas
       if (first === 'cupons' && second === 'validar') return false;
 
+      // CHAT:
+      // - /api/chat/cliente: público (mas validado no handler via token do pedido)
+      // - /api/chat/* (restante): somente admin (ex.: /api/chat/admin)
+      if (first === 'chat') {
+        if (second === 'cliente') return false;
+        return true;
+      }
+
       // usuarios-admin: sempre protegido
       if (first === 'usuarios-admin') return true;
 

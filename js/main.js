@@ -282,6 +282,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Inicializar cardápio
     inicializarCardapio();
+
+    // Iniciar monitoramento de status + chat (se houver pedidos)
+    try { iniciarMonitoramentoStatusPedidosCliente(); } catch (e) {}
+    try { initChatWidgetCliente(); } catch (e) {}
     
     // Atualizar status da loja periodicamente
     setInterval(async () => {
@@ -336,6 +340,93 @@ function _marcarPopupPreparoMostrado(pedidoId) {
     const cache = _getPedidoPreparoPopupCacheCliente();
     cache[String(pedidoId)] = true;
     _setPedidoPreparoPopupCacheCliente(cache);
+}
+
+function _getPedidoProntoPopupCacheCliente() {
+    try {
+        const raw = localStorage.getItem('vetera_pedidos_popup_pronto');
+        const parsed = raw ? JSON.parse(raw) : {};
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function _setPedidoProntoPopupCacheCliente(cache) {
+    try {
+        localStorage.setItem('vetera_pedidos_popup_pronto', JSON.stringify(cache || {}));
+    } catch (e) {
+        // ignora
+    }
+}
+
+function _jaMostrouPopupPronto(pedidoId) {
+    const cache = _getPedidoProntoPopupCacheCliente();
+    return cache && cache[String(pedidoId)] === true;
+}
+
+function _marcarPopupProntoMostrado(pedidoId) {
+    const cache = _getPedidoProntoPopupCacheCliente();
+    cache[String(pedidoId)] = true;
+    _setPedidoProntoPopupCacheCliente(cache);
+}
+
+function mostrarModalPedidoPronto(pedido) {
+    try {
+        const existing = document.getElementById('modal-pedido-pronto');
+        if (existing) existing.remove();
+
+        const numeroWhats = '+55 51 984149137';
+        const numeroWhatsDigits = '5551984149137';
+        const pedidoId = pedido && pedido.id ? pedido.id : '';
+        const textoWhats = encodeURIComponent('Olá! Meu pedido #' + pedidoId + ' foi concluído.');
+        const linkWhats = 'https://wa.me/' + numeroWhatsDigits + '?text=' + textoWhats;
+
+        const overlay = document.createElement('div');
+        overlay.id = 'modal-pedido-pronto';
+        overlay.style.cssText = 'position:fixed;inset:0;z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,0.75);';
+
+        const card = document.createElement('div');
+        card.style.cssText = 'width:min(480px,95vw);border-radius:16px;overflow:hidden;background:linear-gradient(145deg,#1a1a1f,#0f0f12);border:1px solid rgba(59,130,246,0.35);box-shadow:0 25px 80px rgba(59,130,246,0.18),0 0 0 1px rgba(255,255,255,0.05);';
+
+        const header = document.createElement('div');
+        header.style.cssText = 'display:flex;flex-direction:column;align-items:center;padding:28px 20px 18px;background:linear-gradient(180deg,rgba(59,130,246,0.18) 0%,transparent 100%);';
+        header.innerHTML =
+            '<div style="width:80px;height:80px;border-radius:50%;background:rgba(59,130,246,0.12);border:2px solid rgba(59,130,246,0.35);display:flex;align-items:center;justify-content:center;margin-bottom:14px;">' +
+                '<i class="fas fa-check-circle" style="font-size:34px;color:#60a5fa;"></i>' +
+            '</div>' +
+            '<div style="font-size:22px;font-weight:800;color:#fff;text-align:center;">Pedido concluído</div>' +
+            '<div style="margin-top:6px;font-size:14px;color:rgba(255,255,255,0.65);">Pedido #' + pedidoId + '</div>';
+
+        const body = document.createElement('div');
+        body.style.cssText = 'padding:18px 24px 24px;text-align:center;';
+        body.innerHTML =
+            '<div style="color:rgba(255,255,255,0.85);font-size:15px;line-height:1.5;margin-bottom:16px;">Seu pedido foi concluído pelo restaurante.</div>' +
+            '<div style="display:flex;gap:12px;">' +
+                '<a href="' + linkWhats + '" target="_blank" rel="noopener noreferrer" style="flex:1;display:flex;align-items:center;justify-content:center;text-decoration:none;background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:10px;color:#fff;padding:14px 18px;font-weight:700;">' +
+                    '<i class="fab fa-whatsapp" style="margin-right:8px;"></i>WhatsApp' +
+                '</a>' +
+                '<button type="button" id="btn-pronto-ok" style="flex:1;background:rgba(255,255,255,0.10);border:1px solid rgba(255,255,255,0.15);border-radius:10px;color:#fff;padding:14px 18px;font-weight:700;cursor:pointer;">Entendi</button>' +
+            '</div>';
+
+        card.appendChild(header);
+        card.appendChild(body);
+        overlay.appendChild(card);
+        document.body.appendChild(overlay);
+
+        const close = () => { try { overlay.remove(); } catch (e) {} };
+        const btnOk = document.getElementById('btn-pronto-ok');
+        if (btnOk) btnOk.addEventListener('click', close);
+        overlay.addEventListener('click', (ev) => { if (ev.target === overlay) close(); });
+
+        try {
+            if (typeof window.mostrarNotificacao === 'function') {
+                window.mostrarNotificacao('Pedido concluído', 'Seu pedido #' + pedidoId + ' foi concluído.', '✅');
+            }
+        } catch (e) {}
+    } catch (e) {
+        try { mostrarAvisoPedidoCliente('Seu pedido foi concluído.'); } catch (e2) {}
+    }
 }
 
 function mostrarModalPedidoEmPreparo(pedido) {
@@ -528,6 +619,16 @@ async function verificarAtualizacoesStatusPedidosCliente() {
                 } else {
                     // fallback: toast
                     try { mostrarAvisoPedidoCliente('Seu pedido está em preparo: o gestor aprovou seu pedido.'); } catch (e) {}
+                }
+            }
+
+            // Concluído/pronto
+            if (statusAtual === 'concluido' && statusAnterior !== 'concluido') {
+                if (!_jaMostrouPopupPronto(id)) {
+                    _marcarPopupProntoMostrado(id);
+                    mostrarModalPedidoPronto(p);
+                } else {
+                    try { mostrarAvisoPedidoCliente('Seu pedido foi concluído.'); } catch (e) {}
                 }
             }
 
@@ -836,6 +937,359 @@ function adicionarPedidoIdClienteLocal(pedidoId) {
         localStorage.setItem('vetera_pedidos_cliente', JSON.stringify(trimmed));
     } catch (e) {
         // ignora
+    }
+}
+
+function _getChatTokensLocal() {
+    try {
+        const raw = localStorage.getItem('vetera_chat_tokens');
+        const parsed = raw ? JSON.parse(raw) : {};
+        return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) {
+        return {};
+    }
+}
+
+function _setChatTokensLocal(map) {
+    try {
+        localStorage.setItem('vetera_chat_tokens', JSON.stringify(map || {}));
+    } catch (e) {}
+}
+
+function _gerarChatToken() {
+    try {
+        const arr = new Uint8Array(16);
+        (window.crypto || window.msCrypto).getRandomValues(arr);
+        return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch (e) {
+        return String(Date.now()) + String(Math.random()).slice(2);
+    }
+}
+
+function salvarChatTokenPedidoLocal(pedidoId, token) {
+    try {
+        if (!pedidoId || !token) return;
+        const map = _getChatTokensLocal();
+        map[String(pedidoId)] = String(token);
+        _setChatTokensLocal(map);
+    } catch (e) {}
+}
+
+function obterChatTokenPedidoLocal(pedidoId) {
+    try {
+        const map = _getChatTokensLocal();
+        return map[String(pedidoId)] || '';
+    } catch (e) {
+        return '';
+    }
+}
+
+// ============================================
+// CHAT (CLIENTE) - Bolinha + Janela + Polling
+// ============================================
+function initChatWidgetCliente() {
+    try {
+        if (document.getElementById('vetera-chat-bubble')) return;
+
+        const bubble = document.createElement('button');
+        bubble.id = 'vetera-chat-bubble';
+        bubble.type = 'button';
+        bubble.setAttribute('aria-label', 'Abrir chat');
+        bubble.style.cssText = `
+            position: fixed;
+            right: 18px;
+            bottom: 18px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: 1px solid rgba(255,255,255,0.12);
+            background: linear-gradient(135deg, rgba(220,38,38,0.9), rgba(185,28,28,0.9));
+            color: #fff;
+            box-shadow: 0 18px 60px rgba(0,0,0,0.45);
+            cursor: pointer;
+            z-index: 99998;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+        bubble.innerHTML = '<i class="fas fa-comments" style="font-size: 20px;"></i>';
+
+        const badge = document.createElement('div');
+        badge.id = 'vetera-chat-badge';
+        badge.style.cssText = `
+            position:absolute;
+            top:-6px;
+            right:-6px;
+            min-width: 18px;
+            height: 18px;
+            padding: 0 6px;
+            border-radius: 999px;
+            background: #22c55e;
+            color: #0b0b0d;
+            font-weight: 900;
+            font-size: 12px;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid rgba(0,0,0,0.6);
+        `;
+        badge.textContent = '1';
+        bubble.appendChild(badge);
+
+        const panel = document.createElement('div');
+        panel.id = 'vetera-chat-panel';
+        panel.style.cssText = `
+            position: fixed;
+            right: 18px;
+            bottom: 86px;
+            width: min(380px, calc(100vw - 36px));
+            height: min(560px, calc(100vh - 120px));
+            border-radius: 16px;
+            background: #0f0f12;
+            border: 1px solid rgba(255,255,255,0.10);
+            box-shadow: 0 24px 90px rgba(0,0,0,0.60);
+            overflow: hidden;
+            z-index: 99999;
+            display: none;
+            flex-direction: column;
+        `;
+
+        panel.innerHTML = `
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 12px;border-bottom:1px solid rgba(255,255,255,0.08);background:rgba(255,255,255,0.03);">
+                <div style="display:flex;flex-direction:column;gap:2px;min-width:0;">
+                    <div style="font-weight:900;color:#fff;">Chat do Pedido</div>
+                    <div id="vetera-chat-subtitle" style="font-size:12px;color:rgba(255,255,255,0.65);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Selecione um pedido</div>
+                </div>
+                <div style="display:flex;gap:8px;align-items:center;">
+                    <button type="button" id="vetera-chat-notif" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:10px;padding:8px 10px;cursor:pointer;font-weight:700;font-size:12px;">Notificações</button>
+                    <button type="button" id="vetera-chat-close" style="background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:#fff;border-radius:10px;padding:8px 10px;cursor:pointer;font-weight:800;">Fechar</button>
+                </div>
+            </div>
+            <div style="padding:10px 12px;border-bottom:1px solid rgba(255,255,255,0.06);">
+                <select id="vetera-chat-pedido-select" style="width:100%;background:#0b0b0d;border:1px solid rgba(255,255,255,0.10);color:#fff;border-radius:10px;padding:10px 12px;">
+                    <option value="">Escolha um pedido...</option>
+                </select>
+            </div>
+            <div id="vetera-chat-messages" style="flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:10px;"></div>
+            <div style="padding:10px 12px;border-top:1px solid rgba(255,255,255,0.08);display:flex;gap:10px;align-items:center;">
+                <input id="vetera-chat-input" type="text" placeholder="Digite sua mensagem..." style="flex:1;background:#0b0b0d;border:1px solid rgba(255,255,255,0.10);color:#fff;border-radius:12px;padding:12px 12px;outline:none;">
+                <button id="vetera-chat-send" type="button" style="background:linear-gradient(135deg,#22c55e,#16a34a);border:none;color:#fff;border-radius:12px;padding:12px 14px;font-weight:900;cursor:pointer;">Enviar</button>
+            </div>
+        `;
+
+        document.body.appendChild(panel);
+        document.body.appendChild(bubble);
+
+        let pollTimer = null;
+        let lastSince = '';
+        let unread = 0;
+        let activePedidoId = '';
+
+        function setBadge(n) {
+            unread = n;
+            const b = document.getElementById('vetera-chat-badge');
+            if (!b) return;
+            if (n > 0) {
+                b.style.display = 'flex';
+                b.textContent = String(n);
+            } else {
+                b.style.display = 'none';
+            }
+        }
+
+        function renderMessage(m) {
+            const wrap = document.createElement('div');
+            const from = String(m && m.from ? m.from : '');
+            const isMine = from === 'cliente';
+            wrap.style.cssText = 'display:flex;justify-content:' + (isMine ? 'flex-end' : 'flex-start') + ';';
+            const bubbleMsg = document.createElement('div');
+            bubbleMsg.style.cssText =
+                'max-width:85%;padding:10px 12px;border-radius:14px;' +
+                (isMine
+                    ? 'background:rgba(220,38,38,0.18);border:1px solid rgba(220,38,38,0.28);color:#fff;'
+                    : 'background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.10);color:#fff;');
+            bubbleMsg.textContent = String(m && m.text ? m.text : '');
+            wrap.appendChild(bubbleMsg);
+            return wrap;
+        }
+
+        function scrollToBottom() {
+            const box = document.getElementById('vetera-chat-messages');
+            if (!box) return;
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function populatePedidos() {
+            const sel = document.getElementById('vetera-chat-pedido-select');
+            if (!sel) return;
+            const ids = (typeof getPedidoIdsClienteLocal === 'function') ? (getPedidoIdsClienteLocal() || []) : [];
+            const unique = Array.from(new Set(ids.map(v => String(v)).filter(Boolean)));
+            const old = sel.value;
+            sel.innerHTML = '<option value="">Escolha um pedido...</option>' + unique.map(id => `<option value="${id}">Pedido #${id}</option>`).join('');
+            if (old && unique.includes(old)) sel.value = old;
+            if (!sel.value && unique.length > 0) sel.value = unique[0];
+        }
+
+        async function pollOnce() {
+            if (!activePedidoId) return;
+            const token = obterChatTokenPedidoLocal(activePedidoId);
+            if (!token) return;
+
+            const qs = '?pedidoId=' + encodeURIComponent(activePedidoId) + '&token=' + encodeURIComponent(token) + (lastSince ? '&since=' + encodeURIComponent(lastSince) : '');
+            const resp = await fetch(window.location.origin + '/api/chat/cliente' + qs);
+            if (!resp.ok) return;
+            const data = await resp.json();
+            if (!data || !data.ok) return;
+
+            const msgs = Array.isArray(data.messages) ? data.messages : [];
+            if (msgs.length > 0) {
+                const box = document.getElementById('vetera-chat-messages');
+                if (box) {
+                    const wasAtBottom = Math.abs((box.scrollHeight - box.scrollTop) - box.clientHeight) < 80;
+                    msgs.forEach(m => box.appendChild(renderMessage(m)));
+                    if (wasAtBottom) scrollToBottom();
+                }
+                // contar unread quando painel fechado
+                if (panel.style.display === 'none') setBadge(unread + msgs.length);
+
+                // atualizar since
+                const last = msgs[msgs.length - 1];
+                if (last && last.ts) lastSince = String(last.ts);
+
+                // notificação (se veio do admin e o painel está fechado)
+                try {
+                    const anyAdmin = msgs.some(m => String(m.from) === 'admin');
+                    if (anyAdmin && document.hidden) {
+                        if (typeof window.mostrarNotificacao === 'function') {
+                            window.mostrarNotificacao('Nova mensagem', 'Você recebeu uma mensagem no chat do pedido #' + activePedidoId, '💬');
+                        }
+                    }
+                } catch (e) {}
+            } else {
+                // manter relógio do server como since para pegar só novos
+                if (data.serverTime && !lastSince) lastSince = String(data.serverTime);
+            }
+        }
+
+        function startPolling() {
+            if (pollTimer) return;
+            pollTimer = setInterval(() => { pollOnce().catch(() => {}); }, 3000);
+            pollOnce().catch(() => {});
+        }
+
+        function stopPolling() {
+            if (pollTimer) clearInterval(pollTimer);
+            pollTimer = null;
+        }
+
+        function openPanel() {
+            populatePedidos();
+            panel.style.display = 'flex';
+            setBadge(0);
+            startPolling();
+        }
+
+        function closePanel() {
+            panel.style.display = 'none';
+            stopPolling();
+        }
+
+        bubble.addEventListener('click', () => {
+            if (panel.style.display === 'none') openPanel();
+            else closePanel();
+        });
+
+        panel.querySelector('#vetera-chat-close')?.addEventListener('click', closePanel);
+        panel.querySelector('#vetera-chat-notif')?.addEventListener('click', async () => {
+            try {
+                if (typeof window.solicitarPermissaoNotificacoes === 'function') {
+                    await window.solicitarPermissaoNotificacoes();
+                } else if (typeof window.sugerirNotificacoes === 'function') {
+                    window.sugerirNotificacoes();
+                }
+            } catch (e) {}
+        });
+
+        const sel = panel.querySelector('#vetera-chat-pedido-select');
+        const subtitle = panel.querySelector('#vetera-chat-subtitle');
+        if (sel) {
+            sel.addEventListener('change', () => {
+                activePedidoId = String(sel.value || '');
+                lastSince = '';
+                const box = document.getElementById('vetera-chat-messages');
+                if (box) box.innerHTML = '';
+                if (subtitle) subtitle.textContent = activePedidoId ? ('Pedido #' + activePedidoId) : 'Selecione um pedido';
+                startPolling();
+            });
+            // inicial
+            setTimeout(() => {
+                activePedidoId = String(sel.value || '');
+                if (subtitle) subtitle.textContent = activePedidoId ? ('Pedido #' + activePedidoId) : 'Selecione um pedido';
+            }, 50);
+        }
+
+        async function sendMessage() {
+            if (!activePedidoId) return;
+            const token = obterChatTokenPedidoLocal(activePedidoId);
+            if (!token) return;
+            const input = document.getElementById('vetera-chat-input');
+            const text = String(input && input.value ? input.value : '').trim();
+            if (!text) return;
+
+            // otimista: já renderiza
+            const box = document.getElementById('vetera-chat-messages');
+            if (box) {
+                box.appendChild(renderMessage({ from: 'cliente', text, ts: new Date().toISOString() }));
+                scrollToBottom();
+            }
+            if (input) input.value = '';
+
+            try {
+                const resp = await fetch(window.location.origin + '/api/chat/cliente', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pedidoId: activePedidoId, token, text })
+                });
+                if (!resp.ok) {
+                    // falhou: avisar
+                    if (typeof window.mostrarNotificacaoInApp === 'function') {
+                        window.mostrarNotificacaoInApp('Chat', 'Não foi possível enviar a mensagem. Tente novamente.');
+                    }
+                }
+            } catch (e) {
+                if (typeof window.mostrarNotificacaoInApp === 'function') {
+                    window.mostrarNotificacaoInApp('Chat', 'Não foi possível enviar a mensagem. Verifique sua conexão.');
+                }
+            }
+        }
+
+        panel.querySelector('#vetera-chat-send')?.addEventListener('click', sendMessage);
+        panel.querySelector('#vetera-chat-input')?.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // Quando o storage mudar (outra aba), atualizar pedidos
+        window.addEventListener('storage', (e) => {
+            if (e && (e.key === 'vetera_pedidos_cliente' || e.key === 'vetera_chat_tokens')) {
+                populatePedidos();
+            }
+        });
+
+        // polling leve mesmo fechado (só para badge)
+        setInterval(() => {
+            if (panel.style.display !== 'none') return;
+            populatePedidos();
+            const ids = (typeof getPedidoIdsClienteLocal === 'function') ? (getPedidoIdsClienteLocal() || []) : [];
+            const first = ids && ids.length > 0 ? String(ids[0]) : '';
+            if (!first) return;
+            activePedidoId = first;
+            pollOnce().catch(() => {});
+        }, 8000);
+    } catch (e) {
+        console.warn('[CHAT] Falha ao iniciar widget:', e);
     }
 }
 
@@ -2532,12 +2986,14 @@ async function processarPedidoCheckout() {
     const nome = document.getElementById('checkout-nome')?.value.trim();
     const telefone = document.getElementById('checkout-telefone')?.value.trim();
     const endereco = document.getElementById('checkout-endereco')?.value.trim();
+    const numeroCasa = document.getElementById('checkout-numero-casa')?.value.trim();
     const bairro = document.getElementById('checkout-bairro')?.value.trim();
     const cep = document.getElementById('checkout-cep')?.value.trim();
+    const referencia = document.getElementById('checkout-referencia')?.value.trim();
     const observacoes = document.getElementById('checkout-observacoes')?.value.trim();
     const formaPagamento = document.querySelector('input[name="checkout-pagamento"]:checked')?.value || 'pix';
     
-    if (!nome || !telefone || !endereco || !bairro || !cep) {
+    if (!nome || !telefone || !endereco || !numeroCasa || !bairro || !cep) {
         alert('Preencha todos os campos obrigatórios!');
         return;
     }
@@ -2671,7 +3127,7 @@ async function processarPedidoCheckout() {
     const clienteId = null;
     
     // Criar pedido
-    const enderecoCompleto = `${endereco}, ${bairro} - CEP: ${cep}`;
+    const enderecoCompleto = `${endereco}, Nº ${numeroCasa} - ${bairro} - CEP: ${cep}` + (referencia ? ` (Ref: ${referencia})` : '');
     
     
     if (typeof db === 'undefined' || typeof db.criarPedido !== 'function') {
@@ -2685,6 +3141,7 @@ async function processarPedidoCheckout() {
         // Todos os pedidos devem aguardar aprovação manual do gestor
         const statusInicial = 'aguardando_aprovacao';
         const statusPagamentoInicial = 'pendente_aprovacao';
+            const chatToken = _gerarChatToken();
         
         pedido = db.criarPedido({
             clienteId: clienteId,
@@ -2701,6 +3158,7 @@ async function processarPedidoCheckout() {
             formaPagamentoDetalhe: null,
             observacoes: observacoes,
             cupom: cupomAplicado ? cupomAplicado.codigo : null,
+                chatToken: chatToken,
             status: statusInicial,
             statusPagamento: statusPagamentoInicial
         });
@@ -2709,6 +3167,9 @@ async function processarPedidoCheckout() {
 
         // Salvar este pedido como "meu" no dispositivo (fonte principal do Meus Pedidos)
         adicionarPedidoIdClienteLocal(pedido.id);
+
+            // Salvar token do chat localmente para autenticar o cliente no chat
+            salvarChatTokenPedidoLocal(pedido.id, chatToken);
 
         // IMPORTANTE: iniciar monitoramento após criar o primeiro pedido
         try {
