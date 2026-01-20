@@ -84,16 +84,23 @@ module.exports = async (req, res) => {
             for (const pedido of pedidos) {
                 try {
                     if (!pedido || !pedido.id) { console.warn('[PEDIDOS] ⚠️ Pedido sem ID, pulando:', pedido); continue; }
+
                     if (!pedido.dataCriacao && !pedido.data) { pedido.dataCriacao = new Date(); } else if (pedido.data && !pedido.dataCriacao) { pedido.dataCriacao = new Date(pedido.data); }
-                    const result = await pedidosCollection.updateOne({ id: pedido.id }, { $set: pedido }, { upsert: true });
+                    const idNum = Number(pedido.id);
+                    const idQuery = Number.isFinite(idNum)
+                        ? { $or: [{ id: idNum }, { id: String(idNum) }] }
+                        : { $or: [{ id: String(pedido.id) }, { id: Number(pedido.id) }] };
+                    const result = await pedidosCollection.updateOne(idQuery, { $set: pedido }, { upsert: true });
                     if (result.upsertedCount > 0) salvos++; else if (result.modifiedCount > 0) atualizados++; else atualizados++;
 
                     // Garantir chat existente para o pedido (permite admin iniciar conversa)
                     try {
+                        const pidNum = Number(pedido.id);
+                        const pidStable = Number.isFinite(pidNum) ? pidNum : String(pedido.id);
                         await chatsCollection.updateOne(
-                            { pedidoId: pedido.id },
+                            Number.isFinite(pidNum) ? { $or: [{ pedidoId: pidNum }, { pedidoId: String(pidNum) }] } : { pedidoId: String(pedido.id) },
                             {
-                                $setOnInsert: { pedidoId: pedido.id, createdAt: new Date().toISOString() },
+                                $setOnInsert: { pedidoId: pidStable, createdAt: new Date().toISOString() },
                                 $set: {
                                     updatedAt: new Date().toISOString(),
                                     clienteTelefone: pedido.clienteTelefone || '',
@@ -105,6 +112,7 @@ module.exports = async (req, res) => {
                     } catch (e) {
                         // ignora
                     }
+
                 } catch (pedidoErr) {
                     console.error(`[PEDIDOS] ❌ Erro ao processar pedido ${pedido.id}:`, pedidoErr.message);
                     erros.push({ id: pedido.id, erro: pedidoErr.message });

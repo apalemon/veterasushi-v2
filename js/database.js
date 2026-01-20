@@ -571,12 +571,12 @@ class Database {
       }
       
       // Verificar se já existe pedido com mesmo ID (evitar duplicação)
-      const idTemporario = Date.now();
+      const idTemporario = (Date.now() * 1000) + Math.floor(Math.random() * 1000);
       const pedidoExistente = this.data.pedidos.find(p => p.id === idTemporario);
       if (pedidoExistente) {
         // Pedido com ID já existe, usando timestamp único
         // Usar timestamp mais preciso para evitar duplicação
-        const novoId = Date.now() + Math.random();
+        const novoId = (Date.now() * 1000) + Math.floor(Math.random() * 1000);
         pedidoData.id = novoId;
       }
       

@@ -15,6 +15,15 @@ function normalizePedidoId(v) {
   return s ? s : null;
 }
 
+function chatPedidoIdQuery(pedidoId) {
+  const n = Number(pedidoId);
+  if (Number.isFinite(n)) {
+    return { $or: [{ pedidoId: n }, { pedidoId: String(n) }] };
+  }
+  const s = safeStr(pedidoId);
+  return s ? { $or: [{ pedidoId: s }, { pedidoId: Number(s) }] } : { pedidoId: null };
+}
+
 module.exports = async (req, res) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
@@ -36,7 +45,7 @@ module.exports = async (req, res) => {
       } catch (e) {}
 
       if (pedidoId) {
-        const chat = await chatsCol.findOne({ pedidoId });
+        const chat = await chatsCol.findOne(chatPedidoIdQuery(pedidoId));
         const msgs = (chat && Array.isArray(chat.messages)) ? chat.messages : [];
         return res.status(200).json({ ok: true, pedidoId, chat: { ...chat, messages: msgs, _id: undefined } });
       }
@@ -80,7 +89,7 @@ module.exports = async (req, res) => {
       const msg = { id: Date.now(), from: 'admin', text, ts: nowIso() };
 
       await chatsCol.updateOne(
-        { pedidoId },
+        chatPedidoIdQuery(pedidoId),
         {
           $setOnInsert: { pedidoId, createdAt: nowIso() },
           $set: { updatedAt: nowIso() },

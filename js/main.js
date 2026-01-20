@@ -4256,6 +4256,7 @@ function fecharModalMeusPedidos() {
 function formatarStatusPedidoCliente(status) {
     const s = String(status || '').toLowerCase();
     if (s === 'concluido') return 'Concluído';
+    if (s === 'finalizado') return 'Concluído';
     if (s === 'cancelado') return 'Cancelado';
     if (s === 'recusado') return 'Recusado';
     if (s === 'em_preparo') return 'Em preparo';

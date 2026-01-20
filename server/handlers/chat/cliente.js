@@ -15,6 +15,15 @@ function normalizePedidoId(v) {
   return s ? s : null;
 }
 
+function chatPedidoIdQuery(pedidoId) {
+  const n = Number(pedidoId);
+  if (Number.isFinite(n)) {
+    return { $or: [{ pedidoId: n }, { pedidoId: String(n) }] };
+  }
+  const s = safeStr(pedidoId);
+  return s ? { $or: [{ pedidoId: s }, { pedidoId: Number(s) }] } : { pedidoId: null };
+}
+
 async function getPedidoById(pedidosCol, pedidoId) {
   // tenta número e string
   const q = typeof pedidoId === 'number'
@@ -58,7 +67,7 @@ module.exports = async (req, res) => {
         return res.status(403).json({ ok: false, error: 'Token inválido' });
       }
 
-      const chat = await chatsCol.findOne({ pedidoId: pedido.id });
+      const chat = await chatsCol.findOne(chatPedidoIdQuery(pedido.id));
       const msgs = (chat && Array.isArray(chat.messages)) ? chat.messages : [];
 
       let filtered = msgs;
@@ -111,7 +120,7 @@ module.exports = async (req, res) => {
       };
 
       await chatsCol.updateOne(
-        { pedidoId: pedido.id },
+        chatPedidoIdQuery(pedido.id),
         {
           $setOnInsert: { pedidoId: pedido.id, createdAt: nowIso() },
           $set: { updatedAt: nowIso(), clienteTelefone: pedido.clienteTelefone || '', clienteNome: pedido.clienteNome || '' },
