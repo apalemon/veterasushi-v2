@@ -1311,25 +1311,9 @@ async function verificarNovosPedidos() {
         atualizarContadorNovos();
         renderizarPedidos();
         
-        // Verificar se algum novo pedido é PIX e mostrar aviso
-        const pedidosPix = novosPedidos.filter(p => (p.formaPagamento || '').toLowerCase() === 'pix');
-        if (pedidosPix.length > 0) {
-            // Mostrar popup sobre PIX não automático
-            mostrarAvisoPixNaoAutomatico();
-        }
-        
         // Notificação removida conforme solicitado
     }
 }
-
-// Mostrar aviso sobre PIX não automático
-function mostrarAvisoPixNaoAutomatico() {
-    const modal = document.getElementById('modal-aviso-pix');
-    if (modal) {
-        modal.classList.add('active');
-    }
-}
-window.mostrarAvisoPixNaoAutomatico = mostrarAvisoPixNaoAutomatico;
 
 // Ouvir evento de novo pedido - RECARREGAR IMEDIATAMENTE DO SERVIDOR
 let processandoNovoPedido = false;

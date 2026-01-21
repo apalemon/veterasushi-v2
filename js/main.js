@@ -22,6 +22,63 @@ document.addEventListener('click', function(e) {
     }
 });
 
+async function handleMercadoPagoReturn() {
+    try {
+        const qs = new URLSearchParams(String(window.location && window.location.search ? window.location.search : ''));
+        const mp = String(qs.get('mp') || '').toLowerCase();
+        const pedidoId = String(qs.get('pedidoId') || '').trim();
+        if (!mp || !pedidoId) return;
+
+        try {
+            if (mp === 'success') {
+                mostrarNotificacaoInApp('Pagamento', 'Pagamento confirmado! Estamos validando...', '✅');
+            } else if (mp === 'pending') {
+                mostrarNotificacaoInApp('Pagamento', 'Pagamento em análise/pendente. Aguarde a confirmação.', '⏳');
+            } else if (mp === 'failure') {
+                mostrarNotificacaoInApp('Pagamento', 'Pagamento não concluído. Você pode tentar novamente.', '⚠️');
+            }
+        } catch (e) {}
+
+        // Poll curto para refletir status do webhook no pedido
+        const startedAt = Date.now();
+        const timeoutMs = 60000;
+        const intervalMs = 3000;
+
+        async function fetchPedido() {
+            const resp = await fetch(window.location.origin + '/api/pedidos?ids=' + encodeURIComponent(String(pedidoId)));
+            if (!resp.ok) return null;
+            const data = await resp.json();
+            const arr = Array.isArray(data) ? data : [];
+            return arr.find(x => String(x && x.id) === String(pedidoId) || Number(x && x.id) === Number(pedidoId)) || null;
+        }
+
+        while (Date.now() - startedAt < timeoutMs) {
+            let pedido = null;
+            try { pedido = await fetchPedido(); } catch (e) { pedido = null; }
+
+            const stPag = String(pedido && pedido.statusPagamento ? pedido.statusPagamento : '').toLowerCase();
+            if (stPag === 'pago') {
+                try {
+                    mostrarNotificacaoInApp('Pagamento', 'Pagamento aprovado! Seu pedido entrou em preparo.', '✅');
+                } catch (e) {}
+                break;
+            }
+
+            await new Promise(r => setTimeout(r, intervalMs));
+        }
+
+        // Limpar querystring (evita repetir popup ao recarregar)
+        try {
+            const url = new URL(window.location.href);
+            url.searchParams.delete('mp');
+            url.searchParams.delete('pedidoId');
+            window.history.replaceState({}, '', url.pathname + (url.searchParams.toString() ? ('?' + url.searchParams.toString()) : '') + url.hash);
+        } catch (e) {}
+    } catch (e) {
+        // ignora
+    }
+}
+
 function _entradasIsFileOrigin() {
     try {
         return window.location.protocol === 'file:' || window.location.origin === 'null';
@@ -282,6 +339,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Inicializar cardápio
     inicializarCardapio();
+
+    // Tratar retorno do Mercado Pago (success/pending/failure)
+    try { handleMercadoPagoReturn(); } catch (e) {}
 
     // Iniciar monitoramento de status + chat (se houver pedidos)
     try { iniciarMonitoramentoStatusPedidosCliente(); } catch (e) {}
@@ -2808,30 +2868,11 @@ function renderizarCheckoutModal() {
 function renderizarFormasPagamentoCheckout() {
     const container = document.getElementById('checkout-formas-list');
     if (!container) return;
-    const config = db.getConfiguracoes() || {};
-    const pagamentos = Array.isArray(config.pagamentos) && config.pagamentos.length ? config.pagamentos : [];
-
-    if (!pagamentos || pagamentos.length === 0) {
-        // Padrão: Mercado Pago
-        container.innerHTML = `<label style="display:flex; align-items:center; gap:12px; padding:12px; background: rgba(255,255,255,0.03); border-radius:8px; cursor:default; margin-bottom:8px;">
-            <input type="radio" name="checkout-pagamento" value="mercadopago" style="width:18px; height:18px;" checked>
-            <span style="color:#fff; font-weight:500;">Mercado Pago</span>
-        </label>`;
-        return;
-    }
-
-    // Pegar o primeiro método de pagamento (só pode ter um)
-    const p = pagamentos[0];
-    const opcoesRaw = Array.isArray(p.opcoesEntrega) ? p.opcoesEntrega : [];
-    const opcoes = ['mercadopago'];
-    
-    console.log('[CHECKOUT] Método de pagamento:', p);
-    console.log('[CHECKOUT] Opções de entrega:', opcoesRaw);
-    
-    if (opcoes.length === 0) {
-        container.innerHTML = '<div style="color: var(--texto-medio);">Nenhuma forma de pagamento disponível.</div>';
-        return;
-    }
+    container.innerHTML = `<label style="display:flex; align-items:center; gap:12px; padding:12px; background: rgba(255,255,255,0.03); border-radius:8px; cursor:default; margin-bottom:8px;">
+        <input type="radio" name="checkout-pagamento" value="mercadopago" style="width:18px; height:18px;" checked>
+        <span style="color:#fff; font-weight:500;">Mercado Pago</span>
+    </label>`;
+    return;
 
     // Mapear os valores para nomes legíveis
     const nomeFormaPagamento = (valor) => {
@@ -3080,7 +3121,7 @@ async function processarPedidoCheckout() {
     const cep = document.getElementById('checkout-cep')?.value.trim();
     const referencia = document.getElementById('checkout-referencia')?.value.trim();
     const observacoes = document.getElementById('checkout-observacoes')?.value.trim();
-    const formaPagamento = document.querySelector('input[name="checkout-pagamento"]:checked')?.value || 'mercadopago';
+    const formaPagamento = 'mercadopago';
     
     if (!nome || !telefone || !endereco || !numeroCasa || !bairro || !cep) {
         alert('Preencha todos os campos obrigatórios!');
@@ -3198,11 +3239,7 @@ async function processarPedidoCheckout() {
     
     const total = subtotal - desconto - descontoCondicional + taxaEntrega;
     
-    // Validar se forma de pagamento foi selecionada
-    if (!formaPagamento) {
-        alert('Selecione uma forma de pagamento!');
-        return;
-    }
+    // Forma de pagamento fixa: Mercado Pago
 
     // Preparar itens
     const itensParaPedido = itens.map(item => ({
@@ -3227,11 +3264,9 @@ async function processarPedidoCheckout() {
     
     let pedido;
     try {
-        // Status inicial depende da forma de pagamento
-        // - pix: aprovação manual
-        // - mercadopago: automático via webhook
-        const statusInicial = (formaPagamento === 'mercadopago') ? 'aguardando_pagamento' : 'aguardando_aprovacao';
-        const statusPagamentoInicial = (formaPagamento === 'mercadopago') ? 'pendente' : 'pendente_aprovacao';
+        // Mercado Pago: automático via webhook
+        const statusInicial = 'aguardando_pagamento';
+        const statusPagamentoInicial = 'pendente';
         const chatToken = _gerarChatToken();
         
         pedido = db.criarPedido({
@@ -3338,14 +3373,8 @@ async function processarPedidoCheckout() {
     // Fechar modal de checkout
     fecharModal('modal-checkout');
 
-    // Fluxos por forma de pagamento
-    if (formaPagamento === 'pix' && pedido) {
-        // PIX: abrir modal para aprovação manual do gestor
-        mostrarQRCodePix(pedido);
-        return;
-    }
-
-    if (formaPagamento === 'mercadopago' && pedido) {
+    // Fluxo: Mercado Pago
+    if (pedido) {
         try {
             if (typeof window.mostrarNotificacaoInApp === 'function') {
                 window.mostrarNotificacaoInApp('Pagamento', 'Redirecionando para o Mercado Pago...');
@@ -3359,7 +3388,8 @@ async function processarPedidoCheckout() {
                 body: JSON.stringify({
                     pedidoId: pedido.id,
                     amount: Number(pedido.total || total),
-                    title: 'Pedido #' + pedido.id + ' - Vetera Sushi'
+                    title: 'Pedido #' + pedido.id + ' - Vetera Sushi',
+                    slug: (String(window.location && window.location.pathname ? window.location.pathname : '').split('/').filter(Boolean)[0] || 'vetera')
                 })
             });
 
@@ -3385,11 +3415,6 @@ async function processarPedidoCheckout() {
             alert('Erro ao iniciar o pagamento. Verifique sua conexão e tente novamente.');
             return;
         }
-    }
-
-    if (pedido) {
-        // Outras formas: mostrar apenas mensagem simples
-        mostrarPaginaDesconto(pedido);
     }
 }
 
