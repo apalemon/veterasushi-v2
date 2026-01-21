@@ -1,8 +1,17 @@
 const crypto = require('crypto');
 const { getCollection } = require('../../mongodb');
+const https = require('https');
 
 function safeStr(v) {
   return String(v == null ? '' : v).trim();
+}
+
+function firstNonEmptyStr(...values) {
+  for (const v of values) {
+    const s = safeStr(v);
+    if (s) return s;
+  }
+  return '';
 }
 
 function nowIso() {
@@ -21,9 +30,57 @@ function pedidoIdQuery(pedidoId) {
   return s ? { $or: [{ id: s }, { id: Number(s) }] } : { id: null };
 }
 
+function fetchCompat(url, init) {
+  if (typeof globalThis.fetch === 'function') {
+    return globalThis.fetch(url, init);
+  }
+
+  return new Promise((resolve, reject) => {
+    try {
+      const u = new URL(url);
+      const method = (init && init.method ? String(init.method) : 'GET').toUpperCase();
+      const headers = (init && init.headers) ? init.headers : {};
+      const body = init && init.body != null ? init.body : null;
+
+      const req = https.request(
+        {
+          protocol: u.protocol,
+          hostname: u.hostname,
+          port: u.port || (u.protocol === 'https:' ? 443 : 80),
+          path: u.pathname + (u.search || ''),
+          method,
+          headers
+        },
+        (res) => {
+          let data = '';
+          res.setEncoding('utf8');
+          res.on('data', (chunk) => { data += chunk; });
+          res.on('end', () => {
+            const status = Number(res.statusCode || 0);
+            resolve({
+              ok: status >= 200 && status < 300,
+              status,
+              json: async () => {
+                try { return JSON.parse(data || 'null'); } catch (e) { return null; }
+              },
+              text: async () => String(data || '')
+            });
+          });
+        }
+      );
+
+      req.on('error', reject);
+      if (body != null) req.write(body);
+      req.end();
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
 async function mpFetch(path, accessToken, init) {
   const url = 'https://api.mercadopago.com' + path;
-  const resp = await fetch(url, {
+  const resp = await fetchCompat(url, {
     ...init,
     headers: {
       'Authorization': 'Bearer ' + accessToken,
@@ -68,11 +125,27 @@ module.exports = async (req, res) => {
       return res.status(404).json({ ok: false, error: 'Pedido não encontrado' });
     }
 
-    const baseUrl = process.env.PUBLIC_BASE_URL || (req && req.headers && req.headers.host ? ('https://' + req.headers.host) : null);
+    const proto = firstNonEmptyStr(
+      req && req.headers ? (req.headers['x-forwarded-proto'] || req.headers['X-Forwarded-Proto']) : '',
+      'https'
+    );
+    const host = firstNonEmptyStr(req && req.headers ? (req.headers['x-forwarded-host'] || req.headers['host']) : '');
+    const baseUrl = process.env.PUBLIC_BASE_URL || (host ? (proto + '://' + host) : null);
+
+    const slug = firstNonEmptyStr(
+      body.slug,
+      body.lojaSlug,
+      pedido.slug,
+      pedido.lojaSlug,
+      pedido.loja && pedido.loja.slug,
+      'vetera'
+    );
+
+    const cardapioPath = '/' + encodeURIComponent(String(slug)) + '/cardapio';
     const backUrls = {
-      success: baseUrl ? baseUrl + '/cardapio?mp=success&pedidoId=' + encodeURIComponent(String(pedido.id)) : undefined,
-      pending: baseUrl ? baseUrl + '/cardapio?mp=pending&pedidoId=' + encodeURIComponent(String(pedido.id)) : undefined,
-      failure: baseUrl ? baseUrl + '/cardapio?mp=failure&pedidoId=' + encodeURIComponent(String(pedido.id)) : undefined
+      success: baseUrl ? baseUrl + cardapioPath + '?mp=success&pedidoId=' + encodeURIComponent(String(pedido.id)) : undefined,
+      pending: baseUrl ? baseUrl + cardapioPath + '?mp=pending&pedidoId=' + encodeURIComponent(String(pedido.id)) : undefined,
+      failure: baseUrl ? baseUrl + cardapioPath + '?mp=failure&pedidoId=' + encodeURIComponent(String(pedido.id)) : undefined
     };
 
     const webhookUrl = process.env.MP_WEBHOOK_URL || (baseUrl ? (baseUrl + '/api/mercadopago/webhook') : undefined);

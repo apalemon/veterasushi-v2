@@ -1,5 +1,6 @@
 const crypto = require('crypto');
 const { getCollection } = require('../../mongodb');
+const https = require('https');
 
 function safeStr(v) {
   return String(v == null ? '' : v).trim();
@@ -21,9 +22,57 @@ function pedidoIdQuery(pedidoId) {
   return s ? { $or: [{ id: s }, { id: Number(s) }] } : { id: null };
 }
 
+function fetchCompat(url, init) {
+  if (typeof globalThis.fetch === 'function') {
+    return globalThis.fetch(url, init);
+  }
+
+  return new Promise((resolve, reject) => {
+    try {
+      const u = new URL(url);
+      const method = (init && init.method ? String(init.method) : 'GET').toUpperCase();
+      const headers = (init && init.headers) ? init.headers : {};
+      const body = init && init.body != null ? init.body : null;
+
+      const req = https.request(
+        {
+          protocol: u.protocol,
+          hostname: u.hostname,
+          port: u.port || (u.protocol === 'https:' ? 443 : 80),
+          path: u.pathname + (u.search || ''),
+          method,
+          headers
+        },
+        (res) => {
+          let data = '';
+          res.setEncoding('utf8');
+          res.on('data', (chunk) => { data += chunk; });
+          res.on('end', () => {
+            const status = Number(res.statusCode || 0);
+            resolve({
+              ok: status >= 200 && status < 300,
+              status,
+              json: async () => {
+                try { return JSON.parse(data || 'null'); } catch (e) { return null; }
+              },
+              text: async () => String(data || '')
+            });
+          });
+        }
+      );
+
+      req.on('error', reject);
+      if (body != null) req.write(body);
+      req.end();
+    } catch (e) {
+      reject(e);
+    }
+  });
+}
+
 async function mpFetch(path, accessToken) {
   const url = 'https://api.mercadopago.com' + path;
-  const resp = await fetch(url, {
+  const resp = await fetchCompat(url, {
     method: 'GET',
     headers: {
       'Authorization': 'Bearer ' + accessToken,

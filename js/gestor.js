@@ -339,30 +339,8 @@ window.carregarPagamentosConfig = async function() {
         const resp = await fetch(window.location.origin + '/api/configuracoes');
         if (!resp.ok) return;
         const cfg = await resp.json();
-        const metodos = cfg.metodosPagamento || {};
-        
-        document.getElementById('pag-pix').checked = metodos.pix || false;
-        document.getElementById('pag-credito').checked = metodos.credito || false;
-        document.getElementById('pag-debito').checked = metodos.debito || false;
-        document.getElementById('pag-dinheiro').checked = metodos.dinheiro || false;
-        document.getElementById('pag-vale').checked = metodos.vale || false;
-        document.getElementById('pag-dinheiro-troco').checked = metodos.dinheiroTroco || false;
-        
-        // Mostrar/ocultar opção de troco
-        const trocoContainer = document.getElementById('troco-container');
-        if (trocoContainer) {
-            trocoContainer.style.display = metodos.dinheiro ? 'block' : 'none';
-        }
-        
-        // Listener para mostrar/ocultar troco
-        const dinheiroCheckbox = document.getElementById('pag-dinheiro');
-        if (dinheiroCheckbox) {
-            dinheiroCheckbox.addEventListener('change', () => {
-                if (trocoContainer) {
-                    trocoContainer.style.display = dinheiroCheckbox.checked ? 'block' : 'none';
-                }
-            });
-        }
+        const mpEl = document.getElementById('pag-mercadopago');
+        if (mpEl) mpEl.checked = true;
     } catch (e) {
         console.error('[PAGAMENTOS] Erro ao carregar:', e);
     }
@@ -371,18 +349,24 @@ window.carregarPagamentosConfig = async function() {
 window.salvarPagamentosConfig = async function(event) {
     try {
         if (event) event.preventDefault();
-        
+
         const metodos = {
-            pix: document.getElementById('pag-pix')?.checked || false,
-            credito: document.getElementById('pag-credito')?.checked || false,
-            debito: document.getElementById('pag-debito')?.checked || false,
-            dinheiro: document.getElementById('pag-dinheiro')?.checked || false,
-            dinheiroTroco: document.getElementById('pag-dinheiro-troco')?.checked || false,
-            vale: document.getElementById('pag-vale')?.checked || false
+            mercadopago: true
         };
-        
+
         const cfgAtual = db && typeof db.getConfiguracoes === 'function' ? (db.getConfiguracoes() || {}) : {};
-        const payload = { ...cfgAtual, metodosPagamento: metodos };
+
+        // O checkout usa cfg.pagamentos -> manter sincronizado.
+        const pagamentosCheckout = [
+            {
+                id: 'mercadopago',
+                nome: 'Mercado Pago',
+                tipo: 'mercadopago',
+                opcoesEntrega: ['mercadopago']
+            }
+        ];
+
+        const payload = { ...cfgAtual, metodosPagamento: metodos, pagamentos: pagamentosCheckout };
         
         const token = (() => {
             try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }

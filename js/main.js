@@ -2812,19 +2812,24 @@ function renderizarFormasPagamentoCheckout() {
     const pagamentos = Array.isArray(config.pagamentos) && config.pagamentos.length ? config.pagamentos : [];
 
     if (!pagamentos || pagamentos.length === 0) {
-        container.innerHTML = '<div style="color: var(--texto-medio);">Nenhuma forma de pagamento configurada.</div>';
+        // Padrão: Mercado Pago
+        container.innerHTML = `<label style="display:flex; align-items:center; gap:12px; padding:12px; background: rgba(255,255,255,0.03); border-radius:8px; cursor:default; margin-bottom:8px;">
+            <input type="radio" name="checkout-pagamento" value="mercadopago" style="width:18px; height:18px;" checked>
+            <span style="color:#fff; font-weight:500;">Mercado Pago</span>
+        </label>`;
         return;
     }
 
     // Pegar o primeiro método de pagamento (só pode ter um)
     const p = pagamentos[0];
-    const opcoes = Array.isArray(p.opcoesEntrega) ? p.opcoesEntrega : [];
+    const opcoesRaw = Array.isArray(p.opcoesEntrega) ? p.opcoesEntrega : [];
+    const opcoes = ['mercadopago'];
     
     console.log('[CHECKOUT] Método de pagamento:', p);
-    console.log('[CHECKOUT] Opções de entrega:', opcoes);
+    console.log('[CHECKOUT] Opções de entrega:', opcoesRaw);
     
     if (opcoes.length === 0) {
-        container.innerHTML = '<div style="color: var(--texto-medio);">Nenhuma forma de pagamento disponível. Configure as opções de pagamento no painel do gestor.</div>';
+        container.innerHTML = '<div style="color: var(--texto-medio);">Nenhuma forma de pagamento disponível.</div>';
         return;
     }
 
@@ -3075,7 +3080,7 @@ async function processarPedidoCheckout() {
     const cep = document.getElementById('checkout-cep')?.value.trim();
     const referencia = document.getElementById('checkout-referencia')?.value.trim();
     const observacoes = document.getElementById('checkout-observacoes')?.value.trim();
-    const formaPagamento = document.querySelector('input[name="checkout-pagamento"]:checked')?.value || 'pix';
+    const formaPagamento = document.querySelector('input[name="checkout-pagamento"]:checked')?.value || 'mercadopago';
     
     if (!nome || !telefone || !endereco || !numeroCasa || !bairro || !cep) {
         alert('Preencha todos os campos obrigatórios!');

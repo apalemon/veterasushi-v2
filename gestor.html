@@ -617,73 +617,14 @@
                     <p style="margin: 0 0 20px 0; color: var(--texto-medio);">Selecione as formas de pagamento aceitas pela sua loja.</p>
                     
                     <form id="form-pagamentos-config">
-                        <!-- PIX -->
-                        <div style="background: var(--bg-primary); border: 1px solid var(--borda); border-radius: 10px; padding: 16px; margin-bottom: 12px;">
-                            <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
-                                <input type="checkbox" id="pag-pix" style="width: 20px; height: 20px; accent-color: var(--accent);">
-                                <div style="flex: 1;">
-                                    <div style="font-weight: 600; color: var(--text-primary);">
-                                        <i class="fas fa-qrcode" style="color: var(--accent); margin-right: 8px;"></i> PIX
-                                    </div>
-                                    <div style="font-size: 13px; color: var(--texto-medio);">Pagamento via QR Code PIX (usa a chave PIX configurada)</div>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <!-- Cartão de Crédito -->
-                        <div style="background: var(--bg-primary); border: 1px solid var(--borda); border-radius: 10px; padding: 16px; margin-bottom: 12px;">
-                            <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
-                                <input type="checkbox" id="pag-credito" style="width: 20px; height: 20px; accent-color: var(--accent);">
-                                <div style="flex: 1;">
-                                    <div style="font-weight: 600; color: var(--text-primary);">
-                                        <i class="fas fa-credit-card" style="color: var(--accent); margin-right: 8px;"></i> Cartão de Crédito
-                                    </div>
-                                    <div style="font-size: 13px; color: var(--texto-medio);">Pagamento na entrega com máquina de cartão</div>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <!-- Cartão de Débito -->
-                        <div style="background: var(--bg-primary); border: 1px solid var(--borda); border-radius: 10px; padding: 16px; margin-bottom: 12px;">
-                            <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
-                                <input type="checkbox" id="pag-debito" style="width: 20px; height: 20px; accent-color: var(--accent);">
-                                <div style="flex: 1;">
-                                    <div style="font-weight: 600; color: var(--text-primary);">
-                                        <i class="fas fa-credit-card" style="color: var(--accent); margin-right: 8px;"></i> Cartão de Débito
-                                    </div>
-                                    <div style="font-size: 13px; color: var(--texto-medio);">Pagamento na entrega com máquina de cartão</div>
-                                </div>
-                            </label>
-                        </div>
-                        
-                        <!-- Dinheiro -->
-                        <div style="background: var(--bg-primary); border: 1px solid var(--borda); border-radius: 10px; padding: 16px; margin-bottom: 12px;">
-                            <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
-                                <input type="checkbox" id="pag-dinheiro" style="width: 20px; height: 20px; accent-color: var(--accent);">
-                                <div style="flex: 1;">
-                                    <div style="font-weight: 600; color: var(--text-primary);">
-                                        <i class="fas fa-money-bill-wave" style="color: var(--accent); margin-right: 8px;"></i> Dinheiro
-                                    </div>
-                                    <div style="font-size: 13px; color: var(--texto-medio);">Pagamento em espécie na entrega</div>
-                                </div>
-                            </label>
-                            <div id="troco-container" style="margin-top: 12px; padding-left: 32px; display: none;">
-                                <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
-                                    <input type="checkbox" id="pag-dinheiro-troco" style="accent-color: var(--accent);">
-                                    <span style="font-size: 13px; color: var(--texto-medio);">Perguntar se precisa de troco</span>
-                                </label>
-                            </div>
-                        </div>
-                        
-                        <!-- Vale Alimentação/Refeição -->
                         <div style="background: var(--bg-primary); border: 1px solid var(--borda); border-radius: 10px; padding: 16px; margin-bottom: 20px;">
-                            <label style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
-                                <input type="checkbox" id="pag-vale" style="width: 20px; height: 20px; accent-color: var(--accent);">
+                            <label style="display: flex; align-items: center; gap: 12px; cursor: default;">
+                                <input type="checkbox" id="pag-mercadopago" checked disabled style="width: 20px; height: 20px; accent-color: var(--accent);">
                                 <div style="flex: 1;">
                                     <div style="font-weight: 600; color: var(--text-primary);">
-                                        <i class="fas fa-utensils" style="color: var(--accent); margin-right: 8px;"></i> Vale Alimentação/Refeição
+                                        <i class="fas fa-credit-card" style="color: var(--accent); margin-right: 8px;"></i> Mercado Pago
                                     </div>
-                                    <div style="font-size: 13px; color: var(--texto-medio);">Pagamento na entrega com cartão benefício</div>
+                                    <div style="font-size: 13px; color: var(--texto-medio);">Única forma de pagamento ativa (padrão)</div>
                                 </div>
                             </label>
                         </div>
