@@ -11,6 +11,74 @@ function toggleUserDropdown() {
     if (dropdown) {
         dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block';
     }
+
+}
+
+async function handleMercadoPagoPendingFallback() {
+    try {
+        // Se já veio com mp=...&pedidoId=..., o handler principal cuida.
+        const qs = new URLSearchParams(String(window.location && window.location.search ? window.location.search : ''));
+        if (String(qs.get('mp') || '').trim() && String(qs.get('pedidoId') || '').trim()) return;
+
+        let pending = null;
+        try {
+            pending = JSON.parse(localStorage.getItem('vetera_mp_pending_order') || 'null');
+        } catch (e) {
+            pending = null;
+        }
+        if (!pending || !pending.pedidoId) return;
+
+        const pedidoId = String(pending.pedidoId).trim();
+        const createdAt = Number(pending.createdAt || 0);
+        if (!pedidoId) return;
+
+        // Evitar ficar consultando para sempre
+        if (createdAt && Date.now() - createdAt > 2 * 60 * 60 * 1000) {
+            try { localStorage.removeItem('vetera_mp_pending_order'); } catch (e) {}
+            return;
+        }
+
+        try {
+            mostrarNotificacaoInApp('Pagamento', 'Verificando status do seu pagamento...', '⏳');
+        } catch (e) {}
+
+        const startedAt = Date.now();
+        const timeoutMs = 60000;
+        const intervalMs = 3000;
+
+        async function syncStatus() {
+            try {
+                await fetch(window.location.origin + '/api/mercadopago/webhook?pedidoId=' + encodeURIComponent(String(pedidoId)));
+            } catch (e) {}
+        }
+
+        async function fetchPedido() {
+            const resp = await fetch(window.location.origin + '/api/pedidos?ids=' + encodeURIComponent(String(pedidoId)));
+            if (!resp.ok) return null;
+            const data = await resp.json();
+            const arr = Array.isArray(data) ? data : [];
+            return arr.find(x => String(x && x.id) === String(pedidoId) || Number(x && x.id) === Number(pedidoId)) || null;
+        }
+
+        while (Date.now() - startedAt < timeoutMs) {
+            await syncStatus();
+            let pedido = null;
+            try { pedido = await fetchPedido(); } catch (e) { pedido = null; }
+
+            const stPag = String(pedido && pedido.statusPagamento ? pedido.statusPagamento : '').toLowerCase();
+            if (stPag === 'pago') {
+                try {
+                    mostrarNotificacaoInApp('Pagamento', 'Pagamento aprovado! Seu pedido entrou em preparo.', '✅');
+                } catch (e) {}
+                try { localStorage.removeItem('vetera_mp_pending_order'); } catch (e) {}
+                return;
+            }
+
+            await new Promise(r => setTimeout(r, intervalMs));
+        }
+    } catch (e) {
+        // ignora
+    }
 }
 
 // Fechar dropdown ao clicar fora
@@ -41,8 +109,14 @@ async function handleMercadoPagoReturn() {
 
         // Poll curto para refletir status do webhook no pedido
         const startedAt = Date.now();
-        const timeoutMs = 60000;
+        const timeoutMs = 90000;
         const intervalMs = 3000;
+
+        async function syncStatus() {
+            try {
+                await fetch(window.location.origin + '/api/mercadopago/webhook?pedidoId=' + encodeURIComponent(String(pedidoId)));
+            } catch (e) {}
+        }
 
         async function fetchPedido() {
             const resp = await fetch(window.location.origin + '/api/pedidos?ids=' + encodeURIComponent(String(pedidoId)));
@@ -53,6 +127,7 @@ async function handleMercadoPagoReturn() {
         }
 
         while (Date.now() - startedAt < timeoutMs) {
+            await syncStatus();
             let pedido = null;
             try { pedido = await fetchPedido(); } catch (e) { pedido = null; }
 
@@ -73,6 +148,11 @@ async function handleMercadoPagoReturn() {
             url.searchParams.delete('mp');
             url.searchParams.delete('pedidoId');
             window.history.replaceState({}, '', url.pathname + (url.searchParams.toString() ? ('?' + url.searchParams.toString()) : '') + url.hash);
+        } catch (e) {}
+
+        // Limpar pendência local (se existir)
+        try {
+            localStorage.removeItem('vetera_mp_pending_order');
         } catch (e) {}
     } catch (e) {
         // ignora
@@ -342,6 +422,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Tratar retorno do Mercado Pago (success/pending/failure)
     try { handleMercadoPagoReturn(); } catch (e) {}
+    try { handleMercadoPagoPendingFallback(); } catch (e) {}
 
     // Iniciar monitoramento de status + chat (se houver pedidos)
     try { iniciarMonitoramentoStatusPedidosCliente(); } catch (e) {}
@@ -3401,14 +3482,20 @@ async function processarPedidoCheckout() {
                 return;
             }
             const data = await resp.json();
-            if (!data || !data.ok || !data.init_point) {
+            const checkoutUrl = data && data.ok ? String(data.init_point || data.sandbox_init_point || '') : '';
+            if (!checkoutUrl) {
                 console.warn('[MP] preference inválida:', data);
                 alert('Não foi possível iniciar o pagamento no Mercado Pago.');
                 return;
             }
 
+            // Salvar pendência local para fallback caso o MP não faça auto-return
+            try {
+                localStorage.setItem('vetera_mp_pending_order', JSON.stringify({ pedidoId: pedido.id, createdAt: Date.now() }));
+            } catch (e) {}
+
             // Redirecionar
-            window.location.href = String(data.init_point);
+            window.location.href = checkoutUrl;
             return;
         } catch (e) {
             console.warn('[MP] erro ao criar preference:', e);
