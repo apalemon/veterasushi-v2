@@ -189,6 +189,11 @@ module.exports = async (req, res) => {
 
     const mpResp = await mpRequest('/v1/payments', accessToken, {
       method: 'POST',
+      headers: {
+        // Obrigatório em algumas contas/configurações do Mercado Pago
+        // e útil para evitar duplicação em retries.
+        'X-Idempotency-Key': 'pix_intent_' + String(intentId)
+      },
       body: JSON.stringify(paymentPayload)
     });
 
