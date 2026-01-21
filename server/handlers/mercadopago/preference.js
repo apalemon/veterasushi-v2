@@ -120,9 +120,25 @@ module.exports = async (req, res) => {
     }
 
     const pedidosCol = await getCollection('pedidos');
-    const pedido = await pedidosCol.findOne(pedidoIdQuery(pedidoId));
+    let pedido = await pedidosCol.findOne(pedidoIdQuery(pedidoId));
     if (!pedido) {
-      return res.status(404).json({ ok: false, error: 'Pedido não encontrado' });
+      const pidNum = toNumber(pedidoId);
+      const stub = {
+        id: pidNum != null ? pidNum : String(pedidoId),
+        total: Number(amount),
+        formaPagamento: 'mercadopago',
+        status: 'aguardando_pagamento',
+        statusPagamento: 'pendente',
+        dataCriacao: nowIso(),
+        mpUpdatedAt: nowIso()
+      };
+      try {
+        await pedidosCol.updateOne(pedidoIdQuery(pedidoId), { $setOnInsert: stub }, { upsert: true });
+      } catch (e) {}
+      pedido = await pedidosCol.findOne(pedidoIdQuery(pedidoId));
+      if (!pedido) {
+        return res.status(404).json({ ok: false, error: 'Pedido não encontrado' });
+      }
     }
 
     const proto = firstNonEmptyStr(
