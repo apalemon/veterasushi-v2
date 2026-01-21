@@ -165,6 +165,8 @@ module.exports = async (req, res) => {
     const baseUrl = process.env.PUBLIC_BASE_URL || (host ? (proto + '://' + host) : null);
     const webhookUrl = process.env.MP_WEBHOOK_URL || (baseUrl ? (baseUrl + '/api/mercadopago/webhook') : undefined);
 
+    const hasPublicWebhook = Boolean(process.env.MP_WEBHOOK_URL || process.env.PUBLIC_BASE_URL);
+
     const paymentPayload = {
       transaction_amount: Number(amount),
       description: safeStr(body.description) || ('Pedido Vetera - ' + intentId),
@@ -174,20 +176,35 @@ module.exports = async (req, res) => {
         first_name: payerName
       },
       external_reference: intentId,
-      notification_url: webhookUrl,
       metadata: {
         intentId
       }
     };
+
+    // Em ambiente local (sem domínio público), o MP pode rejeitar notification_url.
+    // Só enviar quando houver URL público explicitamente configurado.
+    if (hasPublicWebhook && webhookUrl) {
+      paymentPayload.notification_url = webhookUrl;
+    }
 
     const mpResp = await mpRequest('/v1/payments', accessToken, {
       method: 'POST',
       body: JSON.stringify(paymentPayload)
     });
 
-    const mp = await mpResp.json().catch(() => null);
+    const mpText = await mpResp.text().catch(() => '');
+    const mp = (() => {
+      try { return JSON.parse(mpText || 'null'); } catch (e) { return null; }
+    })();
+
     if (!mpResp.ok || !mp) {
-      return res.status(500).json({ ok: false, error: 'Falha ao criar pagamento PIX', details: mp || null, status: mpResp.status });
+      return res.status(500).json({
+        ok: false,
+        error: 'Falha ao criar pagamento PIX',
+        status: mpResp.status,
+        details: mp,
+        raw: mpText
+      });
     }
 
     const tx = mp && mp.point_of_interaction && mp.point_of_interaction.transaction_data ? mp.point_of_interaction.transaction_data : null;

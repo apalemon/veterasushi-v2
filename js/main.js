@@ -3372,10 +3372,13 @@ async function processarPedidoCheckout() {
             })
         });
 
-        intentResp = resp.ok ? await resp.json().catch(() => null) : await resp.json().catch(() => null);
+        intentResp = await resp.json().catch(() => null);
         if (!resp.ok || !intentResp || !intentResp.ok) {
             console.warn('[PIX] Falha ao criar intent PIX:', resp.status, intentResp);
-            alert('Não foi possível iniciar o PIX. Tente novamente.');
+            const detalhes = intentResp && (intentResp.error || intentResp.message || intentResp.details || intentResp.raw)
+                ? (intentResp.error || intentResp.message || JSON.stringify(intentResp.details || intentResp.raw))
+                : null;
+            alert('Não foi possível iniciar o PIX.' + (detalhes ? ('\n\nDetalhes: ' + String(detalhes).slice(0, 600)) : ''));
             return;
         }
     } catch (e) {
