@@ -105,6 +105,12 @@ module.exports = async (req, res) => {
                         if (!pedido.chatToken && existing.chatToken) {
                             pedido.chatToken = existing.chatToken;
                         }
+                        if ((pedido.printStatus == null || pedido.printStatus === '') && existing.printStatus != null) {
+                            pedido.printStatus = existing.printStatus;
+                        }
+                        if (pedido.printedAt == null && existing.printedAt != null) {
+                            pedido.printedAt = existing.printedAt;
+                        }
                         if (!pedido.clienteNome && existing.clienteNome) {
                             pedido.clienteNome = existing.clienteNome;
                         }

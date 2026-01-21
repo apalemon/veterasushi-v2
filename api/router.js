@@ -62,6 +62,11 @@ module.exports = async (req, res) => {
         return false;
       }
 
+      // PRINT APP (Python local): público no router, protegido por token no handler
+      if (first === 'print') {
+        return false;
+      }
+
       // usuarios-admin: sempre protegido
       if (first === 'usuarios-admin') return true;
 

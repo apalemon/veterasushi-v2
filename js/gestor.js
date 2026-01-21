@@ -823,7 +823,7 @@ window.toggleProdutoAtivo = toggleProdutoAtivo;
 let pedidosVistos = new Set();
 let pedidosOcultos = new Set();
 let ultimoPedidoId = 0;
-let filtroStatus = 'aguardando_pagamento';
+let filtroStatus = 'em_preparo';
 let termoBusca = '';
 let menuItemsPDV = [];
 let orderPDV = [];
@@ -1646,7 +1646,25 @@ async function atualizarChatGestor() {
         }
 
         const seen = _getChatAdminSeenMap();
-        const chats = Array.isArray(data.chats) ? data.chats : [];
+        let chats = Array.isArray(data.chats) ? data.chats : [];
+
+        // Mostrar apenas chats de pedidos do dia
+        chats = chats.filter(c => {
+            try {
+                const pid = c && c.pedidoId ? Number(c.pedidoId) : null;
+                if (!pid) return false;
+                const pedido = (typeof db !== 'undefined' && typeof db.getPedido === 'function') ? db.getPedido(pid) : null;
+                if (!pedido) return false;
+                const d = pedido.data || pedido.dataCriacao || pedido.createdAt;
+                if (!d) return false;
+                const dt = new Date(d);
+                if (!(dt instanceof Date) || isNaN(dt.getTime())) return false;
+                const now = new Date();
+                return dt.getFullYear() === now.getFullYear() && dt.getMonth() === now.getMonth() && dt.getDate() === now.getDate();
+            } catch (e) {
+                return false;
+            }
+        });
 
         if (statusEl) statusEl.textContent = chats.length + ' conversa(s)';
 
@@ -1944,16 +1962,9 @@ function renderizarPedidos() {
     // Garantir que temos os pedidos mais recentes
     const pedidosDisponiveis = db.getPedidos();
 
-    // Filtrar por status (sem opção "todos")
-    let pedidos = pedidosDisponiveis.filter(function(p) { 
-        // Se o status for 'aguardando_pagamento', incluir também 'aguardando_aprovacao' e 'aguardando_aprovacao_pix'
-        if (filtroStatus === 'aguardando_pagamento') {
-            return p.status === 'aguardando_pagamento' || 
-                   p.status === 'aguardando_aprovacao' || 
-                   p.status === 'aguardando_aprovacao_pix' ||
-                   (p.status === 'pendente' && (p.statusPagamento === 'pendente' || p.statusPagamento === 'aguardando_aprovacao'));
-        }
-        return p.status === filtroStatus; 
+    // Filtrar por status
+    let pedidos = pedidosDisponiveis.filter(function(p) {
+        return p && p.status === filtroStatus;
     });
 
     // FILTRAR: Pedidos recusados e ocultos NÃO aparecem na lista principal

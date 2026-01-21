@@ -188,6 +188,8 @@ async function createOrderFromIntentApproved(intent, pay) {
     statusPagamento: 'pago',
     formaPagamento: 'pix',
     formaPagamentoDetalhe: 'mercadopago',
+    printStatus: 'pending',
+    printedAt: null,
     total: Number(intent.amount),
     subtotal: Number(draft.subtotal || 0),
     desconto: Number(draft.desconto || 0),

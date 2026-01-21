@@ -3624,7 +3624,30 @@ async function mostrarPixIntent(intent) {
                     await db.carregarPedidosServidor();
                 }
             } catch (e) {}
-            try { fecharModal('modal-pix'); } catch (e) {}
+            try {
+                container.innerHTML = `
+                  <div class="pix-container" style="text-align: center; padding: 2rem;">
+                    <h3 style="color: var(--sucesso); margin-bottom: 1rem;">Pagamento finalizado</h3>
+                    <div style="background: var(--cinza-medio); padding: 1.25rem; border-radius: 10px; margin: 0 auto; max-width: 520px;">
+                      <p style="margin: 0; color: var(--texto-claro); font-weight: 700; font-size: 1.05rem;">PIX aprovado com sucesso.</p>
+                      <p style="margin: 10px 0 0; color: var(--texto-medio);">Seu pedido foi registrado e já está em andamento.</p>
+                      <p style="margin: 10px 0 0; color: var(--texto-medio); font-size: 0.9rem;">Pedido #<strong style="color:#fff;">${String(orderId)}</strong></p>
+                    </div>
+                  </div>
+                `;
+            } catch (e) {}
+            try {
+                const statusEl2 = document.getElementById('pix-status-text');
+                if (statusEl2) {
+                    statusEl2.textContent = 'Pagamento aprovado';
+                    statusEl2.style.color = 'var(--sucesso)';
+                }
+            } catch (e) {}
+            try {
+                setTimeout(() => {
+                    try { fecharModal('modal-pix'); } catch (e2) {}
+                }, 1500);
+            } catch (e) {}
             try {
                 mostrarNotificacaoInApp('Pagamento', 'Pagamento aprovado! Seu pedido já está em andamento.', '✅');
             } catch (e) {}
