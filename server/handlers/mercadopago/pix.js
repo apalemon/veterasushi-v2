@@ -96,8 +96,8 @@ function normalizeEmail(email, telefone) {
   const e = safeStr(email);
   if (e && e.includes('@')) return e;
   const digits = String(telefone || '').replace(/\D/g, '');
-  if (digits) return 'cliente_' + digits + '@vetera.local';
-  return 'cliente_' + makeIntentId().slice(0, 8) + '@vetera.local';
+  if (digits) return 'cliente_' + digits + '@example.com';
+  return 'cliente_' + makeIntentId().slice(0, 8) + '@example.com';
 }
 
 module.exports = async (req, res) => {
@@ -239,6 +239,11 @@ module.exports = async (req, res) => {
       qr_code_base64: qrCodeBase64
     });
   } catch (err) {
-    return res.status(500).json({ ok: false, error: 'Erro ao criar intent PIX', details: err && err.message ? String(err.message) : String(err) });
+    return res.status(500).json({
+      ok: false,
+      error: 'Erro ao criar intent PIX',
+      details: err && err.message ? String(err.message) : String(err),
+      hint: 'Verifique MP_ACCESS_TOKEN e a conexão com o MongoDB (payment_intents).'
+    });
   }
 };
