@@ -3333,209 +3333,66 @@ async function processarPedidoCheckout() {
     // Cliente não precisa estar logado - usar dados do formulário
     const clienteId = null;
     
-    // Criar pedido
+    // Criar intenção de pagamento PIX (Mercado Pago) - NÃO criar pedido antes do pagamento
     const enderecoCompleto = `${endereco}, Nº ${numeroCasa} - ${bairro} - CEP: ${cep}` + (referencia ? ` (Ref: ${referencia})` : '');
-    
-    
-    if (typeof db === 'undefined' || typeof db.criarPedido !== 'function') {
-        console.error('[MAIN] ❌ db ou db.criarPedido não está disponível!');
-        alert('Erro: Sistema de banco de dados não disponível. Recarregue a página.');
-        return;
-    }
-    
-    let pedido;
+
+    const draft = {
+        clienteNome: nome,
+        clienteCPF: cpf,
+        clienteTelefone: telefone,
+        clienteEndereco: enderecoCompleto,
+        itens: itensParaPedido,
+        subtotal: subtotal,
+        desconto: desconto + descontoCondicional,
+        taxaEntrega: taxaEntrega,
+        total: total,
+        observacoes: observacoes,
+        cupom: cupomAplicado ? cupomAplicado.codigo : null
+    };
+
+    // Limpar carrinho e fechar checkout antes de exibir o PIX
     try {
-        // Mercado Pago: automático via webhook
-        const statusInicial = 'aguardando_pagamento';
-        const statusPagamentoInicial = 'pendente';
-        const chatToken = _gerarChatToken();
-        
-        pedido = db.criarPedido({
-            clienteId: clienteId,
-            clienteNome: nome,
-            clienteCPF: cpf,
-            clienteTelefone: telefone,
-            clienteEndereco: enderecoCompleto,
-            itens: itensParaPedido,
-            subtotal: subtotal,
-            desconto: desconto + descontoCondicional,
-            taxaEntrega: taxaEntrega,
-            total: total,
-            formaPagamento: formaPagamento,
-            formaPagamentoDetalhe: null,
-            observacoes: observacoes,
-            cupom: cupomAplicado ? cupomAplicado.codigo : null,
-                chatToken: chatToken,
-            status: statusInicial,
-            statusPagamento: statusPagamentoInicial
+        if (typeof window.carrinho !== 'undefined') {
+            window.carrinho.limpar();
+        }
+        localStorage.removeItem('vetera_carrinho');
+        localStorage.removeItem('vetera_pedido_temporario');
+    } catch (e) {}
+    try { fecharModal('modal-checkout'); } catch (e) {}
+
+    let intentResp = null;
+    try {
+        const resp = await fetch(window.location.origin + '/api/mercadopago/pix', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                amount: Number(total),
+                draft: draft,
+                description: 'Pagamento PIX - Vetera Sushi'
+            })
         });
-        
-        console.log('[MAIN] ✅ Pedido criado com sucesso! ID:', pedido.id);
 
-        // Salvar este pedido como "meu" no dispositivo (fonte principal do Meus Pedidos)
-        adicionarPedidoIdClienteLocal(pedido.id);
-
-            // Salvar token do chat localmente para autenticar o cliente no chat
-            salvarChatTokenPedidoLocal(pedido.id, chatToken);
-
-        // IMPORTANTE: iniciar monitoramento após criar o primeiro pedido
-        try {
-            iniciarMonitoramentoStatusPedidosCliente();
-        } catch (e) {}
-
-        // Criar/atualizar perfil local simples (sem senha)
-        try {
-            localStorage.setItem('vetera_cliente_local', JSON.stringify({
-                nome: nome,
-                telefone: telefone,
-                cpf: cpf,
-                endereco: endereco,
-                bairro: bairro,
-                cep: cep,
-                atualizadoEm: new Date().toISOString()
-            }));
-        } catch (e) {
-            // ignora
+        intentResp = resp.ok ? await resp.json().catch(() => null) : await resp.json().catch(() => null);
+        if (!resp.ok || !intentResp || !intentResp.ok) {
+            console.warn('[PIX] Falha ao criar intent PIX:', resp.status, intentResp);
+            alert('Não foi possível iniciar o PIX. Tente novamente.');
+            return;
         }
-        
-        // Sugerir notificações do navegador
-        if (typeof window.sugerirNotificacoes === 'function') {
-            window.sugerirNotificacoes();
-        }
-
-        // Exigir escolha explícita (ativar vs aceitar risco)
-        try {
-            if (typeof window.exigirEscolhaNotificacoesCliente === 'function') {
-                await window.exigirEscolhaNotificacoesCliente();
-            }
-        } catch (e) {}
-        
-        // Iniciar verificação de status do pedido
-        if (typeof window.verificarStatusPedido === 'function') {
-            window.verificarStatusPedido(pedido.id);
-        }
-        
-        // Notificar PDV/Gestor sobre novo pedido (disparar beep)
-        try {
-            // PRIMEIRO: Salvar flag no localStorage
-            localStorage.setItem('vetera_novo_pedido', JSON.stringify({
-                pedidoId: pedido.id,
-                timestamp: Date.now()
-            }));
-            
-            // DEPOIS: Disparar evento para gestor.js ouvir
-            const evento = new CustomEvent('novoPedidoCriado', { 
-                detail: { pedido: pedido },
-                bubbles: true,
-                cancelable: true
-            });
-            
-            // Disparar em window e document
-            window.dispatchEvent(evento);
-            if (typeof document !== 'undefined') {
-                document.dispatchEvent(evento);
-            }
-        } catch (e) {
-            console.error('[MAIN] ❌ Erro ao notificar PDV:', e);
-        }
-    } catch (error) {
-        console.error('[MAIN] ❌ Erro ao criar pedido:', error);
-        alert('Erro ao criar pedido. Tente novamente.');
+    } catch (e) {
+        console.warn('[PIX] Erro ao criar intent PIX:', e);
+        alert('Erro ao iniciar PIX. Verifique sua conexão e tente novamente.');
         return;
     }
-    
-    // Limpar carrinho
-    if (typeof window.carrinho !== 'undefined') {
-        window.carrinho.limpar();
-    }
-    localStorage.removeItem('vetera_carrinho');
-    localStorage.removeItem('vetera_pedido_temporario');
-    
-    // Fechar modal de checkout
-    fecharModal('modal-checkout');
 
-    // Fluxo: Mercado Pago
-    if (pedido) {
-        try {
-            if (typeof window.mostrarNotificacaoInApp === 'function') {
-                window.mostrarNotificacaoInApp('Pagamento', 'Redirecionando para o Mercado Pago...');
-            }
-        } catch (e) {}
-
-        // IMPORTANTE: o handler de /api/mercadopago/preference busca o pedido no Mongo.
-        // Portanto precisamos persistir o pedido no servidor antes de criar a preference.
-        try {
-            const respSalvar = await fetch(window.location.origin + '/api/pedidos', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify([pedido])
-            });
-            if (!respSalvar.ok) {
-                console.warn('[PEDIDOS] Falha ao persistir pedido no servidor antes do MP:', respSalvar.status);
-                alert('Não foi possível salvar o pedido no servidor (erro ' + respSalvar.status + '). Tente novamente.');
-                return;
-            }
-
-            // Garantir que o pedido já está consultável no servidor antes de criar a preference
-            try {
-                const respCheck = await fetch(window.location.origin + '/api/pedidos?ids=' + encodeURIComponent(String(pedido.id)));
-                const arr = respCheck.ok ? await respCheck.json().catch(() => []) : [];
-                const list = Array.isArray(arr) ? arr : [];
-                const found = list.find(p => String(p && p.id) === String(pedido.id) || Number(p && p.id) === Number(pedido.id));
-                if (!found) {
-                    console.warn('[PEDIDOS] Pedido ainda não disponível no servidor para MP:', pedido.id);
-                    alert('O pedido ainda não foi sincronizado no servidor. Aguarde alguns segundos e tente novamente.');
-                    return;
-                }
-            } catch (e) {
-                console.warn('[PEDIDOS] Falha ao confirmar persistência do pedido:', e);
-            }
-        } catch (e) {
-            console.warn('[PEDIDOS] Erro ao persistir pedido no servidor antes do MP:', e);
-            alert('Erro ao salvar pedido no servidor. Verifique sua conexão e tente novamente.');
-            return;
-        }
-
-        try {
-            const resp = await fetch(window.location.origin + '/api/mercadopago/preference', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    pedidoId: pedido.id,
-                    amount: Number(pedido.total || total),
-                    title: 'Pedido #' + pedido.id + ' - Vetera Sushi',
-                    slug: (String(window.location && window.location.pathname ? window.location.pathname : '').split('/').filter(Boolean)[0] || 'vetera')
-                })
-            });
-
-            if (!resp.ok) {
-                let payload = null;
-                try { payload = await resp.json(); } catch (e) {}
-                console.warn('[MP] preference falhou:', resp.status, payload);
-                alert('Não foi possível iniciar o pagamento no Mercado Pago. Tente novamente.');
-                return;
-            }
-            const data = await resp.json();
-            const checkoutUrl = data && data.ok ? String(data.init_point || data.sandbox_init_point || '') : '';
-            if (!checkoutUrl) {
-                console.warn('[MP] preference inválida:', data);
-                alert('Não foi possível iniciar o pagamento no Mercado Pago.');
-                return;
-            }
-
-            // Salvar pendência local para fallback caso o MP não faça auto-return
-            try {
-                localStorage.setItem('vetera_mp_pending_order', JSON.stringify({ pedidoId: pedido.id, createdAt: Date.now() }));
-            } catch (e) {}
-
-            // Redirecionar
-            window.location.href = checkoutUrl;
-            return;
-        } catch (e) {
-            console.warn('[MP] erro ao criar preference:', e);
-            alert('Erro ao iniciar o pagamento. Verifique sua conexão e tente novamente.');
-            return;
-        }
+    try {
+        await mostrarPixIntent({
+            intentId: intentResp.intentId,
+            qr_code: intentResp.qr_code,
+            qr_code_base64: intentResp.qr_code_base64,
+            amount: Number(total)
+        });
+    } catch (e) {
+        console.warn('[PIX] Erro ao exibir modal PIX:', e);
     }
 }
 
@@ -3665,52 +3522,110 @@ window.mostrarPopupLojaFechada = mostrarPopupLojaFechada;
 
 // Mostrar QR Code PIX
 function mostrarQRCodePix(pedido) {
-    // Obter chave PIX das configurações
-    let chavePix = '';
+    // Compatibilidade: fluxo antigo não é mais usado. Mantido para não quebrar chamadas antigas.
     try {
-        if (typeof db !== 'undefined' && db.getConfiguracoes) {
-            const cfg = db.getConfiguracoes();
-            chavePix = cfg.chavePix || '';
-        }
-    } catch (e) {
-        // Ignorar erro
-    }
-    
-    // Se não tiver chave, usar a fixa
-    if (!chavePix) {
-        chavePix = pixPayment.getChavePixFixa();
-    }
-    
+        console.warn('[PIX] Fluxo antigo de PIX foi substituído por PIX Mercado Pago (Payment Intent).');
+    } catch (e) {}
+}
+
+async function mostrarPixIntent(intent) {
     const modal = document.getElementById('modal-pix');
     const container = document.getElementById('pix-container');
-    
     if (!modal || !container) return;
-    
-    // Mostrar modal
+
+    const intentId = String(intent && intent.intentId ? intent.intentId : '').trim();
+    if (!intentId) {
+        alert('Erro ao iniciar pagamento PIX.');
+        return;
+    }
+
+    const qrBase64 = String(intent && intent.qr_code_base64 ? intent.qr_code_base64 : '').trim();
+    const qrCode = String(intent && intent.qr_code ? intent.qr_code : '').trim();
+    const amount = Number(intent && intent.amount != null ? intent.amount : NaN);
+
+    const qrImg = qrBase64 ? ('data:image/png;base64,' + qrBase64) : (qrCode ? (pixPayment.gerarQRCode(qrCode, Number.isFinite(amount) ? amount : 0).qrCodeUrl) : '');
+    const codigo = qrCode;
+
+    const codigoEsc = typeof escapeHTML !== 'undefined' ? escapeHTML(codigo) : String(codigo || '').replace(/[<>'"]/g, '');
+    const codigoClipboard = codigoEsc.replace(/'/g, "\\'").replace(/\"/g, '\\"');
+
+    container.innerHTML = `
+      <div class="pix-container" style="text-align: center; padding: 2rem;">
+        <h3 style="color: var(--vermelho-claro); margin-bottom: 1.5rem;">Pagamento via PIX</h3>
+
+        ${qrImg ? `
+          <div style="background: white; padding: 1.5rem; border-radius: 10px; display: inline-block; margin-bottom: 1.5rem; box-shadow: 0 4px 15px rgba(0,0,0,0.3);">
+            <img src="${qrImg}" alt="QR Code PIX" style="max-width: 300px; width: 100%;">
+          </div>
+        ` : ''}
+
+        <div style="background: var(--cinza-medio); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem;">
+          <p style="color: var(--texto-medio); margin-bottom: 0.5rem;">Status:</p>
+          <p id="pix-status-text" style="font-size: 1.1rem; font-weight: 700; color: var(--aviso); margin: 0;">Aguardando pagamento</p>
+        </div>
+
+        <div style="background: var(--cinza-medio); padding: 1rem; border-radius: 8px; margin-bottom: 1.5rem; text-align:left;">
+          <p style="color: var(--texto-medio); margin-bottom: 0.5rem; font-size: 0.9rem;">PIX copia e cola:</p>
+          <div style="background: rgba(0,0,0,0.35); border: 1px solid var(--borda); border-radius: 8px; padding: 10px; color: #fff; word-break: break-all; font-size: 0.85rem;">${codigoEsc || '---'}</div>
+          <button
+            onclick="copyTextSafe('${codigoClipboard}')"
+            style="margin-top: 0.75rem; padding: 0.6rem 1rem; background: var(--vermelho-claro); color: white; border: none; border-radius: 8px; cursor: pointer;">
+            Copiar código PIX
+          </button>
+        </div>
+      </div>
+    `;
+
     modal.style.display = 'flex';
-    
-    // Renderizar QR Code
-    const nomeLoja = (typeof db !== 'undefined' && db.getConfiguracoes) ? (db.getConfiguracoes().nomeEstabelecimento || 'Vetera Sushi') : 'Vetera Sushi';
-    pixPayment.renderizarQRCode('pix-container', chavePix, pedido.total, `Pedido #${pedido.id} - ${nomeLoja}`);
-    
-    // Adicionar mensagem de aprovação manual após o QR Code
-    setTimeout(() => {
-        const mensagemAprovacao = document.createElement('div');
-        mensagemAprovacao.style.cssText = 'margin-top: 20px; padding: 15px; background: rgba(220, 38, 38, 0.1); border: 1px solid rgba(220, 38, 38, 0.3); border-radius: 8px; text-align: center;';
-        mensagemAprovacao.innerHTML = `
-            <p style="color: #fff; margin: 0; font-weight: 500;">
-                <i class="fas fa-clock" style="color: var(--vermelho-claro);"></i> 
-                Aguardando aprovação manual do gestor
-            </p>
-            <p style="color: var(--texto-medio); margin: 10px 0 0 0; font-size: 0.9rem;">
-                Após o pagamento, o gestor aprovará seu pedido manualmente.
-            </p>
-        `;
-        container.appendChild(mensagemAprovacao);
-    }, 500);
-    
     modal.classList.add('active');
-    localStorage.setItem('vetera_pedido_aguardando_pix', pedido.id);
+
+    // Polling até aprovado (fallback caso webhook demore)
+    try {
+        localStorage.setItem('vetera_pix_intent_pendente', JSON.stringify({ intentId, createdAt: Date.now() }));
+    } catch (e) {}
+
+    const startedAt = Date.now();
+    const timeoutMs = 120000;
+    const intervalMs = 2500;
+
+    while (Date.now() - startedAt < timeoutMs) {
+        let data = null;
+        try {
+            const resp = await fetch(window.location.origin + '/api/mercadopago/webhook?intentId=' + encodeURIComponent(intentId));
+            data = resp.ok ? await resp.json().catch(() => null) : null;
+        } catch (e) {
+            data = null;
+        }
+
+        const status = String(data && data.status ? data.status : '').toLowerCase();
+        const orderId = data && (data.orderId || data.pedidoId) ? data.orderId || data.pedidoId : null;
+
+        const statusEl = document.getElementById('pix-status-text');
+        if (statusEl) {
+            if (status === 'approved') statusEl.textContent = 'Pagamento aprovado';
+            else if (status === 'rejected' || status === 'cancelled') statusEl.textContent = 'Pagamento recusado';
+            else statusEl.textContent = 'Aguardando pagamento';
+        }
+
+        if (status === 'approved' && orderId) {
+            try { localStorage.removeItem('vetera_pix_intent_pendente'); } catch (e) {}
+            try {
+                adicionarPedidoIdClienteLocal(orderId);
+            } catch (e) {}
+            try {
+                if (typeof db !== 'undefined' && typeof db.carregarPedidosServidor === 'function') {
+                    await db.carregarPedidosServidor();
+                }
+            } catch (e) {}
+            try { fecharModal('modal-pix'); } catch (e) {}
+            try {
+                mostrarNotificacaoInApp('Pagamento', 'Pagamento aprovado! Seu pedido já está em andamento.', '✅');
+            } catch (e) {}
+            return;
+        }
+
+        await new Promise(r => setTimeout(r, intervalMs));
+    }
 }
 
 // Fechar modal PIX

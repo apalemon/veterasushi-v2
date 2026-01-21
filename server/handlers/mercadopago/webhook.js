@@ -15,6 +15,14 @@ function toNumber(v) {
   return Number.isFinite(n) ? n : null;
 }
 
+function firstNonEmptyStr(...values) {
+  for (const v of values) {
+    const s = safeStr(v);
+    if (s) return s;
+  }
+  return '';
+}
+
 function pedidoIdQuery(pedidoId) {
   const n = toNumber(pedidoId);
   if (n != null) return { $or: [{ id: n }, { id: String(n) }] };
@@ -82,6 +90,142 @@ async function mpFetch(path, accessToken) {
   return resp;
 }
 
+function parseMpSignatureHeader(value) {
+  const raw = safeStr(value);
+  if (!raw) return { ts: '', v1: '' };
+  const parts = raw.split(',').map(s => safeStr(s));
+  let ts = '';
+  let v1 = '';
+  for (const p of parts) {
+    if (p.startsWith('ts=')) ts = safeStr(p.slice(3));
+    if (p.startsWith('v1=')) v1 = safeStr(p.slice(3));
+  }
+  return { ts, v1 };
+}
+
+function extractMpEventIdFromQuery(req) {
+  try {
+    const u = new URL(String(req.url || ''), 'http://localhost');
+    const v = firstNonEmptyStr(u.searchParams.get('data.id'), u.searchParams.get('id'));
+    return safeStr(v);
+  } catch (e) {
+    return '';
+  }
+}
+
+function verifyMpWebhookSignature(req, secret) {
+  const sec = safeStr(secret);
+  if (!sec) return true;
+
+  const xSignature = safeStr(req && req.headers ? (req.headers['x-signature'] || req.headers['X-Signature']) : '');
+  const xRequestId = safeStr(req && req.headers ? (req.headers['x-request-id'] || req.headers['X-Request-Id']) : '');
+  const { ts, v1 } = parseMpSignatureHeader(xSignature);
+  const dataIdUrl = extractMpEventIdFromQuery(req);
+
+  if (!ts || !v1 || !xRequestId || !dataIdUrl) return false;
+
+  const idNormalized = /[a-z]/i.test(dataIdUrl) ? String(dataIdUrl).toLowerCase() : String(dataIdUrl);
+  const template = 'id:' + idNormalized + ';request-id:' + xRequestId + ';ts:' + ts + ';';
+
+  const computed = crypto
+    .createHmac('sha256', sec)
+    .update(template)
+    .digest('hex');
+
+  return computed === v1;
+}
+
+function generatePedidoId() {
+  return (Date.now() * 1000) + Math.floor(Math.random() * 1000);
+}
+
+function normalizeAmountCents(v) {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * 100);
+}
+
+async function upsertIntentStatus(intentId, patch) {
+  const intentsCol = await getCollection('payment_intents');
+  await intentsCol.updateOne(
+    { intentId: String(intentId) },
+    {
+      $set: {
+        ...patch,
+        updatedAt: nowIso()
+      }
+    }
+  );
+}
+
+async function createOrderFromIntentApproved(intent, pay) {
+  const pedidosCol = await getCollection('pedidos');
+  const intentsCol = await getCollection('payment_intents');
+
+  const existingOrderId = intent && intent.orderId ? intent.orderId : null;
+  if (existingOrderId) return { ok: true, orderId: existingOrderId, created: false };
+
+  const intentAmountCents = normalizeAmountCents(intent && intent.amount);
+  const paidAmountCents = normalizeAmountCents(pay && pay.transaction_amount);
+  if (intentAmountCents == null || paidAmountCents == null || intentAmountCents !== paidAmountCents) {
+    await upsertIntentStatus(intent.intentId, {
+      status: 'rejected',
+      mpStatus: safeStr(pay && pay.status),
+      mpStatusDetail: safeStr(pay && pay.status_detail),
+      mpPaymentId: pay && pay.id ? String(pay.id) : (intent.mpPaymentId || '')
+    });
+    return { ok: false, error: 'amount_mismatch' };
+  }
+
+  const pedidoId = generatePedidoId();
+  const draft = (intent && typeof intent.draft === 'object' && intent.draft) ? intent.draft : {};
+  const pedido = {
+    id: pedidoId,
+    dataCriacao: nowIso(),
+    data: nowIso(),
+    timestamp: pedidoId,
+    status: 'em_preparo',
+    statusPagamento: 'pago',
+    formaPagamento: 'pix',
+    formaPagamentoDetalhe: 'mercadopago',
+    total: Number(intent.amount),
+    subtotal: Number(draft.subtotal || 0),
+    desconto: Number(draft.desconto || 0),
+    taxaEntrega: Number(draft.taxaEntrega || 0),
+    clienteId: null,
+    clienteNome: draft.clienteNome || '',
+    clienteTelefone: draft.clienteTelefone || '',
+    clienteCPF: draft.clienteCPF || '',
+    clienteEndereco: draft.clienteEndereco || '',
+    observacoes: draft.observacoes || '',
+    itens: Array.isArray(draft.itens) ? draft.itens : [],
+    cupom: draft.cupom || null,
+    payment_intent_id: String(intent.intentId),
+    mpPaymentId: pay && pay.id ? String(pay.id) : (intent.mpPaymentId || ''),
+    mpPaymentStatus: safeStr(pay && pay.status),
+    mpPaymentStatusDetail: safeStr(pay && pay.status_detail),
+    dataPagamento: nowIso()
+  };
+
+  await pedidosCol.insertOne(pedido);
+
+  await intentsCol.updateOne(
+    { intentId: String(intent.intentId), orderId: null },
+    {
+      $set: {
+        status: 'approved',
+        mpStatus: safeStr(pay && pay.status),
+        mpStatusDetail: safeStr(pay && pay.status_detail),
+        mpPaymentId: pay && pay.id ? String(pay.id) : (intent.mpPaymentId || ''),
+        orderId: pedidoId,
+        updatedAt: nowIso()
+      }
+    }
+  );
+
+  return { ok: true, orderId: pedidoId, created: true };
+}
+
 async function atualizarPedidoComPagamento(pedidoId, pay, paymentIdFallback) {
   const status = safeStr(pay && pay.status);
   const pedidosCol = await getCollection('pedidos');
@@ -132,12 +276,10 @@ async function atualizarPedidoComPagamento(pedidoId, pay, paymentIdFallback) {
 
 function verifyHmac(req, rawBody, secret) {
   try {
-    // O formato de assinatura do Mercado Pago não é um HMAC simples do body.
-    // Para evitar bloquear notificações em produção, não validamos aqui.
-    // (Se quiser validar no futuro, implementar algoritmo oficial do MP.)
-    return true;
+    // Compatibilidade: manter assinatura antiga, mas valida pelo algoritmo oficial do MP.
+    return verifyMpWebhookSignature(req, secret);
   } catch (e) {
-    return true;
+    return false;
   }
 }
 
@@ -190,9 +332,49 @@ module.exports = async (req, res) => {
         return res.status(500).json({ ok: false, error: 'Mercado Pago não configurado (MP_ACCESS_TOKEN ausente)' });
       }
 
+      const intentId = getQueryParam(req, 'intentId');
       const pedidoId = getQueryParam(req, 'pedidoId');
-      if (!pedidoId) {
+      if (!intentId && !pedidoId) {
         return res.status(200).json({ ok: true, pong: true });
+      }
+
+      if (intentId) {
+        const intentsCol = await getCollection('payment_intents');
+        const intent = await intentsCol.findOne({ intentId: String(intentId) });
+        if (!intent) return res.status(404).json({ ok: false, error: 'Intent não encontrada' });
+
+        let pay = null;
+        if (intent.mpPaymentId) {
+          const payResp = await mpFetch('/v1/payments/' + encodeURIComponent(String(intent.mpPaymentId)), accessToken);
+          pay = await payResp.json().catch(() => null);
+        } else {
+          const searchPath = '/v1/payments/search?external_reference=' + encodeURIComponent(String(intentId)) + '&sort=date_created&criteria=desc&limit=1';
+          const sResp = await mpFetch(searchPath, accessToken);
+          const sJson = await sResp.json().catch(() => null);
+          const results = sJson && Array.isArray(sJson.results) ? sJson.results : [];
+          pay = results && results.length ? results[0] : null;
+        }
+
+        if (!pay) {
+          return res.status(200).json({ ok: true, intentId: String(intentId), found: false, status: intent.status || 'pending', orderId: intent.orderId || null });
+        }
+
+        await upsertIntentStatus(intentId, {
+          status: safeStr(pay && pay.status) || (intent.status || 'pending'),
+          mpPaymentId: pay && pay.id ? String(pay.id) : (intent.mpPaymentId || ''),
+          mpStatus: safeStr(pay && pay.status),
+          mpStatusDetail: safeStr(pay && pay.status_detail)
+        });
+
+        const status = safeStr(pay && pay.status);
+        let orderId = intent.orderId || null;
+        if (status === 'approved') {
+          const intentUpdated = await intentsCol.findOne({ intentId: String(intentId) });
+          const created = await createOrderFromIntentApproved(intentUpdated || intent, pay);
+          if (created && created.ok) orderId = created.orderId;
+        }
+
+        return res.status(200).json({ ok: true, intentId: String(intentId), found: true, status: safeStr(pay && pay.status), orderId });
       }
 
       // Buscar pagamento mais recente por external_reference
@@ -229,10 +411,11 @@ module.exports = async (req, res) => {
     // Aqui tentamos inferir raw a partir de req.body se for string.
     const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body || {});
 
-    // Não bloquear webhook por assinatura (verifiqueHmac é bypass).
-    // Se quiser validação estrita, implementar algoritmo oficial do MP.
     if (secret) {
-      try { verifyHmac(req, rawBody, secret); } catch (e) {}
+      const okSig = verifyHmac(req, rawBody, secret);
+      if (!okSig) {
+        return res.status(401).json({ ok: false, error: 'Assinatura inválida' });
+      }
     }
 
     // Formatos possíveis:
@@ -256,17 +439,36 @@ module.exports = async (req, res) => {
     }
 
     const status = safeStr(pay.status);
-    const externalRef = safeStr(pay.external_reference || (pay.metadata && pay.metadata.pedidoId) || '');
+    const intentId = safeStr(pay.external_reference || (pay.metadata && (pay.metadata.intentId || pay.metadata.pedidoId)) || '');
 
-    if (!externalRef) {
-      // não sabemos qual pedido atualizar
+    if (!intentId) {
       return res.status(200).json({ ok: true, no_reference: true, status });
     }
 
-    const updated = await atualizarPedidoComPagamento(String(externalRef), pay, dataId);
-    return res.status(200).json({ ok: true, topic: type || 'payment', paymentId: updated.mpPaymentId, status: updated.status, pedidoId: externalRef });
+    const intentsCol = await getCollection('payment_intents');
+    const intent = await intentsCol.findOne({ intentId: String(intentId) });
+    if (!intent) {
+      // Não criar intent no webhook (não confiar no payload). Apenas registrar status.
+      return res.status(200).json({ ok: true, intent_missing: true, intentId: String(intentId), status });
+    }
+
+    await upsertIntentStatus(intentId, {
+      status: status || (intent.status || 'pending'),
+      mpPaymentId: pay && pay.id ? String(pay.id) : (intent.mpPaymentId || ''),
+      mpStatus: status,
+      mpStatusDetail: safeStr(pay && pay.status_detail)
+    });
+
+    let orderId = intent.orderId || null;
+    if (status === 'approved') {
+      const intentUpdated = await intentsCol.findOne({ intentId: String(intentId) });
+      const created = await createOrderFromIntentApproved(intentUpdated || intent, pay);
+      if (created && created.ok) orderId = created.orderId;
+    }
+
+    return res.status(200).json({ ok: true, topic: type || 'payment', paymentId: pay && pay.id ? String(pay.id) : '', status, intentId: String(intentId), orderId });
   } catch (err) {
     console.error('[MP] webhook erro:', err && err.message ? err.message : err);
-    return res.status(200).json({ ok: true, error: 'internal', details: err && err.message ? err.message : String(err) });
+    return res.status(200).json({ ok: true, error: 'internal', details: err && err.message ? String(err.message) : String(err) });
   }
 };

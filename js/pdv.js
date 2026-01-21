@@ -269,12 +269,6 @@ function atualizarDetalhesPedido(pedido) {
         ` : ''}
 
         <div class="acoes-pedido">
-            ${pedido.statusPagamento === 'pendente' ? `
-                <button class="btn btn-success" onclick="confirmarPagamento(${pedido.id})" style="width: 100%;">
-                    <i class="fas fa-check"></i> Confirmar Pagamento
-                </button>
-            ` : ''}
-
             ${pedido.statusPagamento === 'pago' && pedido.status === 'aguardando_pagamento' ? `
                 <button class="btn btn-primary" onclick="iniciarPreparo(${pedido.id})" style="width: 100%;">
                     <i class="fas fa-play-circle"></i> Iniciar Preparo
@@ -298,21 +292,6 @@ function atualizarDetalhesPedido(pedido) {
             </button>
         </div>
     `;
-}
-
-// Confirmar pagamento
-function confirmarPagamento(pedidoId) {
-    if (!confirm('Confirmar pagamento deste pedido?')) return;
-
-    const pedido = db.atualizarPedido(pedidoId, {
-        statusPagamento: 'pago'
-    });
-
-    if (pedido) {
-        alert('Pagamento confirmado com sucesso!');
-        selecionarPedido(pedidoId);
-        renderizarPedidos();
-    }
 }
 
 // Iniciar preparo

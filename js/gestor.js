@@ -2148,13 +2148,7 @@ function abrirDetalhesPedido(pedidoId) {
 
     html += '<div style="display: flex; gap: 1rem; flex-wrap: wrap;">';
     
-    // Mostrar botão de confirmar pagamento para pedidos pendentes ou aguardando aprovação
-    if (pedido.statusPagamento === 'pendente' || pedido.statusPagamento === 'pendente_aprovacao' || 
-        pedido.status === 'aguardando_aprovacao' || pedido.status === 'aguardando_aprovacao_pix' || 
-        pedido.status === 'aguardando_pagamento') {
-        html += '<button class="btn btn-success" onclick="confirmarPagamento(' + pedido.id + ')" style="flex: 1; min-width: 200px;"><i class="fas fa-check"></i> Confirmar Pagamento</button>';
-        html += '<button class="btn btn-danger" onclick="recusarPedido(' + pedido.id + ')" style="flex: 1; min-width: 200px;"><i class="fas fa-times"></i> Recusar Pedido</button>';
-    }
+    // Pagamento é automático via PIX (Mercado Pago). Não existe aprovação manual.
     
     if (pedido.statusPagamento === 'pago' && pedido.status === 'aguardando_pagamento') {
         html += '<button class="btn btn-primary" onclick="iniciarPreparo(' + pedido.id + ')" style="flex: 1; min-width: 200px;">Iniciar Preparo</button>';
@@ -2463,71 +2457,7 @@ function fecharModalPedido() {
     document.getElementById('modal-pedido').classList.remove('active');
 }
 
-// Ações do pedido - SEM CONFIRMAÇÃO (ação direta)
-async function confirmarPagamento(pedidoId) {
-    try {
-        const pidStr = String(pedidoId);
-        const pidNum = Number(pedidoId);
-        const pid = Number.isFinite(pidNum) ? pidNum : pidStr;
-
-        // Atualizar pedido
-        const pedido = await db.atualizarPedido(pid, { 
-            statusPagamento: 'pago',
-            status: 'em_preparo' // Ao confirmar pagamento, já inicia preparo
-        });
-        
-        if (!pedido) {
-            alert('Erro ao aprovar pedido. Tente novamente.');
-            return;
-        }
-        
-        // Aguardar um pouco para garantir que o servidor salvou
-        await new Promise(resolve => setTimeout(resolve, 1500));
-        
-        // Recarregar pedidos do servidor para garantir sincronização
-        await carregarPedidosDoServidor();
-        
-        // Verificar se o pedido foi atualizado corretamente
-        const pedidoAtualizado = db.getPedido(pedidoId);
-        if (!pedidoAtualizado) {
-            // Tentar mais uma vez
-            await new Promise(resolve => setTimeout(resolve, 1000));
-            await carregarPedidosDoServidor();
-        }
-        
-        // Atualizar interface
-        renderizarPedidos();
-        
-        // Fechar e reabrir modal para mostrar dados atualizados
-        fecharModalPedido();
-        setTimeout(() => {
-            abrirDetalhesPedido(pid);
-        }, 200);
-
-        // Abrir chat automaticamente para o gestor assim que o pedido é aprovado
-        try {
-            // Garantir que a seção de chat esteja ativa
-            if (typeof window.mostrarSecao === 'function') {
-                window.mostrarSecao('chat');
-            }
-            if (typeof window.initChatGestor === 'function') {
-                window.initChatGestor();
-            }
-            if (typeof window.atualizarChatGestor === 'function') {
-                await window.atualizarChatGestor();
-            }
-            if (typeof window.abrirChatAdmin === 'function') {
-                window.abrirChatAdmin(pid);
-            }
-        } catch (e) {
-            // não bloquear aprovação por causa do chat
-            console.warn('[GESTOR] Falha ao abrir chat automaticamente:', e);
-        }
-    } catch (error) {
-        console.error('[GESTOR] ❌ Erro ao aprovar pedido:', error);
-        alert('Erro ao aprovar pedido: ' + error.message);
-    }
-}
+// confirmação manual de pagamento removida (pagamento é automático via PIX Mercado Pago)
 
 async function iniciarPreparo(pedidoId) {
     const pedido = await db.atualizarPedido(pedidoId, { status: 'em_preparo' });
@@ -2568,7 +2498,7 @@ async function recusarPedido(pedidoId) {
 }
 
 // Tornar funções globais
-window.confirmarPagamento = confirmarPagamento;
+window.confirmarPagamento = undefined;
 window.iniciarPreparo = iniciarPreparo;
 window.finalizarPedidoGestor = finalizarPedidoGestor;
 window.recusarPedido = recusarPedido;
