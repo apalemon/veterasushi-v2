@@ -3462,6 +3462,21 @@ async function processarPedidoCheckout() {
             }
         } catch (e) {}
 
+        // IMPORTANTE: o handler de /api/mercadopago/preference busca o pedido no Mongo.
+        // Portanto precisamos persistir o pedido no servidor antes de criar a preference.
+        try {
+            const respSalvar = await fetch(window.location.origin + '/api/pedidos', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify([pedido])
+            });
+            if (!respSalvar.ok) {
+                console.warn('[PEDIDOS] Falha ao persistir pedido no servidor antes do MP:', respSalvar.status);
+            }
+        } catch (e) {
+            console.warn('[PEDIDOS] Erro ao persistir pedido no servidor antes do MP:', e);
+        }
+
         try {
             const resp = await fetch(window.location.origin + '/api/mercadopago/preference', {
                 method: 'POST',
