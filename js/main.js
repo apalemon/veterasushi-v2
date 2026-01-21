@@ -3472,9 +3472,28 @@ async function processarPedidoCheckout() {
             });
             if (!respSalvar.ok) {
                 console.warn('[PEDIDOS] Falha ao persistir pedido no servidor antes do MP:', respSalvar.status);
+                alert('Não foi possível salvar o pedido no servidor (erro ' + respSalvar.status + '). Tente novamente.');
+                return;
+            }
+
+            // Garantir que o pedido já está consultável no servidor antes de criar a preference
+            try {
+                const respCheck = await fetch(window.location.origin + '/api/pedidos?ids=' + encodeURIComponent(String(pedido.id)));
+                const arr = respCheck.ok ? await respCheck.json().catch(() => []) : [];
+                const list = Array.isArray(arr) ? arr : [];
+                const found = list.find(p => String(p && p.id) === String(pedido.id) || Number(p && p.id) === Number(pedido.id));
+                if (!found) {
+                    console.warn('[PEDIDOS] Pedido ainda não disponível no servidor para MP:', pedido.id);
+                    alert('O pedido ainda não foi sincronizado no servidor. Aguarde alguns segundos e tente novamente.');
+                    return;
+                }
+            } catch (e) {
+                console.warn('[PEDIDOS] Falha ao confirmar persistência do pedido:', e);
             }
         } catch (e) {
             console.warn('[PEDIDOS] Erro ao persistir pedido no servidor antes do MP:', e);
+            alert('Erro ao salvar pedido no servidor. Verifique sua conexão e tente novamente.');
+            return;
         }
 
         try {
