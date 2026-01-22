@@ -141,8 +141,11 @@ module.exports = async (req, res) => {
   try {
     const body = (typeof req.body === 'object' && req.body) ? req.body : {};
 
-    const amount = Number(body.amount);
-    if (!Number.isFinite(amount) || amount <= 0) {
+    // Mercado Pago exige número com no máximo 2 casas decimais e > 0
+    // Normalizar para evitar valores como 12.00000000004 (flutuação) ou strings.
+    const rawAmount = Number(body.amount);
+    const amount = Number.isFinite(rawAmount) ? Math.round(rawAmount * 100) / 100 : NaN;
+    if (!Number.isFinite(amount) || amount < 0.01) {
       return res.status(400).json({ ok: false, error: 'amount inválido' });
     }
 

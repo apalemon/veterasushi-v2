@@ -1315,6 +1315,42 @@ function initChatWidgetCliente() {
             box.scrollTop = box.scrollHeight;
         }
 
+        function populatePedidos() {
+            try {
+                const selectEl = document.getElementById('vetera-chat-pedido-select');
+                if (!selectEl) return;
+                const ids = (typeof getPedidoIdsClienteLocal === 'function') ? (getPedidoIdsClienteLocal() || []) : [];
+                const cleaned = (ids || []).map(v => String(v)).filter(Boolean);
+
+                const prev = String(selectEl.value || '');
+                selectEl.innerHTML = '<option value="">Escolha um pedido...</option>';
+                cleaned.forEach((id) => {
+                    const opt = document.createElement('option');
+                    opt.value = id;
+                    opt.textContent = 'Pedido #' + id;
+                    selectEl.appendChild(opt);
+                });
+
+                // Manter seleção anterior se ainda existir
+                if (prev && cleaned.includes(prev)) {
+                    selectEl.value = prev;
+                    activePedidoId = prev;
+                } else {
+                    const first = cleaned.length > 0 ? cleaned[0] : '';
+                    if (first) {
+                        selectEl.value = first;
+                        activePedidoId = first;
+                    }
+                }
+
+                if (subtitle) {
+                    subtitle.textContent = activePedidoId ? ('Pedido #' + activePedidoId) : 'Selecione um pedido';
+                }
+            } catch (e) {
+                // ignora
+            }
+        }
+
         function startPolling() {
             if (pollTimer) return;
             pollTimer = setInterval(() => { pollOnce().catch(() => {}); }, 3000);
