@@ -20,7 +20,7 @@ App Python local para **imprimir automaticamente** cupom **não fiscal** quando 
 
 ## Configuração
 
-Crie um arquivo `.env` dentro da pasta `app/` com:
+Crie um arquivo `.env` (ou `.ENV`) dentro da pasta `app/` com:
 
 - `SERVER_BASE_URL` = URL do seu sistema (ex.: `https://seusite.com`)
 - `PRINT_APP_TOKEN` = o mesmo token configurado no servidor (Vercel) em `PRINT_APP_TOKEN`
@@ -62,6 +62,6 @@ Por padrão o app:
 ## Observações
 
 - Este é um **cupom não fiscal**.
-- O QR Code do desconto usa o campo `cupom` do pedido (quando existir) no formato:
+- O QR Code do desconto usa o comando **nativo ESC/POS** da impressora e o campo `cupom` do pedido (quando existir) no formato:
   - `DISCOUNT_URL_BASE + "?cupom=" + cupom`
 

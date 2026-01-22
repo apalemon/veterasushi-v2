@@ -1,4 +1,4 @@
-const { getCollection } = require('../mongodb');
+const { getCollection } = require('../../mongodb');
 
 function nowIso() {
   return new Date().toISOString();
@@ -52,13 +52,22 @@ module.exports = async (req, res) => {
     } catch (e) {}
 
     const query = {
-      statusPagamento: 'pago',
-      $or: [
-        { printStatus: { $exists: false } },
-        { printStatus: null },
-        { printStatus: '' },
-        { printStatus: 'pending' },
-        { printStatus: 'error' }
+      $and: [
+        {
+          $or: [
+            { statusPagamento: 'pago' },
+            { mpPaymentStatus: 'approved' }
+          ]
+        },
+        {
+          $or: [
+            { printStatus: { $exists: false } },
+            { printStatus: null },
+            { printStatus: '' },
+            { printStatus: 'pending' },
+            { printStatus: 'error' }
+          ]
+        }
       ]
     };
 

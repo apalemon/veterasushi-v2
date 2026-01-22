@@ -1,4 +1,4 @@
-const { getCollection } = require('../mongodb');
+const { getCollection } = require('../../mongodb');
 
 function nowIso() {
   return new Date().toISOString();

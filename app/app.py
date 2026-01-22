@@ -11,7 +11,19 @@ from escpos.printer import Win32Raw
 
 from printer_layout import build_discount_url, format_pedido_for_print
 
-load_dotenv()
+try:
+    # Suporte a .env (padrão) e .ENV (como você criou no Windows)
+    _here = os.path.dirname(os.path.abspath(__file__))
+    _dotenv_1 = os.path.join(_here, ".env")
+    _dotenv_2 = os.path.join(_here, ".ENV")
+    if os.path.exists(_dotenv_1):
+        load_dotenv(_dotenv_1)
+    elif os.path.exists(_dotenv_2):
+        load_dotenv(_dotenv_2)
+    else:
+        load_dotenv()
+except Exception:
+    load_dotenv()
 
 SERVER_BASE_URL = os.getenv("SERVER_BASE_URL", "").strip().rstrip("/")
 PRINT_APP_TOKEN = os.getenv("PRINT_APP_TOKEN", "").strip()
@@ -28,6 +40,14 @@ _state = {
     "last_poll_at": None,
     "printed_count": 0,
 }
+
+
+def _log(msg: str) -> None:
+    try:
+        ts = time.strftime('%H:%M:%S')
+        print(f"[{ts}] {msg}", flush=True)
+    except Exception:
+        pass
 
 
 def _headers() -> Dict[str, str]:
@@ -164,7 +184,12 @@ def poll_loop() -> None:
     err = _require_env()
     if err:
         _state["last_error"] = err
+        _log(f"ERRO: {err}")
         return
+
+    _log("Print App iniciado")
+    _log(f"Servidor: {SERVER_BASE_URL}")
+    _log(f"Impressora: {PRINTER_NAME}")
 
     while _state["running"]:
         try:
@@ -172,20 +197,26 @@ def poll_loop() -> None:
             resp = requests.get(_queue_url(), headers=_headers(), timeout=20)
             if resp.status_code != 200:
                 _state["last_error"] = f"queue HTTP {resp.status_code}: {resp.text[:200]}"
+                _log(_state["last_error"]) 
                 time.sleep(POLL_SECONDS)
                 continue
 
             payload = resp.json()
             pedidos = payload.get("pedidos") or []
 
+            _log(f"Fila: {len(pedidos)} pedido(s) pendente(s)")
+
             for pedido in pedidos:
                 pid = pedido.get("id")
                 try:
+                    _log(f"Imprimindo pedido {pid}...")
                     print_pedido(pedido)
                     ack_pedido(pid, "printed")
                     _state["printed_count"] += 1
+                    _log(f"OK pedido {pid} (printed)")
                 except Exception as e:
                     _state["last_error"] = f"print error pedido {pid}: {e}"
+                    _log(_state["last_error"]) 
                     try:
                         ack_pedido(pid, "error")
                     except Exception:
@@ -194,6 +225,7 @@ def poll_loop() -> None:
             _state["last_error"] = None
         except Exception as e:
             _state["last_error"] = str(e)
+            _log(f"ERRO loop: {_state['last_error']}")
 
         time.sleep(POLL_SECONDS)
 
