@@ -1739,6 +1739,7 @@ let __chatAdminPedidoId = null;
 let __chatAdminLastRenderedLen = 0;
 let __chatAdminFailCount = 0;
 let __chatAdminNextAllowedAt = 0;
+let __chatAdminVisitorId = '';
 
 function _getAdminToken() {
     try {
@@ -1832,6 +1833,7 @@ async function atualizarChatGestor() {
         // Mostrar apenas chats de pedidos do dia
         chats = chats.filter(c => {
             try {
+                if (c && String(c.chatType) === 'visitor') return true;
                 const pid = c && c.pedidoId ? Number(c.pedidoId) : null;
                 if (!pid) return false;
                 const pedido = (typeof db !== 'undefined' && typeof db.getPedido === 'function') ? db.getPedido(pid) : null;
@@ -1850,17 +1852,22 @@ async function atualizarChatGestor() {
         if (statusEl) statusEl.textContent = chats.length + ' conversa(s)';
 
         listEl.innerHTML = chats.map(c => {
-            const pid = c.pedidoId;
+            const isVisitor = c && String(c.chatType) === 'visitor';
+            const pid = isVisitor ? null : c.pedidoId;
+            const vid = isVisitor ? String(c.visitorId || '') : '';
             const last = c.lastMessage;
             const lastTs = last && last.ts ? String(last.ts) : '';
-            const seenTs = seen[String(pid)] || '';
+            const key = isVisitor ? ('v:' + vid) : ('p:' + String(pid));
+            const seenTs = seen[key] || '';
             const hasUnread = last && last.from === 'cliente' && lastTs && (!seenTs || new Date(lastTs).getTime() > new Date(seenTs).getTime());
-            const title = 'Pedido #' + pid;
-            const subtitle = (c.clienteNome ? c.clienteNome + ' • ' : '') + (c.clienteTelefone ? c.clienteTelefone : '');
+            const title = isVisitor ? ('Atendimento' + (c.visitorName ? ' • ' + String(c.visitorName) : '')) : ('Pedido #' + pid);
+            const subtitle = isVisitor
+              ? (c.visitorId ? String(c.visitorId).slice(0, 10) : '')
+              : ((c.clienteNome ? c.clienteNome + ' • ' : '') + (c.clienteTelefone ? c.clienteTelefone : ''));
             const preview = last && last.text ? String(last.text).slice(0, 80) : 'Sem mensagens';
 
             return `
-                <button type="button" onclick="abrirChatAdmin(${pid})" style="width:100%; text-align:left; padding:12px 14px; background:${__chatAdminPedidoId===pid?'rgba(220,38,38,0.12)':'transparent'}; border:none; border-bottom:1px solid rgba(255,255,255,0.06); cursor:pointer;">
+                <button type="button" onclick="${isVisitor ? `abrirChatAdminVisitor('${vid}')` : `abrirChatAdmin(${pid})`}" style="width:100%; text-align:left; padding:12px 14px; background:${(isVisitor ? (__chatAdminVisitorId===vid) : (__chatAdminPedidoId===pid))?'rgba(220,38,38,0.12)':'transparent'}; border:none; border-bottom:1px solid rgba(255,255,255,0.06); cursor:pointer;">
                     <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
                         <div style="font-weight:900; color:#fff;">${title}</div>
                         ${hasUnread ? '<span style="background:#22c55e;color:#0b0b0d;font-weight:900;border-radius:999px;padding:2px 8px;font-size:12px;">Novo</span>' : ''}
@@ -1872,8 +1879,10 @@ async function atualizarChatGestor() {
         }).join('') || '<div style="padding:14px; color: var(--texto-medio);">Nenhuma conversa ainda.</div>';
 
         // se tem chat aberto, atualizar mensagens também
-        if (__chatAdminPedidoId) {
-            await _carregarMensagensChatAdmin(__chatAdminPedidoId);
+        if (__chatAdminVisitorId) {
+            await _carregarMensagensChatAdmin('visitor', __chatAdminVisitorId);
+        } else if (__chatAdminPedidoId) {
+            await _carregarMensagensChatAdmin('pedido', __chatAdminPedidoId);
         }
     } catch (e) {
         console.warn('[CHAT/ADMIN UI] atualizarChatGestor erro:', e);
@@ -1882,6 +1891,7 @@ async function atualizarChatGestor() {
 }
 
 async function abrirChatAdmin(pedidoId) {
+    __chatAdminVisitorId = '';
     __chatAdminPedidoId = Number(pedidoId);
     __chatAdminLastRenderedLen = 0;
     const box = document.getElementById('chat-admin-messages');
@@ -1890,15 +1900,32 @@ async function abrirChatAdmin(pedidoId) {
     const subtitle = document.getElementById('chat-admin-subtitle');
     if (title) title.textContent = 'Pedido #' + pedidoId;
     if (subtitle) subtitle.textContent = '';
-    await _carregarMensagensChatAdmin(__chatAdminPedidoId);
+    await _carregarMensagensChatAdmin('pedido', __chatAdminPedidoId);
     await atualizarChatGestor();
 }
 
-async function _carregarMensagensChatAdmin(pedidoId) {
+async function abrirChatAdminVisitor(visitorId) {
+    __chatAdminPedidoId = null;
+    __chatAdminVisitorId = String(visitorId || '');
+    __chatAdminLastRenderedLen = 0;
+    const box = document.getElementById('chat-admin-messages');
+    if (box) box.innerHTML = '';
+    const title = document.getElementById('chat-admin-title');
+    const subtitle = document.getElementById('chat-admin-subtitle');
+    if (title) title.textContent = 'Atendimento';
+    if (subtitle) subtitle.textContent = String(visitorId || '');
+    await _carregarMensagensChatAdmin('visitor', __chatAdminVisitorId);
+    await atualizarChatGestor();
+}
+
+async function _carregarMensagensChatAdmin(tipo, idVal) {
     const box = document.getElementById('chat-admin-messages');
     if (!box) return;
     const token = _getAdminToken();
-    const resp = await fetch(window.location.origin + '/api/chat/admin?pedidoId=' + encodeURIComponent(String(pedidoId)), {
+    const qs = (String(tipo) === 'visitor')
+      ? ('visitorId=' + encodeURIComponent(String(idVal)))
+      : ('pedidoId=' + encodeURIComponent(String(idVal)));
+    const resp = await fetch(window.location.origin + '/api/chat/admin?' + qs, {
         headers: { ...(token ? { 'Authorization': 'Bearer ' + token } : {}) }
     });
     if (!resp.ok) return;
@@ -1938,13 +1965,14 @@ async function _carregarMensagensChatAdmin(pedidoId) {
     const last = msgs.length > 0 ? msgs[msgs.length - 1] : null;
     if (last && String(last.from) === 'cliente' && last.ts) {
         const seen = _getChatAdminSeenMap();
-        seen[String(pedidoId)] = String(last.ts);
+        const key = (String(tipo) === 'visitor') ? ('v:' + String(idVal)) : ('p:' + String(idVal));
+        seen[key] = String(last.ts);
         _setChatAdminSeenMap(seen);
     }
 }
 
 async function enviarMensagemChatAdmin() {
-    if (!__chatAdminPedidoId) return;
+    if (!__chatAdminPedidoId && !__chatAdminVisitorId) return;
     const input = document.getElementById('chat-admin-input');
     const text = String(input && input.value ? input.value : '').trim();
     if (!text) return;
@@ -1971,12 +1999,16 @@ async function enviarMensagemChatAdmin() {
                 'Content-Type': 'application/json',
                 ...(token ? { 'Authorization': 'Bearer ' + token } : {})
             },
-            body: JSON.stringify({ pedidoId: __chatAdminPedidoId, text })
+            body: JSON.stringify(__chatAdminVisitorId ? { visitorId: __chatAdminVisitorId, text } : { pedidoId: __chatAdminPedidoId, text })
         });
         if (!resp.ok) {
             alert('Não foi possível enviar a mensagem (verifique login/token).');
         } else {
-            await _carregarMensagensChatAdmin(__chatAdminPedidoId);
+            if (__chatAdminVisitorId) {
+                await _carregarMensagensChatAdmin('visitor', __chatAdminVisitorId);
+            } else {
+                await _carregarMensagensChatAdmin('pedido', __chatAdminPedidoId);
+            }
             await atualizarChatGestor();
         }
     } catch (e) {
@@ -1986,6 +2018,7 @@ async function enviarMensagemChatAdmin() {
 
 function fecharChatAdminAtual() {
     __chatAdminPedidoId = null;
+    __chatAdminVisitorId = '';
     __chatAdminLastRenderedLen = 0;
     const box = document.getElementById('chat-admin-messages');
     if (box) box.innerHTML = '';
@@ -1997,6 +2030,7 @@ function fecharChatAdminAtual() {
 
 window.atualizarChatGestor = atualizarChatGestor;
 window.abrirChatAdmin = abrirChatAdmin;
+window.abrirChatAdminVisitor = abrirChatAdminVisitor;
 window.enviarMensagemChatAdmin = enviarMensagemChatAdmin;
 window.fecharChatAdminAtual = fecharChatAdminAtual;
 window.initChatGestor = initChatGestor;

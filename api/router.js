@@ -49,9 +49,10 @@ module.exports = async (req, res) => {
 
       // CHAT:
       // - /api/chat/cliente: público (mas validado no handler via token do pedido)
+      // - /api/chat/visitor: público (validado por token do visitante)
       // - /api/chat/admin: somente admin
       if (first === 'chat') {
-        if (second === 'cliente') return false;
+        if (second === 'cliente' || second === 'visitor') return false;
         return true;
       }
 

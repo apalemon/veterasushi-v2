@@ -1280,6 +1280,23 @@ function initChatWidgetCliente() {
         let lastSince = '';
         let unread = 0;
         let activePedidoId = '';
+        let activeMode = 'pedido';
+        let visitorSession = null;
+
+        function _loadVisitorSession() {
+            try {
+                const raw = localStorage.getItem('vetera_chat_visitor');
+                const obj = raw ? JSON.parse(raw) : null;
+                if (obj && obj.visitorId && obj.token) return obj;
+            } catch (e) {}
+            return null;
+        }
+
+        function _saveVisitorSession(obj) {
+            try {
+                localStorage.setItem('vetera_chat_visitor', JSON.stringify(obj || {}));
+            } catch (e) {}
+        }
 
         function setBadge(n) {
             unread = n;
@@ -1323,7 +1340,7 @@ function initChatWidgetCliente() {
                 const cleaned = (ids || []).map(v => String(v)).filter(Boolean);
 
                 const prev = String(selectEl.value || '');
-                selectEl.innerHTML = '<option value="">Escolha um pedido...</option>';
+                selectEl.innerHTML = '<option value="">Escolha um pedido...</option><option value="__visitor__">Atendimento</option>';
                 cleaned.forEach((id) => {
                     const opt = document.createElement('option');
                     opt.value = id;
@@ -1332,19 +1349,30 @@ function initChatWidgetCliente() {
                 });
 
                 // Manter seleção anterior se ainda existir
-                if (prev && cleaned.includes(prev)) {
+                if (prev === '__visitor__') {
+                    selectEl.value = '__visitor__';
+                    activeMode = 'visitor';
+                    activePedidoId = '';
+                } else if (prev && cleaned.includes(prev)) {
                     selectEl.value = prev;
+                    activeMode = 'pedido';
                     activePedidoId = prev;
                 } else {
                     const first = cleaned.length > 0 ? cleaned[0] : '';
                     if (first) {
                         selectEl.value = first;
+                        activeMode = 'pedido';
                         activePedidoId = first;
+                    } else {
+                        // sem pedidos: vai para atendimento
+                        selectEl.value = '__visitor__';
+                        activeMode = 'visitor';
+                        activePedidoId = '';
                     }
                 }
 
                 if (subtitle) {
-                    subtitle.textContent = activePedidoId ? ('Pedido #' + activePedidoId) : 'Selecione um pedido';
+                    subtitle.textContent = (activeMode === 'visitor') ? 'Atendimento' : (activePedidoId ? ('Pedido #' + activePedidoId) : 'Selecione um pedido');
                 }
             } catch (e) {
                 // ignora
@@ -1353,6 +1381,42 @@ function initChatWidgetCliente() {
 
         async function pollOnce() {
             try {
+                if (activeMode === 'visitor') {
+                    visitorSession = visitorSession || _loadVisitorSession();
+                    if (!visitorSession || !visitorSession.visitorId || !visitorSession.token) return;
+
+                    const qs = new URLSearchParams();
+                    qs.set('visitorId', String(visitorSession.visitorId));
+                    qs.set('token', String(visitorSession.token));
+                    if (lastSince) qs.set('since', String(lastSince));
+
+                    const resp = await fetch(window.location.origin + '/api/chat/visitor?' + qs.toString());
+                    if (!resp.ok) return;
+                    const data = await resp.json().catch(() => null);
+                    if (!data || !data.ok) return;
+
+                    const msgs = Array.isArray(data.messages) ? data.messages : [];
+                    const box = document.getElementById('vetera-chat-messages');
+                    const panelOpen = panel && panel.style && panel.style.display !== 'none';
+
+                    if (msgs.length > 0 && box) {
+                        msgs.forEach((m) => {
+                            box.appendChild(renderMessage(m));
+                            if (!panelOpen) {
+                                const from = String(m && m.from ? m.from : '');
+                                if (from && from !== 'cliente') {
+                                    setBadge((unread || 0) + 1);
+                                }
+                            }
+                        });
+                        if (panelOpen) scrollToBottom();
+                    }
+
+                    const last = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+                    lastSince = (last && last.ts) ? String(last.ts) : (data.serverTime ? String(data.serverTime) : String(new Date().toISOString()));
+                    return;
+                }
+
                 if (!activePedidoId) return;
 
                 let token = obterChatTokenPedidoLocal(activePedidoId);
@@ -1450,33 +1514,35 @@ function initChatWidgetCliente() {
         const subtitle = panel.querySelector('#vetera-chat-subtitle');
         if (sel) {
             sel.addEventListener('change', () => {
-                activePedidoId = String(sel.value || '');
+                const v = String(sel.value || '');
+                if (v === '__visitor__') {
+                    activeMode = 'visitor';
+                    activePedidoId = '';
+                } else {
+                    activeMode = 'pedido';
+                    activePedidoId = v;
+                }
                 lastSince = '';
                 const box = document.getElementById('vetera-chat-messages');
                 if (box) box.innerHTML = '';
-                if (subtitle) subtitle.textContent = activePedidoId ? ('Pedido #' + activePedidoId) : 'Selecione um pedido';
+                if (subtitle) subtitle.textContent = (activeMode === 'visitor') ? 'Atendimento' : (activePedidoId ? ('Pedido #' + activePedidoId) : 'Selecione um pedido');
                 startPolling();
             });
             // inicial
             setTimeout(() => {
-                activePedidoId = String(sel.value || '');
-                if (subtitle) subtitle.textContent = activePedidoId ? ('Pedido #' + activePedidoId) : 'Selecione um pedido';
+                const v = String(sel.value || '');
+                if (v === '__visitor__') {
+                    activeMode = 'visitor';
+                    activePedidoId = '';
+                } else {
+                    activeMode = 'pedido';
+                    activePedidoId = v;
+                }
+                if (subtitle) subtitle.textContent = (activeMode === 'visitor') ? 'Atendimento' : (activePedidoId ? ('Pedido #' + activePedidoId) : 'Selecione um pedido');
             }, 50);
         }
 
         async function sendMessage() {
-            if (!activePedidoId) return;
-            let token = obterChatTokenPedidoLocal(activePedidoId);
-            if (!token) {
-                token = await _recuperarChatTokenDoServidor(activePedidoId);
-            }
-            if (!token) {
-                console.warn('[CHAT] Sem chatToken para enviar mensagem no pedido', activePedidoId);
-                if (typeof window.mostrarNotificacaoInApp === 'function') {
-                    window.mostrarNotificacaoInApp('Chat', 'Não foi possível iniciar o chat deste pedido (token ausente). Atualize a página e tente novamente.');
-                }
-                return;
-            }
             const input = document.getElementById('vetera-chat-input');
             const text = String(input && input.value ? input.value : '').trim();
             if (!text) return;
@@ -1488,38 +1554,69 @@ function initChatWidgetCliente() {
                 }
             } catch (e) {}
 
-            // otimista: já renderiza
-            const box = document.getElementById('vetera-chat-messages');
-            if (box) {
-                box.appendChild(renderMessage({ from: 'cliente', text, ts: new Date().toISOString() }));
-                scrollToBottom();
+            // Resolver credenciais conforme modo
+            let endpoint = '';
+            let payload = null;
+
+            if (activeMode === 'visitor') {
+                visitorSession = visitorSession || _loadVisitorSession();
+                if (!visitorSession || !visitorSession.visitorId || !visitorSession.token) {
+                    const nome = String(prompt('Qual seu nome?') || '').trim();
+                    if (!nome) return;
+                    const startResp = await fetch(window.location.origin + '/api/chat/visitor?action=start', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ name: nome })
+                    });
+                    if (!startResp.ok) return;
+                    const startData = await startResp.json().catch(() => null);
+                    if (!startData || !startData.ok) return;
+                    visitorSession = { visitorId: startData.visitorId, token: startData.token, name: startData.name || nome };
+                    _saveVisitorSession(visitorSession);
+                }
+                endpoint = '/api/chat/visitor';
+                payload = { visitorId: visitorSession.visitorId, token: visitorSession.token, text, name: visitorSession.name || '' };
+            } else {
+                if (!activePedidoId) return;
+                let token = obterChatTokenPedidoLocal(activePedidoId);
+                if (!token) token = await _recuperarChatTokenDoServidor(activePedidoId);
+                if (!token) {
+                    console.warn('[CHAT] Sem chatToken para enviar mensagem no pedido', activePedidoId);
+                    if (typeof window.mostrarNotificacaoInApp === 'function') {
+                        window.mostrarNotificacaoInApp('Chat', 'Não foi possível iniciar o chat deste pedido (token ausente). Atualize a página e tente novamente.');
+                    }
+                    return;
+                }
+                endpoint = '/api/chat/cliente';
+                payload = { pedidoId: activePedidoId, token, text };
             }
-            if (input) input.value = '';
+
+            // otimista: já renderiza
+            try {
+                const box = document.getElementById('vetera-chat-messages');
+                if (box) {
+                    box.appendChild(renderMessage({ from: 'cliente', text, ts: new Date().toISOString() }));
+                }
+                if (input) input.value = '';
+                scrollToBottom();
+            } catch (e) {}
 
             try {
-                const resp = await fetch(window.location.origin + '/api/chat/cliente', {
+                const resp = await fetch(window.location.origin + endpoint, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pedidoId: activePedidoId, token, text })
+                    body: JSON.stringify(payload)
                 });
+
                 if (!resp.ok) {
-                    // falhou: avisar
-                    if (typeof window.mostrarNotificacaoInApp === 'function') {
-                        window.mostrarNotificacaoInApp('Chat', 'Não foi possível enviar a mensagem. Tente novamente.');
-                    }
-                    try {
-                        const payload = await resp.json();
-                        console.warn('[CHAT] POST falhou:', resp.status, payload);
-                    } catch (e) {
-                        console.warn('[CHAT] POST falhou:', resp.status);
-                    }
-                } else {
-                    try {
-                        const payload = await resp.json();
-                        if (!payload || !payload.ok) {
-                            console.warn('[CHAT] POST retornou ok=false:', payload);
-                        }
-                    } catch (e) {}
+                    console.warn('[CHAT] POST falhou:', resp.status);
+                    return;
+                }
+
+                const data = await resp.json().catch(() => null);
+                if (data && data.ok) {
+                    const msg = data.message || null;
+                    if (msg && msg.ts) lastSince = String(msg.ts);
                 }
             } catch (e) {
                 if (typeof window.mostrarNotificacaoInApp === 'function') {
@@ -2891,6 +2988,28 @@ function abrirCheckoutModal() {
     
     // Renderizar checkout
     renderizarCheckoutModal();
+
+    // Pré-preencher dados do cliente
+    try {
+        const raw = localStorage.getItem('vetera_checkout_dados');
+        const data = raw ? JSON.parse(raw) : null;
+        if (data && typeof data === 'object') {
+            const setIfEmpty = (id, v) => {
+                const el = document.getElementById(id);
+                if (el && !String(el.value || '').trim() && v != null) {
+                    el.value = String(v);
+                }
+            };
+            setIfEmpty('checkout-nome', data.nome);
+            setIfEmpty('checkout-telefone', data.telefone);
+            setIfEmpty('checkout-cpf', data.cpf);
+            setIfEmpty('checkout-endereco', data.endereco);
+            setIfEmpty('checkout-numero-casa', data.numeroCasa);
+            setIfEmpty('checkout-bairro', data.bairro);
+            setIfEmpty('checkout-cep', data.cep);
+            setIfEmpty('checkout-referencia', data.referencia);
+        }
+    } catch (e) {}
     
     // Abrir modal
     modal.classList.add('active');
@@ -3310,6 +3429,19 @@ async function processarPedidoCheckout() {
         mostrarErroCheckout('checkout-cpf', 'CPF inválido. Verifique e tente novamente.');
         return;
     }
+
+    try {
+        localStorage.setItem('vetera_checkout_dados', JSON.stringify({
+            nome,
+            telefone,
+            cpf,
+            endereco,
+            numeroCasa,
+            bairro,
+            cep,
+            referencia
+        }));
+    } catch (e) {}
 
     const subtotal = itens.reduce((sum, item) => sum + (parseFloat(item.preco) * parseInt(item.quantidade)), 0);
     let desconto = 0;
