@@ -18,6 +18,10 @@ function nowIso() {
   return new Date().toISOString();
 }
 
+function generateIntentId() {
+  return (Date.now() * 1000) + Math.floor(Math.random() * 1000);
+}
+
 function toNumber(v) {
   const n = Number(v);
   return Number.isFinite(n) ? n : null;
@@ -111,35 +115,40 @@ module.exports = async (req, res) => {
     }
 
     const body = req.body || {};
-    const pedidoId = body.pedidoId;
     const title = safeStr(body.title) || 'Pedido Vetera Sushi';
     const amount = Number(body.amount);
+    const draft = (body && typeof body.draft === 'object' && body.draft) ? body.draft : {};
 
-    if (!pedidoId || !Number.isFinite(amount) || amount <= 0) {
-      return res.status(400).json({ ok: false, error: 'pedidoId e amount são obrigatórios' });
+    if (!Number.isFinite(amount) || amount <= 0) {
+      return res.status(400).json({ ok: false, error: 'amount é obrigatório' });
     }
 
-    const pedidosCol = await getCollection('pedidos');
-    let pedido = await pedidosCol.findOne(pedidoIdQuery(pedidoId));
-    if (!pedido) {
-      const pidNum = toNumber(pedidoId);
-      const stub = {
-        id: pidNum != null ? pidNum : String(pedidoId),
-        total: Number(amount),
-        formaPagamento: 'mercadopago',
-        status: 'aguardando_pagamento',
-        statusPagamento: 'pendente',
-        dataCriacao: nowIso(),
-        mpUpdatedAt: nowIso()
-      };
-      try {
-        await pedidosCol.updateOne(pedidoIdQuery(pedidoId), { $setOnInsert: stub }, { upsert: true });
-      } catch (e) {}
-      pedido = await pedidosCol.findOne(pedidoIdQuery(pedidoId));
-      if (!pedido) {
-        return res.status(404).json({ ok: false, error: 'Pedido não encontrado' });
-      }
-    }
+    const intentsCol = await getCollection('payment_intents');
+    const intentId = safeStr(body.intentId) || String(generateIntentId());
+
+    // Upsert do intent (permite reuso idempotente quando cliente reenvia)
+    try {
+      await intentsCol.updateOne(
+        { intentId: String(intentId) },
+        {
+          $setOnInsert: {
+            intentId: String(intentId),
+            type: 'card',
+            amount: Number(amount),
+            status: 'pending',
+            createdAt: nowIso(),
+            orderId: null
+          },
+          $set: {
+            type: 'card',
+            amount: Number(amount),
+            draft: draft,
+            updatedAt: nowIso()
+          }
+        },
+        { upsert: true }
+      );
+    } catch (e) {}
 
     const proto = firstNonEmptyStr(
       req && req.headers ? (req.headers['x-forwarded-proto'] || req.headers['X-Forwarded-Proto']) : '',
@@ -151,17 +160,16 @@ module.exports = async (req, res) => {
     const slug = firstNonEmptyStr(
       body.slug,
       body.lojaSlug,
-      pedido.slug,
-      pedido.lojaSlug,
-      pedido.loja && pedido.loja.slug,
+      (draft && draft.slug) || '',
+      (draft && draft.lojaSlug) || '',
       'vetera'
     );
 
     const cardapioPath = '/' + encodeURIComponent(String(slug)) + '/cardapio';
     const backUrls = {
-      success: baseUrl ? baseUrl + cardapioPath + '?mp=success&pedidoId=' + encodeURIComponent(String(pedido.id)) : undefined,
-      pending: baseUrl ? baseUrl + cardapioPath + '?mp=pending&pedidoId=' + encodeURIComponent(String(pedido.id)) : undefined,
-      failure: baseUrl ? baseUrl + cardapioPath + '?mp=failure&pedidoId=' + encodeURIComponent(String(pedido.id)) : undefined
+      success: baseUrl ? baseUrl + cardapioPath + '?mp=success&intentId=' + encodeURIComponent(String(intentId)) : undefined,
+      pending: baseUrl ? baseUrl + cardapioPath + '?mp=pending&intentId=' + encodeURIComponent(String(intentId)) : undefined,
+      failure: baseUrl ? baseUrl + cardapioPath + '?mp=failure&intentId=' + encodeURIComponent(String(intentId)) : undefined
     };
 
     const webhookUrl = process.env.MP_WEBHOOK_URL || (baseUrl ? (baseUrl + '/api/mercadopago/webhook') : undefined);
@@ -169,19 +177,19 @@ module.exports = async (req, res) => {
     const preferencePayload = {
       items: [
         {
-          id: String(pedido.id),
+          id: String(intentId),
           title,
           quantity: 1,
           currency_id: 'BRL',
           unit_price: Number(amount)
         }
       ],
-      external_reference: String(pedido.id),
+      external_reference: String(intentId),
       notification_url: webhookUrl,
       back_urls: backUrls,
       auto_return: 'approved',
       metadata: {
-        pedidoId: String(pedido.id)
+        intentId: String(intentId)
       }
     };
 
@@ -199,24 +207,23 @@ module.exports = async (req, res) => {
     const initPoint = payload && payload.init_point ? String(payload.init_point) : '';
     const sandboxInitPoint = payload && payload.sandbox_init_point ? String(payload.sandbox_init_point) : '';
 
-    // salvar refs do MP no pedido
+    // salvar refs do MP no intent
     try {
-      await pedidosCol.updateOne(
-        pedidoIdQuery(pedido.id),
+      await intentsCol.updateOne(
+        { intentId: String(intentId) },
         {
           $set: {
             mpPreferenceId: preferenceId,
             mpInitPoint: initPoint,
             mpSandboxInitPoint: sandboxInitPoint,
-            mpUpdatedAt: nowIso()
+            mpUpdatedAt: nowIso(),
+            updatedAt: nowIso()
           }
         }
       );
-    } catch (e) {
-      // ignora
-    }
+    } catch (e) {}
 
-    return res.status(200).json({ ok: true, preferenceId, init_point: initPoint, sandbox_init_point: sandboxInitPoint });
+    return res.status(200).json({ ok: true, intentId: String(intentId), preferenceId, init_point: initPoint, sandbox_init_point: sandboxInitPoint });
   } catch (err) {
     console.error('[MP] preference erro:', err && err.message ? err.message : err);
     return res.status(500).json({ ok: false, error: 'Erro ao criar pagamento', details: err && err.message ? err.message : String(err) });

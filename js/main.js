@@ -62,16 +62,32 @@ async function handleMercadoPagoPendingFallback() {
 
         while (Date.now() - startedAt < timeoutMs) {
             await syncStatus();
-            let pedido = null;
-            try { pedido = await fetchPedido(); } catch (e) { pedido = null; }
-
-            const stPag = String(pedido && pedido.statusPagamento ? pedido.statusPagamento : '').toLowerCase();
-            if (stPag === 'pago') {
+            if (intentId) {
+                let data = null;
                 try {
-                    mostrarNotificacaoInApp('Pagamento', 'Pagamento aprovado! Seu pedido entrou em preparo.', '✅');
-                } catch (e) {}
-                try { localStorage.removeItem('vetera_mp_pending_order'); } catch (e) {}
-                return;
+                    const resp = await fetch(window.location.origin + '/api/mercadopago/webhook?intentId=' + encodeURIComponent(String(intentId)));
+                    data = resp.ok ? await resp.json().catch(() => null) : null;
+                } catch (e) {
+                    data = null;
+                }
+                const st = String(data && data.status ? data.status : '').toLowerCase();
+                if (st === 'approved') {
+                    try { mostrarNotificacaoInApp('Pagamento', 'Pagamento aprovado! Seu pedido já está em andamento.', '✅'); } catch (e) {}
+                    try { localStorage.removeItem('vetera_card_intent_pendente'); } catch (e) {}
+                    return;
+                }
+            } else {
+                let pedido = null;
+                try { pedido = await fetchPedido(); } catch (e) { pedido = null; }
+
+                const stPag = String(pedido && pedido.statusPagamento ? pedido.statusPagamento : '').toLowerCase();
+                if (stPag === 'pago') {
+                    try {
+                        mostrarNotificacaoInApp('Pagamento', 'Pagamento aprovado! Seu pedido entrou em preparo.', '✅');
+                    } catch (e) {}
+                    try { localStorage.removeItem('vetera_mp_pending_order'); } catch (e) {}
+                    return;
+                }
             }
 
             await new Promise(r => setTimeout(r, intervalMs));
@@ -95,7 +111,8 @@ async function handleMercadoPagoReturn() {
         const qs = new URLSearchParams(String(window.location && window.location.search ? window.location.search : ''));
         const mp = String(qs.get('mp') || '').toLowerCase();
         const pedidoId = String(qs.get('pedidoId') || '').trim();
-        if (!mp || !pedidoId) return;
+        const intentId = String(qs.get('intentId') || '').trim();
+        if (!mp || (!pedidoId && !intentId)) return;
 
         try {
             if (mp === 'success') {
@@ -107,14 +124,18 @@ async function handleMercadoPagoReturn() {
             }
         } catch (e) {}
 
-        // Poll curto para refletir status do webhook no pedido
+        // Poll curto para refletir status do webhook
         const startedAt = Date.now();
         const timeoutMs = 90000;
         const intervalMs = 3000;
 
         async function syncStatus() {
             try {
-                await fetch(window.location.origin + '/api/mercadopago/webhook?pedidoId=' + encodeURIComponent(String(pedidoId)));
+                if (intentId) {
+                    await fetch(window.location.origin + '/api/mercadopago/webhook?intentId=' + encodeURIComponent(String(intentId)));
+                } else {
+                    await fetch(window.location.origin + '/api/mercadopago/webhook?pedidoId=' + encodeURIComponent(String(pedidoId)));
+                }
             } catch (e) {}
         }
 
@@ -496,9 +517,7 @@ function _getPedidoProntoPopupCacheCliente() {
 function _setPedidoProntoPopupCacheCliente(cache) {
     try {
         localStorage.setItem('vetera_pedidos_popup_pronto', JSON.stringify(cache || {}));
-    } catch (e) {
-        // ignora
-    }
+    } catch (e) {}
 }
 
 function _jaMostrouPopupPronto(pedidoId) {
@@ -1296,75 +1315,6 @@ function initChatWidgetCliente() {
             box.scrollTop = box.scrollHeight;
         }
 
-        function populatePedidos() {
-            const sel = document.getElementById('vetera-chat-pedido-select');
-            if (!sel) return;
-            const ids = (typeof getPedidoIdsClienteLocal === 'function') ? (getPedidoIdsClienteLocal() || []) : [];
-            const unique = Array.from(new Set(ids.map(v => String(v)).filter(Boolean)));
-            const old = sel.value;
-            sel.innerHTML = '<option value="">Escolha um pedido...</option>' + unique.map(id => `<option value="${id}">Pedido #${id}</option>`).join('');
-            if (old && unique.includes(old)) sel.value = old;
-            if (!sel.value && unique.length > 0) sel.value = unique[0];
-        }
-
-        async function pollOnce() {
-            if (!activePedidoId) return;
-            let token = obterChatTokenPedidoLocal(activePedidoId);
-            if (!token) {
-                token = await _recuperarChatTokenDoServidor(activePedidoId);
-            }
-            if (!token) {
-                console.warn('[CHAT] Sem chatToken para o pedido', activePedidoId);
-                return;
-            }
-
-            const qs = '?pedidoId=' + encodeURIComponent(activePedidoId) + '&token=' + encodeURIComponent(token) + (lastSince ? '&since=' + encodeURIComponent(lastSince) : '');
-            const resp = await fetch(window.location.origin + '/api/chat/cliente' + qs);
-            if (!resp.ok) {
-                try {
-                    const payload = await resp.json();
-                    console.warn('[CHAT] GET falhou:', resp.status, payload);
-                } catch (e) {
-                    console.warn('[CHAT] GET falhou:', resp.status);
-                }
-                return;
-            }
-            const data = await resp.json();
-            if (!data || !data.ok) {
-                console.warn('[CHAT] GET retornou ok=false:', data);
-                return;
-            }
-
-            const msgs = Array.isArray(data.messages) ? data.messages : [];
-            if (msgs.length > 0) {
-                const box = document.getElementById('vetera-chat-messages');
-                if (box) {
-                    const wasAtBottom = Math.abs((box.scrollHeight - box.scrollTop) - box.clientHeight) < 80;
-                    msgs.forEach(m => box.appendChild(renderMessage(m)));
-                    if (wasAtBottom) scrollToBottom();
-                }
-                // contar unread quando painel fechado
-                if (panel.style.display === 'none') setBadge(unread + msgs.length);
-
-                // atualizar since
-                const last = msgs[msgs.length - 1];
-                if (last && last.ts) lastSince = String(last.ts);
-
-                // notificação (se veio do admin e o painel está fechado)
-                try {
-                    const anyAdmin = msgs.some(m => String(m.from) === 'admin');
-                    if (anyAdmin && document.hidden) {
-                        if (typeof window.mostrarNotificacao === 'function') {
-                            window.mostrarNotificacao('Nova mensagem', 'Você recebeu uma mensagem no chat do pedido #' + activePedidoId, '💬');
-                        }
-                    }
-                } catch (e) {}
-            } else {
-                // manter relógio do server como since para pegar só novos
-                if (data.serverTime && !lastSince) lastSince = String(data.serverTime);
-            }
-        }
-
         function startPolling() {
             if (pollTimer) return;
             pollTimer = setInterval(() => { pollOnce().catch(() => {}); }, 3000);
@@ -2133,6 +2083,15 @@ function adicionarComboAoCarrinho(produtoId, quantidade) {
     let precoTotal = produto.preco;
     selecoes.partes.forEach(p => precoTotal += (p.precoAdicional || 0));
     selecoes.adicionais.forEach(a => precoTotal += (a.preco || 0));
+    
+    // Multiplicar pela quantidade
+    precoTotal *= (window.comboQuantidade || 1);
+    
+    // Atualizar exibição
+    const precoElement = document.getElementById('combo-preco-total');
+    if (precoElement) {
+        precoElement.textContent = `R$ ${precoTotal.toFixed(2)}`;
+    }
     
     // SOLUÇÃO DEFINITIVA: Implementar a lógica diretamente aqui, sem depender do método da classe
     const carrinhoInstance = window.carrinho;
@@ -2949,17 +2908,23 @@ function renderizarCheckoutModal() {
 function renderizarFormasPagamentoCheckout() {
     const container = document.getElementById('checkout-formas-list');
     if (!container) return;
-    container.innerHTML = `<label style="display:flex; align-items:center; gap:12px; padding:12px; background: rgba(255,255,255,0.03); border-radius:8px; cursor:default; margin-bottom:8px;">
-        <input type="radio" name="checkout-pagamento" value="mercadopago" style="width:18px; height:18px;" checked>
-        <span style="color:#fff; font-weight:500;">Mercado Pago</span>
-    </label>`;
+    container.innerHTML = `
+      <label style="display:flex; align-items:center; gap:12px; padding:12px; background: rgba(255,255,255,0.03); border-radius:8px; cursor:pointer; margin-bottom:8px;">
+        <input type="radio" name="checkout-pagamento" value="pix" style="width:18px; height:18px;" checked>
+        <span style="color:#fff; font-weight:500;">Pix</span>
+      </label>
+      <label style="display:flex; align-items:center; gap:12px; padding:12px; background: rgba(255,255,255,0.03); border-radius:8px; cursor:pointer; margin-bottom:8px;">
+        <input type="radio" name="checkout-pagamento" value="cartao" style="width:18px; height:18px;">
+        <span style="color:#fff; font-weight:500;">Cartão</span>
+      </label>
+    `;
     return;
 
     // Mapear os valores para nomes legíveis
     const nomeFormaPagamento = (valor) => {
         const map = {
             'pix': 'Pix',
-            'mercadopago': 'Mercado Pago',
+            'mercadopago': 'Pix',
             'debito': 'Débito',
             'credito': 'Crédito',
             'dinheiro': 'Dinheiro',
@@ -3202,7 +3167,7 @@ async function processarPedidoCheckout() {
     const cep = document.getElementById('checkout-cep')?.value.trim();
     const referencia = document.getElementById('checkout-referencia')?.value.trim();
     const observacoes = document.getElementById('checkout-observacoes')?.value.trim();
-    const formaPagamento = 'mercadopago';
+    const formaPagamento = document.querySelector('input[name="checkout-pagamento"]:checked')?.value || 'pix';
     
     if (!nome || !telefone || !endereco || !numeroCasa || !bairro || !cep) {
         alert('Preencha todos os campos obrigatórios!');
@@ -3333,7 +3298,7 @@ async function processarPedidoCheckout() {
     // Cliente não precisa estar logado - usar dados do formulário
     const clienteId = null;
     
-    // Criar intenção de pagamento PIX (Mercado Pago) - NÃO criar pedido antes do pagamento
+    // Criar intenção de pagamento (PIX ou Cartão) - NÃO criar pedido antes do pagamento
     const enderecoCompleto = `${endereco}, Nº ${numeroCasa} - ${bairro} - CEP: ${cep}` + (referencia ? ` (Ref: ${referencia})` : '');
 
     const draft = {
@@ -3350,6 +3315,51 @@ async function processarPedidoCheckout() {
         cupom: cupomAplicado ? cupomAplicado.codigo : null
     };
 
+    if (formaPagamento === 'cartao') {
+        // Cartão: redirecionar para o Mercado Pago Checkout Pro
+        let prefResp = null;
+        try {
+            let slug = '';
+            try {
+                const parts = (window.location && window.location.pathname ? window.location.pathname.split('/') : []).filter(Boolean);
+                slug = (parts && parts.length > 0) ? String(parts[0]) : '';
+            } catch (e) {
+                slug = '';
+            }
+            const resp = await fetch(window.location.origin + '/api/mercadopago/preference', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    amount: Number(total),
+                    title: 'Pedido Vetera Sushi',
+                    draft: { ...draft, lojaSlug: slug },
+                    lojaSlug: slug
+                })
+            });
+            const respText = await resp.text().catch(() => '');
+            prefResp = (() => { try { return JSON.parse(respText || 'null'); } catch (e) { return null; } })();
+            if (!resp.ok || !prefResp || !prefResp.ok || !prefResp.init_point) {
+                const detalhes = prefResp && (prefResp.error || prefResp.message || prefResp.details)
+                    ? (prefResp.error || prefResp.message || JSON.stringify(prefResp.details))
+                    : (respText ? String(respText) : null);
+                alert('Não foi possível iniciar o pagamento no cartão.' + (detalhes ? ('\n\nDetalhes: ' + String(detalhes).slice(0, 1200)) : ''));
+                return;
+            }
+        } catch (e) {
+            alert('Erro ao iniciar pagamento no cartão. Verifique sua conexão e tente novamente.');
+            return;
+        }
+
+        // Salvar para acompanhar na volta
+        try { localStorage.setItem('vetera_card_intent_pendente', String(prefResp.intentId || '')); } catch (e) {}
+
+        // Fechar checkout e redirecionar
+        try { fecharModal('modal-checkout'); } catch (e) {}
+        try { window.location.href = String(prefResp.init_point); } catch (e) { window.location.assign(String(prefResp.init_point)); }
+        return;
+    }
+
+    // Pix (padrão)
     // Limpar carrinho e fechar checkout antes de exibir o PIX
     try {
         if (typeof window.carrinho !== 'undefined') {

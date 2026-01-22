@@ -179,6 +179,7 @@ async function createOrderFromIntentApproved(intent, pay) {
 
   const pedidoId = generatePedidoId();
   const draft = (intent && typeof intent.draft === 'object' && intent.draft) ? intent.draft : {};
+  const intentType = safeStr(intent && intent.type);
   const pedido = {
     id: pedidoId,
     dataCriacao: nowIso(),
@@ -186,7 +187,7 @@ async function createOrderFromIntentApproved(intent, pay) {
     timestamp: pedidoId,
     status: 'em_preparo',
     statusPagamento: 'pago',
-    formaPagamento: 'pix',
+    formaPagamento: intentType === 'card' ? 'cartao' : 'pix',
     formaPagamentoDetalhe: 'mercadopago',
     printStatus: 'pending',
     printedAt: null,

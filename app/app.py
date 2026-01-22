@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 
 import requests
 from dotenv import load_dotenv
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request, Response
 
 from escpos.printer import Win32Raw
 
@@ -199,9 +199,19 @@ def fetch_queue(limit: int = 10) -> Dict[str, Any]:
     }
 
 
+def fetch_pedido_by_id(pedido_id: Any) -> Dict[str, Any]:
+    url = f"{SERVER_BASE_URL}/api/pedidos"
+    resp = requests.get(url, params={"ids": str(pedido_id)}, timeout=20)
+    return {
+        "status_code": resp.status_code,
+        "text": resp.text,
+        "json": (resp.json() if resp.status_code == 200 else None),
+    }
+
+
 def print_next_from_queue() -> Dict[str, Any]:
     if not _print_lock.acquire(blocking=False):
-        return {"ok": False, "error": "busy"}
+        return {"ok": True, "busy": True}
     try:
         q = fetch_queue(limit=1)
         if q["status_code"] != 200:
@@ -230,6 +240,42 @@ def print_next_from_queue() -> Dict[str, Any]:
             pass
 
         return {"ok": False, "error": "print_failed", "pedidoId": pid, "details": str(last_err) if last_err else ""}
+    finally:
+        try:
+            _print_lock.release()
+        except Exception:
+            pass
+
+
+def print_specific_pedido(pedido_id: Any) -> Dict[str, Any]:
+    if not _print_lock.acquire(blocking=False):
+        return {"ok": True, "busy": True, "pedidoId": pedido_id}
+    try:
+        p = fetch_pedido_by_id(pedido_id)
+        if p["status_code"] != 200:
+            return {"ok": False, "error": "pedido_http", "status": p["status_code"], "details": p["text"][:400]}
+
+        arr = p.get("json")
+        if not isinstance(arr, list) or not arr:
+            return {"ok": False, "error": "pedido_not_found", "pedidoId": pedido_id}
+
+        pedido = arr[0]
+
+        last_err = None
+        for _ in range(2):
+            try:
+                print_pedido(pedido)
+                try:
+                    ack_pedido(pedido.get("id"), "printed")
+                except Exception:
+                    pass
+                _state["printed_count"] += 1
+                return {"ok": True, "printed": True, "pedidoId": pedido.get("id")}
+            except Exception as e:
+                last_err = e
+                time.sleep(0.4)
+
+        return {"ok": False, "error": "print_failed", "pedidoId": pedido_id, "details": str(last_err) if last_err else ""}
     finally:
         try:
             _print_lock.release()
@@ -335,9 +381,50 @@ def print_next():
     result = print_next_from_queue()
     if result.get("ok"):
         return jsonify(result)
-    if result.get("error") == "busy":
-        return jsonify(result), 409
     return jsonify(result), 500
+
+
+@app.get("/print-order")
+def print_order():
+    err = _require_env()
+    if err:
+        _state["last_error"] = err
+        return Response("Config inválida", status=500, mimetype="text/plain")
+
+    pedido_id = (request.args.get("pedidoId") or request.args.get("id") or "").strip()
+    if not pedido_id:
+        return Response("pedidoId é obrigatório", status=400, mimetype="text/plain")
+
+    result = print_specific_pedido(pedido_id)
+    ok = bool(result.get("ok"))
+    busy = bool(result.get("busy"))
+    printed = bool(result.get("printed"))
+    details = str(result.get("details") or result.get("error") or "")
+
+    html = """
+<!doctype html>
+<html lang=\"pt-br\"><head>
+<meta charset=\"utf-8\" />
+<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\" />
+<title>Impressão</title>
+</head><body style=\"font-family: Arial, sans-serif; padding: 16px;\">
+<h2>Impressão de comanda</h2>
+<div><strong>Pedido:</strong> #{pedido}</div>
+<div><strong>Status:</strong> {status}</div>
+{details_block}
+<script>
+  try {{ setTimeout(() => window.close(), 1800); }} catch (e) {{}}
+</script>
+</body></html>
+"""
+
+    status_txt = "OK (impresso)" if printed else ("OK (ocupado)" if busy else ("OK" if ok else "Falha"))
+    details_block = "" if (not details) else ("<pre style=\"margin-top:12px; background:#f6f6f6; padding:12px; border-radius:8px;\">" + details + "</pre>")
+    return Response(
+        html.format(pedido=str(pedido_id), status=status_txt, details_block=details_block),
+        status=(200 if ok else 500),
+        mimetype="text/html",
+    )
 
 
 def main() -> None:

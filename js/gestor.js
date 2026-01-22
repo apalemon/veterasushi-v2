@@ -8,6 +8,21 @@ window.getPagamentosConfiguradosGestor = function() {
     }
 };
 
+async function imprimirPedidoGestor(ev, pedidoId) {
+    try {
+        if (ev) {
+            try { ev.preventDefault(); } catch (e) {}
+            try { ev.stopPropagation(); } catch (e) {}
+        }
+        const url = 'http://127.0.0.1:5055/print-order?pedidoId=' + encodeURIComponent(String(pedidoId));
+        window.open(url, '_blank', 'noopener');
+    } catch (e) {
+        alert('Não foi possível abrir a guia de impressão.');
+    }
+}
+
+window.imprimirPedidoGestor = imprimirPedidoGestor;
+
 window.carregarMinhaLojaConfig = async function() {
     try {
         // GET é público; mas no gestor teremos token e podemos usar do mesmo jeito
@@ -351,7 +366,8 @@ window.salvarPagamentosConfig = async function(event) {
         if (event) event.preventDefault();
 
         const metodos = {
-            mercadopago: true
+            pix: true,
+            cartao: true
         };
 
         const cfgAtual = db && typeof db.getConfiguracoes === 'function' ? (db.getConfiguracoes() || {}) : {};
@@ -359,10 +375,16 @@ window.salvarPagamentosConfig = async function(event) {
         // O checkout usa cfg.pagamentos -> manter sincronizado.
         const pagamentosCheckout = [
             {
-                id: 'mercadopago',
-                nome: 'Mercado Pago',
-                tipo: 'mercadopago',
-                opcoesEntrega: ['mercadopago']
+                id: 'pix',
+                nome: 'Pix',
+                tipo: 'pix',
+                opcoesEntrega: ['pix']
+            },
+            {
+                id: 'cartao',
+                nome: 'Cartão',
+                tipo: 'cartao',
+                opcoesEntrega: ['cartao']
             }
         ];
 
@@ -1399,12 +1421,65 @@ let _gestorAudioNovoPedido = null;
 let _gestorAudioNovoPedidoStopTimer = null;
 let _gestorAudioNovoPedidoStartedAt = 0;
 
+let _gestorBeepInterval = null;
+let _gestorBeepStopTimer = null;
+
+function _gestorStopBeeps() {
+    try {
+        if (_gestorBeepInterval) {
+            clearInterval(_gestorBeepInterval);
+            _gestorBeepInterval = null;
+        }
+        if (_gestorBeepStopTimer) {
+            clearTimeout(_gestorBeepStopTimer);
+            _gestorBeepStopTimer = null;
+        }
+    } catch (e) {}
+}
+
+function _gestorTryBeepOnce() {
+    try {
+        const ctx = inicializarAudioContext();
+        if (!ctx) return;
+        try {
+            if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+                ctx.resume().catch(() => {});
+            }
+        } catch (e) {}
+
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.type = 'sine';
+        o.frequency.value = 880;
+        g.gain.value = 0.06;
+        o.connect(g);
+        g.connect(ctx.destination);
+        const now = ctx.currentTime;
+        o.start(now);
+        o.stop(now + 0.15);
+    } catch (e) {}
+}
+
+function _gestorStartBeepsWithTimeout(timeoutMs) {
+    try {
+        _gestorStopBeeps();
+        _gestorTryBeepOnce();
+        _gestorBeepInterval = setInterval(() => {
+            _gestorTryBeepOnce();
+        }, 900);
+        _gestorBeepStopTimer = setTimeout(() => {
+            _gestorStopBeeps();
+        }, Number(timeoutMs) || 10000);
+    } catch (e) {}
+}
+
 function _gestorPararSomNovoPedido() {
     try {
         if (_gestorAudioNovoPedidoStopTimer) {
             clearTimeout(_gestorAudioNovoPedidoStopTimer);
             _gestorAudioNovoPedidoStopTimer = null;
         }
+        _gestorStopBeeps();
         if (_gestorAudioNovoPedido) {
             try { _gestorAudioNovoPedido.pause(); } catch (e) {}
             try { _gestorAudioNovoPedido.currentTime = 0; } catch (e) {}
@@ -1455,11 +1530,13 @@ function tocarNotificacao() {
 
         _gestorAudioNovoPedidoStartedAt = Date.now();
 
-        // tenta tocar (pode falhar por autoplay; nesse caso, ok)
+        // tenta tocar (pode falhar por autoplay; nesse caso, fallback com beeps)
         try {
             const p = _gestorAudioNovoPedido.play();
             if (p && typeof p.catch === 'function') {
-                p.catch(() => {});
+                p.catch(() => {
+                    _gestorStartBeepsWithTimeout(10000);
+                });
             }
         } catch (e) {}
 
@@ -1474,6 +1551,11 @@ function tocarNotificacao() {
         // console.warn('[GESTOR] Erro ao tocar notificação:', error);
     }
 }
+
+// Parar som quando a janela voltar ao foco
+window.addEventListener('focus', function() {
+    try { _gestorPararSomNovoPedido(); } catch (e) {}
+});
 
 // Função auxiliar para tocar os beeps
 function tocarBeeps(audioContext) {
@@ -2081,6 +2163,12 @@ function renderizarPedidos() {
             html += (statusPagamento === 'pago' ? '<i class="fas fa-check-circle"></i> Pago' : '<i class="fas fa-clock"></i> Pendente') + '</span></div>';
             const totalVal = Number(pedido.total) || 0;
             html += '<div class="pedido-total-gestor">Total: ' + currencyFmt.format(totalVal) + '</div>';
+
+            // Botão de imprimir (não abre modal)
+            html += '<div style="margin-top: 10px; display:flex; gap:10px;">';
+            html += '<button class="btn btn-secondary" onclick="imprimirPedidoGestor(event,' + pedido.id + ')" style="flex:1;">';
+            html += '<i class=\"fas fa-print\"></i> Imprimir</button>';
+            html += '</div>';
             html += '</div>';
             
             return html;
