@@ -16,7 +16,15 @@ App Python local para **imprimir automaticamente** cupom **não fiscal** quando 
 
 - Windows
 - Impressora instalada no Windows (nome exatamente igual ao do Painel de Controle)
-- Python 3.10+
+- Python 3.11/3.12 recomendado
+
+### Dependência de impressão (Windows)
+
+Este app imprime via `Win32Raw` (RAW spool) e requer:
+
+- `pywin32` (fornece `win32print`)
+
+Obs.: se o `pip` não encontrar build compatível do `pywin32` para sua versão do Python, instale **Python 3.12** e recrie a venv.
 
 ## Configuração
 

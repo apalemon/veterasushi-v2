@@ -41,6 +41,8 @@ _state = {
     "printed_count": 0,
 }
 
+_print_lock = threading.Lock()
+
 
 def _log(msg: str) -> None:
     try:
@@ -72,6 +74,14 @@ def _require_env() -> Optional[str]:
         return "PRINT_APP_TOKEN não configurado"
     if not PRINTER_NAME:
         return "PRINTER_NAME não configurado"
+    try:
+        import win32print  # type: ignore
+    except Exception:
+        return (
+            "Dependência ausente para impressão no Windows (win32print). "
+            "Instale 'pywin32'. Se sua versão do Python não tiver build compatível, "
+            "instale Python 3.12/3.11 e recrie a venv."
+        )
     return None
 
 
@@ -159,7 +169,7 @@ def print_pedido(pedido: Dict[str, Any]) -> None:
         p.set(bold=False)
         try:
             # qr() é o caminho mais confiável em ESC/POS
-            p.qr(url, size=6)
+            p.qr(url, size=4)
         except Exception:
             # fallback: imprime o link
             p.text(url + "\n")
@@ -180,6 +190,53 @@ def ack_pedido(pedido_id: Any, status: str) -> None:
     )
 
 
+def fetch_queue(limit: int = 10) -> Dict[str, Any]:
+    resp = requests.get(_queue_url(), headers=_headers(), params={"limit": str(limit)}, timeout=20)
+    return {
+        "status_code": resp.status_code,
+        "text": resp.text,
+        "json": (resp.json() if resp.status_code == 200 else None),
+    }
+
+
+def print_next_from_queue() -> Dict[str, Any]:
+    if not _print_lock.acquire(blocking=False):
+        return {"ok": False, "error": "busy"}
+    try:
+        q = fetch_queue(limit=1)
+        if q["status_code"] != 200:
+            return {"ok": False, "error": "queue_http", "status": q["status_code"], "details": q["text"][:400]}
+        payload = q.get("json") or {}
+        pedidos = payload.get("pedidos") or []
+        if not pedidos:
+            return {"ok": True, "printed": False, "message": "no_pending"}
+        pedido = pedidos[0]
+        pid = pedido.get("id")
+
+        last_err = None
+        for _ in range(2):
+            try:
+                print_pedido(pedido)
+                ack_pedido(pid, "printed")
+                _state["printed_count"] += 1
+                return {"ok": True, "printed": True, "pedidoId": pid}
+            except Exception as e:
+                last_err = e
+                time.sleep(0.4)
+
+        try:
+            ack_pedido(pid, "error")
+        except Exception:
+            pass
+
+        return {"ok": False, "error": "print_failed", "pedidoId": pid, "details": str(last_err) if last_err else ""}
+    finally:
+        try:
+            _print_lock.release()
+        except Exception:
+            pass
+
+
 def poll_loop() -> None:
     err = _require_env()
     if err:
@@ -194,6 +251,11 @@ def poll_loop() -> None:
     while _state["running"]:
         try:
             _state["last_poll_at"] = time.time()
+            # Se o botão manual está imprimindo, não competir
+            if _print_lock.locked():
+                time.sleep(POLL_SECONDS)
+                continue
+
             resp = requests.get(_queue_url(), headers=_headers(), timeout=20)
             if resp.status_code != 200:
                 _state["last_error"] = f"queue HTTP {resp.status_code}: {resp.text[:200]}"
@@ -210,10 +272,28 @@ def poll_loop() -> None:
                 pid = pedido.get("id")
                 try:
                     _log(f"Imprimindo pedido {pid}...")
-                    print_pedido(pedido)
-                    ack_pedido(pid, "printed")
-                    _state["printed_count"] += 1
-                    _log(f"OK pedido {pid} (printed)")
+                    if not _print_lock.acquire(blocking=False):
+                        break
+                    try:
+                        last_err = None
+                        for _ in range(2):
+                            try:
+                                print_pedido(pedido)
+                                ack_pedido(pid, "printed")
+                                _state["printed_count"] += 1
+                                _log(f"OK pedido {pid} (printed)")
+                                last_err = None
+                                break
+                            except Exception as e:
+                                last_err = e
+                                time.sleep(0.4)
+                        if last_err is not None:
+                            raise last_err
+                    finally:
+                        try:
+                            _print_lock.release()
+                        except Exception:
+                            pass
                 except Exception as e:
                     _state["last_error"] = f"print error pedido {pid}: {e}"
                     _log(_state["last_error"]) 
@@ -243,6 +323,21 @@ def status():
             "printer": PRINTER_NAME,
         }
     )
+
+
+@app.post("/print-next")
+def print_next():
+    err = _require_env()
+    if err:
+        _state["last_error"] = err
+        return jsonify({"ok": False, "error": "config", "details": err}), 500
+
+    result = print_next_from_queue()
+    if result.get("ok"):
+        return jsonify(result)
+    if result.get("error") == "busy":
+        return jsonify(result), 409
+    return jsonify(result), 500
 
 
 def main() -> None:

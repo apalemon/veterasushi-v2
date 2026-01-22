@@ -695,3 +695,35 @@
 .gestor-sidebar::-webkit-scrollbar-thumb:hover {
   background: var(--gradient-hover);
 }
+
+.btn-impressao-gestor {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  width: 58px;
+  height: 58px;
+  border-radius: 16px;
+  border: 2px solid var(--borda);
+  background: linear-gradient(135deg, rgba(0,0,0,0.55), rgba(0,0,0,0.85));
+  color: #fff;
+  cursor: pointer;
+  z-index: 3500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.55);
+  transition: var(--transition-normal);
+}
+
+.btn-impressao-gestor:hover {
+  transform: translateY(-2px);
+  border-color: var(--vermelho-claro);
+}
+
+.btn-impressao-gestor:active {
+  transform: translateY(0);
+}
+
+.btn-impressao-gestor i {
+  font-size: 22px;
+}

@@ -1395,6 +1395,23 @@ function mostrarNotificacaoNovoPedido(quantidade) {
 // Variável global para AudioContext (iniciada após primeira interação)
 let audioContextGlobal = null;
 
+let _gestorAudioNovoPedido = null;
+let _gestorAudioNovoPedidoStopTimer = null;
+let _gestorAudioNovoPedidoStartedAt = 0;
+
+function _gestorPararSomNovoPedido() {
+    try {
+        if (_gestorAudioNovoPedidoStopTimer) {
+            clearTimeout(_gestorAudioNovoPedidoStopTimer);
+            _gestorAudioNovoPedidoStopTimer = null;
+        }
+        if (_gestorAudioNovoPedido) {
+            try { _gestorAudioNovoPedido.pause(); } catch (e) {}
+            try { _gestorAudioNovoPedido.currentTime = 0; } catch (e) {}
+        }
+    } catch (e) {}
+}
+
 // Inicializar AudioContext após primeira interação do usuário
 function inicializarAudioContext() {
     if (!audioContextGlobal) {
@@ -1431,29 +1448,27 @@ function inicializarAudioContextOnUserInteraction() {
 // Tocar notificação sonora (melhorada)
 function tocarNotificacao() {
     try {
-        // Tentar inicializar se ainda não foi feito
-        if (!audioContextInicializado) {
-            inicializarAudioContextOnUserInteraction();
+        if (!_gestorAudioNovoPedido) {
+            _gestorAudioNovoPedido = new Audio('/pedidos.mp3');
+            _gestorAudioNovoPedido.loop = true;
         }
-        
-        const audioContext = inicializarAudioContext();
-        if (!audioContext) {
-            // Se não conseguir criar, silenciosamente retornar (não mostrar erro)
-            return;
+
+        _gestorAudioNovoPedidoStartedAt = Date.now();
+
+        // tenta tocar (pode falhar por autoplay; nesse caso, ok)
+        try {
+            const p = _gestorAudioNovoPedido.play();
+            if (p && typeof p.catch === 'function') {
+                p.catch(() => {});
+            }
+        } catch (e) {}
+
+        if (_gestorAudioNovoPedidoStopTimer) {
+            clearTimeout(_gestorAudioNovoPedidoStopTimer);
         }
-        
-        // Garantir que está rodando
-        if (audioContext.state === 'suspended') {
-            audioContext.resume().then(() => {
-                tocarBeeps(audioContext);
-            }).catch(err => {
-                // Silenciosamente ignorar erros de autoplay
-                // console.warn('[GESTOR] Erro ao resumir AudioContext para tocar:', err);
-            });
-        } else if (audioContext.state === 'running') {
-            tocarBeeps(audioContext);
-        }
-        // Se estiver em 'closed', não fazer nada
+        _gestorAudioNovoPedidoStopTimer = setTimeout(function() {
+            _gestorPararSomNovoPedido();
+        }, 10000);
     } catch (error) {
         // Silenciosamente ignorar erros de autoplay
         // console.warn('[GESTOR] Erro ao tocar notificação:', error);
@@ -1578,10 +1593,59 @@ function mostrarSecao(secao) {
         try { initChatGestor(); } catch (e) {}
         try { atualizarChatGestor(); } catch (e) {}
     }
+
+    try { _gestorPararSomNovoPedido(); } catch (e) {}
 }
 
 // Tornar função global
 window.mostrarSecao = mostrarSecao;
+
+window.addEventListener('focus', function() {
+    try { _gestorPararSomNovoPedido(); } catch (e) {}
+});
+
+document.addEventListener('visibilitychange', function() {
+    try {
+        if (!document.hidden) _gestorPararSomNovoPedido();
+    } catch (e) {}
+});
+
+async function imprimirProximoPedidoGestor() {
+    try {
+        const btn = document.getElementById('btn-impressao-gestor');
+        if (btn) {
+            btn.disabled = true;
+            btn.style.opacity = '0.7';
+        }
+
+        const resp = await fetch('http://127.0.0.1:5055/print-next', { method: 'POST' });
+        const txt = await resp.text().catch(() => '');
+        let data = null;
+        try { data = JSON.parse(txt || 'null'); } catch (e) { data = null; }
+
+        if (!resp.ok || !data || !data.ok) {
+            const details = data && (data.details || data.error) ? String(data.details || data.error) : (txt || 'falha');
+            alert('Não foi possível imprimir agora.\n\nDetalhes: ' + details.slice(0, 500));
+            return;
+        }
+
+        if (data.printed) {
+            mostrarNotificacaoNovoPedido(1);
+        } else {
+            alert('Nenhum pedido pendente para imprimir.');
+        }
+    } catch (e) {
+        alert('Não foi possível conectar ao APP de impressão.\n\nAbra o app Python (python app.py) e tente novamente.');
+    } finally {
+        const btn = document.getElementById('btn-impressao-gestor');
+        if (btn) {
+            btn.disabled = false;
+            btn.style.opacity = '1';
+        }
+    }
+}
+
+window.imprimirProximoPedidoGestor = imprimirProximoPedidoGestor;
 
 // ============================================
 // CHAT (GESTOR / ADMIN)
