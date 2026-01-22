@@ -33,7 +33,7 @@ DISCOUNT_URL_BASE = os.getenv("DISCOUNT_URL_BASE", "").strip().rstrip("/")
 POLL_SECONDS = float(os.getenv("POLL_SECONDS", "3"))
 
 DEFAULT_COUPON = "VETERA5FY003"
-DEFAULT_DISCOUNT_URL_BASE = "https://veterasushi.bar/desconto.html"
+DEFAULT_DISCOUNT_URL_BASE = "https://veterasushi.bar/brinde.html"
 
 app = Flask(__name__)
 

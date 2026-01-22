@@ -78,6 +78,10 @@ module.exports = async (req, res) => {
     const clienteTel = escapeHtml(pedido.clienteTelefone || '');
     const endereco = escapeHtml(pedido.clienteEndereco || '');
 
+    const brindeCode = 'VETERA5FY003';
+    const brindeUrl = 'https://veterasushi.bar/brinde.html?codigo=' + encodeURIComponent(brindeCode);
+    const qrImg = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(brindeUrl);
+
     const html = `<!doctype html>
 <html lang="pt-br">
 <head>
@@ -86,54 +90,39 @@ module.exports = async (req, res) => {
   <title>Comanda #${escapeHtml(pedidoId)}</title>
   <style>
     @media print {
-      button { display: none !important; }
       body { margin: 0; }
     }
     body {
       font-family: Arial, sans-serif;
-      padding: 16px;
+      padding: 10px;
       color: #111;
     }
     .wrap {
-      max-width: 380px;
+      max-width: 320px;
       margin: 0 auto;
     }
-    .title {
-      text-align: center;
-      font-weight: 800;
-      font-size: 18px;
-      margin-bottom: 6px;
-    }
-    .sub {
-      text-align: center;
-      font-size: 12px;
-      margin-bottom: 10px;
-      color: #444;
-    }
-    .hr { border-top: 1px dashed #444; margin: 10px 0; }
-    .row { font-size: 12px; margin: 3px 0; }
+    .title { text-align: center; font-weight: 800; font-size: 16px; }
+    .sub { text-align: center; font-size: 11px; color: #444; margin-top: 2px; }
+    .hr { border-top: 1px dashed #444; margin: 8px 0; }
+    .row { font-size: 11px; margin: 2px 0; }
     table { width: 100%; border-collapse: collapse; font-size: 12px; }
     .total { font-size: 16px; font-weight: 800; text-align: right; }
-    .printbar { display:flex; gap:8px; justify-content:center; margin: 12px 0; }
-    .btn { padding:10px 12px; border:1px solid #111; background:#111; color:#fff; border-radius:8px; cursor:pointer; }
-    .btn2 { padding:10px 12px; border:1px solid #111; background:#fff; color:#111; border-radius:8px; cursor:pointer; }
+    .qr { display:flex; justify-content:center; margin-top: 10px; }
+    .qr img { width: 160px; height: 160px; }
+    .coupon { text-align:center; font-size: 12px; font-weight: 800; margin-top: 6px; }
+    .coupon small { display:block; font-weight: 400; color:#444; margin-top: 2px; }
   </style>
 </head>
 <body>
   <div class="wrap">
-    <div class="title">Vetera Sushi</div>
-    <div class="sub">Comanda #${escapeHtml(pedidoId)} • ${escapeHtml(data)}</div>
-
-    <div class="printbar">
-      <button class="btn" onclick="window.print()">Imprimir</button>
-      <button class="btn2" onclick="window.close()">Fechar</button>
-    </div>
+    <div class="title">COMANDA #${escapeHtml(pedidoId)}</div>
+    <div class="sub">${escapeHtml(data)}</div>
 
     <div class="hr"></div>
 
-    <div class="row"><strong>Cliente:</strong> ${clienteNome}</div>
-    <div class="row"><strong>Telefone:</strong> ${clienteTel}</div>
-    <div class="row"><strong>Endereço:</strong> ${endereco}</div>
+    ${clienteNome ? `<div class="row"><strong>Cliente:</strong> ${clienteNome}</div>` : ''}
+    ${clienteTel ? `<div class="row"><strong>Telefone:</strong> ${clienteTel}</div>` : ''}
+    ${endereco ? `<div class="row"><strong>Endereço:</strong> ${endereco}</div>` : ''}
 
     <div class="hr"></div>
 
@@ -149,9 +138,8 @@ module.exports = async (req, res) => {
 
     <div class="hr"></div>
 
-    <div class="row" style="text-align:center; font-size: 11px; color:#444;">
-      Cupom de desconto: <strong>VETERA5FY003</strong>
-    </div>
+    <div class="qr"><img src="${qrImg}" alt="QR Code" /></div>
+    <div class="coupon">${escapeHtml(brindeCode)}<small>Escaneie para ver o cupom</small></div>
   </div>
 
   <script>

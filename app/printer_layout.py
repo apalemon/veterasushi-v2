@@ -24,7 +24,11 @@ def build_discount_url(discount_url_base: str, cupom: Optional[str]) -> Optional
     if not base:
         return None
     join = "&" if "?" in base else "?"
-    return f"{base}{join}cupom={cup}"
+    # Compatível com páginas diferentes:
+    # - desconto.html usa ?cupom=
+    # - brinde.html usa ?codigo=
+    param = "cupom" if "cupom=" in base else "codigo"
+    return f"{base}{join}{param}={cup}"
 
 
 def format_pedido_for_print(pedido: Dict[str, Any]) -> Dict[str, Any]:

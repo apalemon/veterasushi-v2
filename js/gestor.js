@@ -1740,6 +1740,21 @@ let __chatAdminLastRenderedLen = 0;
 let __chatAdminFailCount = 0;
 let __chatAdminNextAllowedAt = 0;
 
+function _getAdminToken() {
+    try {
+        if (window.auth && window.auth.adminJwt) {
+            const t = String(window.auth.adminJwt || '').trim();
+            if (t) return t;
+        }
+    } catch (e) {}
+    try {
+        const t = String(localStorage.getItem('vetera_admin_token') || '').trim();
+        return t || '';
+    } catch (e) {
+        return '';
+    }
+}
+
 function _getChatAdminSeenMap() {
     try {
         const raw = localStorage.getItem('vetera_chat_admin_seen');
