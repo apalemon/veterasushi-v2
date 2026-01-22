@@ -1351,6 +1351,62 @@ function initChatWidgetCliente() {
             }
         }
 
+        async function pollOnce() {
+            try {
+                if (!activePedidoId) return;
+
+                let token = obterChatTokenPedidoLocal(activePedidoId);
+                if (!token) {
+                    token = await _recuperarChatTokenDoServidor(activePedidoId);
+                }
+                if (!token) return;
+
+                const qs = new URLSearchParams();
+                qs.set('pedidoId', String(activePedidoId));
+                qs.set('token', String(token));
+                if (lastSince) qs.set('since', String(lastSince));
+
+                const resp = await fetch(window.location.origin + '/api/chat/cliente?' + qs.toString());
+                if (!resp.ok) {
+                    // token inválido: limpar cache local para forçar recuperação
+                    if (resp.status === 403) {
+                        try {
+                            const map = _getChatTokensLocal();
+                            delete map[String(activePedidoId)];
+                            _setChatTokensLocal(map);
+                        } catch (e) {}
+                    }
+                    return;
+                }
+
+                const data = await resp.json().catch(() => null);
+                if (!data || !data.ok) return;
+
+                const msgs = Array.isArray(data.messages) ? data.messages : [];
+                const box = document.getElementById('vetera-chat-messages');
+                const panelOpen = panel && panel.style && panel.style.display !== 'none';
+
+                if (msgs.length > 0 && box) {
+                    msgs.forEach((m) => {
+                        box.appendChild(renderMessage(m));
+                        if (!panelOpen) {
+                            const from = String(m && m.from ? m.from : '');
+                            if (from && from !== 'cliente') {
+                                setBadge((unread || 0) + 1);
+                            }
+                        }
+                    });
+                    if (panelOpen) scrollToBottom();
+                }
+
+                // avançar cursor (since) para evitar baixar tudo de novo
+                const last = msgs.length > 0 ? msgs[msgs.length - 1] : null;
+                lastSince = (last && last.ts) ? String(last.ts) : (data.serverTime ? String(data.serverTime) : String(new Date().toISOString()));
+            } catch (e) {
+                // ignora
+            }
+        }
+
         function startPolling() {
             if (pollTimer) return;
             pollTimer = setInterval(() => { pollOnce().catch(() => {}); }, 3000);
