@@ -1874,6 +1874,20 @@ function abrirModalCombo(produto, quantidade = 1) {
             <div style="font-size: 1.5rem; font-weight: 700; color: var(--vermelho-claro);">R$ ${produto.preco.toFixed(2)}</div>
         </div>
     `;
+
+    html += `
+        <div style="margin-bottom: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--borda);">
+            <h3 style="margin: 0 0 10px 0; color: var(--text-primary); font-size: 1.05rem; font-weight: 700;">
+                Kit
+            </h3>
+            <label style="display:flex; align-items:center; gap:10px; padding:12px; border:2px solid var(--borda); border-radius:10px; background: var(--bg-primary); cursor:pointer;"
+                   onmouseover="this.style.borderColor='var(--vermelho-claro)'; this.style.background='rgba(220,38,38,0.05)'"
+                   onmouseout="this.style.borderColor='var(--borda)'; this.style.background='var(--bg-primary)'">
+                <input type="checkbox" id="combo-${produto.id}-kit-hashi" style="width:20px; height:20px; accent-color: var(--vermelho-claro); cursor:pointer;">
+                <span style="color: var(--text-primary);">Precisa do kit hashi + 2 shoyos + wasabi?</span>
+            </label>
+        </div>
+    `;
     
     // Renderizar partes
     produto.partes.forEach((parte, parteIndex) => {
@@ -2051,8 +2065,14 @@ function adicionarComboAoCarrinho(produtoId, quantidade) {
     // Coletar seleções
     const selecoes = {
         partes: [],
-        adicionais: []
+        adicionais: [],
+        kitHashi: false
     };
+
+    try {
+        const kitEl = document.getElementById(`combo-${produtoId}-kit-hashi`);
+        selecoes.kitHashi = !!(kitEl && kitEl.checked);
+    } catch (e) {}
     
     produto.partes.forEach((parte, parteIndex) => {
         const radioName = `combo-${produtoId}-parte-${parteIndex}`;
@@ -2134,8 +2154,8 @@ function adicionarComboAoCarrinho(produtoId, quantidade) {
     let itens = carrinhoInstance.getItens();
     
     // Verificar se já existe item igual (mesmo produto com mesmas seleções)
-    const itemExistenteIndex = itens.findIndex(item => 
-        item.produtoId === produtoIdParaBusca && 
+    const itemExistenteIndex = itens.findIndex(item =>
+        item.produtoId === produtoIdParaBusca &&
         JSON.stringify(item.selecoes) === JSON.stringify(selecoes)
     );
     
@@ -3163,6 +3183,7 @@ async function processarPedidoCheckout() {
     const cep = document.getElementById('checkout-cep')?.value.trim();
     const referencia = document.getElementById('checkout-referencia')?.value.trim();
     const observacoes = document.getElementById('checkout-observacoes')?.value.trim();
+    const kitHashi = !!document.getElementById('checkout-kit-hashi')?.checked;
     const formaPagamento = document.querySelector('input[name="checkout-pagamento"]:checked')?.value || 'pix';
     
     if (!nome || !telefone || !endereco || !numeroCasa || !bairro || !cep) {
@@ -3288,7 +3309,10 @@ async function processarPedidoCheckout() {
         produtoId: item.produtoId,
         nome: item.nome,
         preco: parseFloat(item.preco) || 0,
-        quantidade: parseInt(item.quantidade) || 0
+        quantidade: parseInt(item.quantidade) || 0,
+        tipo: item.tipo || null,
+        selecoes: item.selecoes || null,
+        kitHashi: kitHashi
     }));
     
     // Cliente não precisa estar logado - usar dados do formulário
@@ -3308,7 +3332,8 @@ async function processarPedidoCheckout() {
         taxaEntrega: taxaEntrega,
         total: total,
         observacoes: observacoes,
-        cupom: cupomAplicado ? cupomAplicado.codigo : null
+        cupom: cupomAplicado ? cupomAplicado.codigo : null,
+        kitHashi: kitHashi
     };
 
     if (formaPagamento === 'cartao') {

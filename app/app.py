@@ -139,10 +139,11 @@ def print_pedido(pedido: Dict[str, Any]) -> None:
         p.set(bold=False)
 
         for it in data["itens"]:
-            nome = (it["nome"] or "").strip()
-            qtd = it["qtd"]
-            subtotal = it["subtotal"]
-            # 1 linha simples (nome pode quebrar)
+            nome = (it.get("nome_original") or it.get("nome") or "").strip()
+            qtd = it.get("qtd") or 0
+            subtotal = it.get("subtotal") or 0
+
+            # linha principal
             line = f"{qtd}x {nome}".strip()
             if len(line) > 32:
                 p.text(line[:32] + "\n")
@@ -150,6 +151,39 @@ def print_pedido(pedido: Dict[str, Any]) -> None:
                     p.text(line[32:64] + "\n")
             else:
                 p.text(line + "\n")
+
+            # subitens (combos)
+            selecoes = it.get("selecoes")
+            if isinstance(selecoes, dict):
+                partes = selecoes.get("partes") if isinstance(selecoes.get("partes"), list) else []
+                adicionais = selecoes.get("adicionais") if isinstance(selecoes.get("adicionais"), list) else []
+                subnames = []
+                for psel in partes:
+                    if isinstance(psel, dict):
+                        subnames.append(str(psel.get("opcao") or psel.get("nome") or psel.get("parte") or "").strip())
+                    else:
+                        subnames.append(str(psel).strip())
+                for ad in adicionais:
+                    if isinstance(ad, dict):
+                        subnames.append(str(ad.get("nome") or ad.get("opcao") or "").strip())
+                    else:
+                        subnames.append(str(ad).strip())
+                subnames = [s for s in subnames if s]
+                for s in subnames:
+                    # "- item" (pode quebrar)
+                    subline = f"- {s}"
+                    if len(subline) > 32:
+                        p.text(subline[:32] + "\n")
+                        if len(subline) > 32:
+                            p.text(subline[32:64] + "\n")
+                    else:
+                        p.text(subline + "\n")
+
+                # Kit por combo, se existir
+                if "kitHashi" in selecoes or "kit_hashi" in selecoes:
+                    kh = bool(selecoes.get("kitHashi") or selecoes.get("kit_hashi"))
+                    p.text(f"- Kit: {'SIM' if kh else 'NÃO'}\n")
+
             p.set(align="right")
             p.text(_money(float(subtotal)) + "\n")
             p.set(align="left")
@@ -174,8 +208,8 @@ def print_pedido(pedido: Dict[str, Any]) -> None:
                 # qr() é o caminho mais confiável em ESC/POS
                 p.qr(url, size=4)
             except Exception:
-                # fallback: imprime o link
-                p.text(url + "\n")
+                # não imprimir URL em texto (evita sair "link" no final)
+                pass
 
         p.text("\n")
         p.set(align="center")

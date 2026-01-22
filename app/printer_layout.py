@@ -59,6 +59,10 @@ def format_pedido_for_print(pedido: Dict[str, Any]) -> Dict[str, Any]:
         itens.append(
             {
                 "nome": _safe_str(it.get("nome")),
+                "nome_original": _safe_str(it.get("nomeOriginal")),
+                "tipo": _safe_str(it.get("tipo")),
+                "selecoes": it.get("selecoes"),
+                "kit_hashi": bool(it.get("kitHashi")),
                 "qtd": qtd,
                 "preco": preco,
                 "subtotal": preco * qtd,
@@ -77,4 +81,6 @@ def format_pedido_for_print(pedido: Dict[str, Any]) -> Dict[str, Any]:
         "itens": itens,
         "total": float(pedido.get("total") or 0),
         "cupom": cupom,
+        "kit_hashi": bool(pedido.get("kitHashi")),
+        "observacoes": _safe_str(pedido.get("observacoes")),
     }
