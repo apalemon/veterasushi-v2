@@ -2913,10 +2913,6 @@ function renderizarFormasPagamentoCheckout() {
         <input type="radio" name="checkout-pagamento" value="pix" style="width:18px; height:18px;" checked>
         <span style="color:#fff; font-weight:500;">Pix</span>
       </label>
-      <label style="display:flex; align-items:center; gap:12px; padding:12px; background: rgba(255,255,255,0.03); border-radius:8px; cursor:pointer; margin-bottom:8px;">
-        <input type="radio" name="checkout-pagamento" value="cartao" style="width:18px; height:18px;">
-        <span style="color:#fff; font-weight:500;">Cartão</span>
-      </label>
     `;
     return;
 
@@ -3316,46 +3312,7 @@ async function processarPedidoCheckout() {
     };
 
     if (formaPagamento === 'cartao') {
-        // Cartão: redirecionar para o Mercado Pago Checkout Pro
-        let prefResp = null;
-        try {
-            let slug = '';
-            try {
-                const parts = (window.location && window.location.pathname ? window.location.pathname.split('/') : []).filter(Boolean);
-                slug = (parts && parts.length > 0) ? String(parts[0]) : '';
-            } catch (e) {
-                slug = '';
-            }
-            const resp = await fetch(window.location.origin + '/api/mercadopago/preference', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    amount: Number(total),
-                    title: 'Pedido Vetera Sushi',
-                    draft: { ...draft, lojaSlug: slug },
-                    lojaSlug: slug
-                })
-            });
-            const respText = await resp.text().catch(() => '');
-            prefResp = (() => { try { return JSON.parse(respText || 'null'); } catch (e) { return null; } })();
-            if (!resp.ok || !prefResp || !prefResp.ok || !prefResp.init_point) {
-                const detalhes = prefResp && (prefResp.error || prefResp.message || prefResp.details)
-                    ? (prefResp.error || prefResp.message || JSON.stringify(prefResp.details))
-                    : (respText ? String(respText) : null);
-                alert('Não foi possível iniciar o pagamento no cartão.' + (detalhes ? ('\n\nDetalhes: ' + String(detalhes).slice(0, 1200)) : ''));
-                return;
-            }
-        } catch (e) {
-            alert('Erro ao iniciar pagamento no cartão. Verifique sua conexão e tente novamente.');
-            return;
-        }
-
-        // Salvar para acompanhar na volta
-        try { localStorage.setItem('vetera_card_intent_pendente', String(prefResp.intentId || '')); } catch (e) {}
-
-        // Fechar checkout e redirecionar
-        try { fecharModal('modal-checkout'); } catch (e) {}
-        try { window.location.href = String(prefResp.init_point); } catch (e) { window.location.assign(String(prefResp.init_point)); }
+        alert('Pagamento no cartão está temporariamente indisponível.\n\nPor favor, selecione PIX.');
         return;
     }
 

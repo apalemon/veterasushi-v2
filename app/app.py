@@ -32,6 +32,9 @@ STORE_NAME = os.getenv("STORE_NAME", "Vetera Sushi").strip()
 DISCOUNT_URL_BASE = os.getenv("DISCOUNT_URL_BASE", "").strip().rstrip("/")
 POLL_SECONDS = float(os.getenv("POLL_SECONDS", "3"))
 
+DEFAULT_COUPON = "VETERA5FY003"
+DEFAULT_DISCOUNT_URL_BASE = "https://veterasushi.bar/desconto.html"
+
 app = Flask(__name__)
 
 _state = {
@@ -95,90 +98,97 @@ def _money(v: float) -> str:
 
 def print_pedido(pedido: Dict[str, Any]) -> None:
     p = Win32Raw(PRINTER_NAME)
+    try:
+        data = format_pedido_for_print(pedido)
 
-    data = format_pedido_for_print(pedido)
+        # Topo
+        p.set(align="center", bold=True, width=2, height=2)
+        p.text(STORE_NAME + "\n")
 
-    # Topo
-    p.set(align="center", bold=True, width=2, height=2)
-    p.text(STORE_NAME + "\n")
+        # Faixa preta com ID (invert)
+        p.set(align="center", bold=True, invert=True, width=2, height=2)
+        p.text(f" PEDIDO #{data['id']} \n")
+        p.set(invert=False)
 
-    # Faixa preta com ID (invert)
-    p.set(align="center", bold=True, invert=True, width=2, height=2)
-    p.text(f" PEDIDO #{data['id']} \n")
-    p.set(invert=False)
+        p.set(align="center")
+        p.text("-" * 32 + "\n")
 
-    p.set(align="center")
-    p.text("-" * 32 + "\n")
-
-    p.set(align="left", bold=True)
-    p.text(f"Data: {data['data']}   Hora: {data['hora']}\n")
-    p.set(bold=False)
-
-    p.text("-" * 32 + "\n")
-
-    p.set(bold=True)
-    p.text("Cliente:\n")
-    p.set(bold=False)
-    if data["cliente_nome"]:
-        p.text(data["cliente_nome"] + "\n")
-    if data["cliente_tel"]:
-        p.text(data["cliente_tel"] + "\n")
-
-    if data["endereco_full"]:
-        p.text("\nEndereço:\n")
-        p.text(data["endereco_full"] + "\n")
-
-    p.text("-" * 32 + "\n")
-
-    # Itens
-    p.set(bold=True)
-    p.text("ITENS\n")
-    p.set(bold=False)
-
-    for it in data["itens"]:
-        nome = (it["nome"] or "").strip()
-        qtd = it["qtd"]
-        subtotal = it["subtotal"]
-        # 1 linha simples (nome pode quebrar)
-        line = f"{qtd}x {nome}".strip()
-        if len(line) > 32:
-            p.text(line[:32] + "\n")
-            if len(line) > 32:
-                p.text(line[32:64] + "\n")
-        else:
-            p.text(line + "\n")
-        p.set(align="right")
-        p.text(_money(float(subtotal)) + "\n")
-        p.set(align="left")
-
-    p.text("-" * 32 + "\n")
-
-    # Total
-    p.set(align="center", bold=True, width=2, height=2)
-    p.text("TOTAL\n")
-    p.text(_money(float(data["total"])) + "\n")
-    p.set(bold=False, width=1, height=1)
-
-    p.text("-" * 32 + "\n")
-
-    # QR desconto
-    url = build_discount_url(DISCOUNT_URL_BASE, data.get("cupom"))
-    if url:
-        p.set(align="center", bold=True)
-        p.text("DESCONTO\n")
+        p.set(align="left", bold=True)
+        p.text(f"Data: {data['data']}   Hora: {data['hora']}\n")
         p.set(bold=False)
+
+        p.text("-" * 32 + "\n")
+
+        p.set(bold=True)
+        p.text("Cliente:\n")
+        p.set(bold=False)
+        if data["cliente_nome"]:
+            p.text(data["cliente_nome"] + "\n")
+        if data["cliente_tel"]:
+            p.text(data["cliente_tel"] + "\n")
+
+        if data["endereco_full"]:
+            p.text("\nEndereço:\n")
+            p.text(data["endereco_full"] + "\n")
+
+        p.text("-" * 32 + "\n")
+
+        # Itens
+        p.set(bold=True)
+        p.text("ITENS\n")
+        p.set(bold=False)
+
+        for it in data["itens"]:
+            nome = (it["nome"] or "").strip()
+            qtd = it["qtd"]
+            subtotal = it["subtotal"]
+            # 1 linha simples (nome pode quebrar)
+            line = f"{qtd}x {nome}".strip()
+            if len(line) > 32:
+                p.text(line[:32] + "\n")
+                if len(line) > 32:
+                    p.text(line[32:64] + "\n")
+            else:
+                p.text(line + "\n")
+            p.set(align="right")
+            p.text(_money(float(subtotal)) + "\n")
+            p.set(align="left")
+
+        p.text("-" * 32 + "\n")
+
+        # Total
+        p.set(align="center", bold=True, width=2, height=2)
+        p.text("TOTAL\n")
+        p.text(_money(float(data["total"])) + "\n")
+        p.set(bold=False, width=1, height=1)
+
+        p.text("-" * 32 + "\n")
+
+        # QR desconto
+        url = build_discount_url(DISCOUNT_URL_BASE or DEFAULT_DISCOUNT_URL_BASE, data.get("cupom") or DEFAULT_COUPON)
+        if url:
+            p.set(align="center", bold=True)
+            p.text("Escaneie e ganhe um premio EXCLUSIVO!\n")
+            p.set(bold=False)
+            try:
+                # qr() é o caminho mais confiável em ESC/POS
+                p.qr(url, size=4)
+            except Exception:
+                # fallback: imprime o link
+                p.text(url + "\n")
+
+        p.text("\n")
+        p.set(align="center")
+        p.text("Powered by Nurhb\n")
+
+        p.cut()
+    finally:
+        # IMPORTANTE: garante flush do job no Windows (senão só imprime ao encerrar o processo)
         try:
-            # qr() é o caminho mais confiável em ESC/POS
-            p.qr(url, size=4)
+            if hasattr(p, "close"):
+                p.close()
         except Exception:
-            # fallback: imprime o link
-            p.text(url + "\n")
-
-    p.text("\n")
-    p.set(align="center")
-    p.text("Powered by Nurhb\n")
-
-    p.cut()
+            pass
 
 
 def ack_pedido(pedido_id: Any, status: str) -> None:

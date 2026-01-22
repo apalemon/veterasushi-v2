@@ -1921,7 +1921,7 @@ class Database {
       categoria: 'Adicionais',
       ativo: true,
       ordem: 1,
-      imagem: '',
+      imagem: 'sunomono.jpg',
       tipo: 'produto'
     };
     
@@ -2023,8 +2023,8 @@ class Database {
 
     const teste = {
       id: 7010,
-      nome: 'Teste',
-      descricao: 'Teste',
+      nome: 'Item para Teste (não compre)',
+      descricao: 'Item para Teste de desenvolvimento do cardápio.',
       preco: 1.00,
       categoria: 'Adicionais',
       ativo: true,

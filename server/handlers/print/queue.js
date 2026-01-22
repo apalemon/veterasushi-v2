@@ -41,7 +41,14 @@ module.exports = async (req, res) => {
   if (!requirePrintToken(req, res)) return;
 
   try {
-    const pedidosCol = await getCollection('pedidos');
+    let pedidosCol = null;
+    try {
+      pedidosCol = await getCollection('pedidos');
+    } catch (e) {
+      // Retry curto (típico em erros transitórios de TLS/handshake)
+      try { await new Promise(r => setTimeout(r, 200)); } catch (err) {}
+      pedidosCol = await getCollection('pedidos');
+    }
 
     let limit = 10;
     try {
@@ -84,6 +91,8 @@ module.exports = async (req, res) => {
 
     return res.status(200).json({ ok: true, serverTime: nowIso(), pedidos: clean });
   } catch (e) {
-    return res.status(500).json({ ok: false, error: 'internal_error', details: e && e.message ? String(e.message) : String(e) });
+    const msg = e && e.message ? String(e.message) : String(e);
+    const isTls = /ssl|tls|handshake|alert/i.test(msg);
+    return res.status(isTls ? 503 : 500).json({ ok: false, error: 'internal_error', details: msg });
   }
 };

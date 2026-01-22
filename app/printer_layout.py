@@ -61,6 +61,8 @@ def format_pedido_for_print(pedido: Dict[str, Any]) -> Dict[str, Any]:
             }
         )
 
+    cupom = _safe_str(pedido.get("cupom")).strip() or "VETERA5FY003"
+
     return {
         "id": _safe_str(pedido.get("id")),
         "data": dt.strftime("%d/%m/%Y"),
@@ -70,5 +72,5 @@ def format_pedido_for_print(pedido: Dict[str, Any]) -> Dict[str, Any]:
         "endereco_full": endereco["full"],
         "itens": itens,
         "total": float(pedido.get("total") or 0),
-        "cupom": _safe_str(pedido.get("cupom")),
+        "cupom": cupom,
     }

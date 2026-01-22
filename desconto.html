@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Desconto - Vetera Sushi</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <style>
+    body {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      background: var(--bg);
+      padding: 2rem;
+    }
+    .box {
+      background: var(--cinza-medio);
+      padding: 2.5rem;
+      border-radius: 15px;
+      text-align: center;
+      max-width: 520px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+      border: 1px solid rgba(220, 38, 38, 0.15);
+    }
+    h1 {
+      color: var(--vermelho-claro);
+      margin-bottom: 0.75rem;
+      font-size: 2rem;
+    }
+    p {
+      color: var(--texto-medio);
+      margin-bottom: 0.75rem;
+      font-size: 1.1rem;
+    }
+    .cupom {
+      background: var(--cinza-escuro);
+      padding: 1rem;
+      border-radius: 10px;
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: var(--vermelho-claro);
+      font-family: monospace;
+      margin: 1.2rem 0;
+      letter-spacing: 0.18rem;
+      user-select: all;
+    }
+    .btn {
+      background: var(--vermelho-claro);
+      color: white;
+      border: none;
+      padding: 0.8rem 2rem;
+      border-radius: 10px;
+      cursor: pointer;
+      font-size: 1rem;
+      font-weight: 700;
+      margin-top: 0.75rem;
+    }
+    .btn:hover {
+      background: var(--vermelho-escuro);
+    }
+    .hint {
+      font-size: 0.9rem;
+      color: var(--texto-medio);
+      margin-top: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>Desconto Vetera Sushi</h1>
+    <p>Use o cupom abaixo no seu próximo pedido:</p>
+    <div class="cupom" id="cupom">VETERA5FY003</div>
+    <p class="hint">Se o cupom não aplicar automaticamente, copie e cole no checkout.</p>
+    <button class="btn" onclick="window.location.href='/'">Voltar ao Cardápio</button>
+  </div>
+  <script>
+    // Mantém compatibilidade se vier "?cupom=..." no QR antigo
+    try {
+      const qs = new URLSearchParams(window.location.search);
+      const c = (qs.get('cupom') || '').trim();
+      if (c) document.getElementById('cupom').textContent = c;
+    } catch (e) {}
+  </script>
+</body>
+</html>

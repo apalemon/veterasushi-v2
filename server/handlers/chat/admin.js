@@ -32,12 +32,17 @@ module.exports = async (req, res) => {
 
   if (req.method === 'OPTIONS') return res.status(200).end();
 
-  const chatsCol = await getCollection('chats');
+  function isTransientDbError(msg) {
+    const m = String(msg || '');
+    return /tls|ssl|handshake|timeout|timed out|ECONNRESET|ECONNREFUSED|ENOTFOUND|connection/i.test(m);
+  }
 
   // GET /api/chat/admin            -> lista conversas
   // GET /api/chat/admin?pedidoId=1 -> mensagens de um pedido
   if (req.method === 'GET') {
     try {
+      const chatsCol = await getCollection('chats');
+
       let pedidoId = null;
       try {
         const u = new URL(String(req.url || ''), 'http://localhost');
@@ -69,14 +74,17 @@ module.exports = async (req, res) => {
 
       return res.status(200).json({ ok: true, chats: list, serverTime: nowIso() });
     } catch (err) {
-      console.error('[CHAT/ADMIN] GET erro:', err.message);
-      return res.status(500).json({ ok: false, error: 'Erro ao carregar chats' });
+      const msg = err && err.message ? String(err.message) : String(err);
+      console.error('[CHAT/ADMIN] GET erro:', msg);
+      return res.status(isTransientDbError(msg) ? 503 : 500).json({ ok: false, error: 'Erro ao carregar chats', detalhes: msg });
     }
   }
 
   // POST /api/chat/admin { pedidoId, text }
   if (req.method === 'POST') {
     try {
+      const chatsCol = await getCollection('chats');
+
       const body = req.body || {};
       const pedidoId = normalizePedidoId(body.pedidoId);
       const text = safeStr(body.text);
@@ -100,8 +108,9 @@ module.exports = async (req, res) => {
 
       return res.status(200).json({ ok: true, message: msg });
     } catch (err) {
-      console.error('[CHAT/ADMIN] POST erro:', err.message);
-      return res.status(500).json({ ok: false, error: 'Erro ao enviar mensagem' });
+      const msg = err && err.message ? String(err.message) : String(err);
+      console.error('[CHAT/ADMIN] POST erro:', msg);
+      return res.status(isTransientDbError(msg) ? 503 : 500).json({ ok: false, error: 'Erro ao enviar mensagem', detalhes: msg });
     }
   }
 

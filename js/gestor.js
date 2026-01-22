@@ -14,7 +14,7 @@ async function imprimirPedidoGestor(ev, pedidoId) {
             try { ev.preventDefault(); } catch (e) {}
             try { ev.stopPropagation(); } catch (e) {}
         }
-        const url = 'http://127.0.0.1:5055/print-order?pedidoId=' + encodeURIComponent(String(pedidoId));
+        const url = window.location.origin + '/api/print/comanda?pedidoId=' + encodeURIComponent(String(pedidoId));
         window.open(url, '_blank', 'noopener');
     } catch (e) {
         alert('Não foi possível abrir a guia de impressão.');
@@ -366,8 +366,7 @@ window.salvarPagamentosConfig = async function(event) {
         if (event) event.preventDefault();
 
         const metodos = {
-            pix: true,
-            cartao: true
+            pix: true
         };
 
         const cfgAtual = db && typeof db.getConfiguracoes === 'function' ? (db.getConfiguracoes() || {}) : {};
@@ -379,12 +378,6 @@ window.salvarPagamentosConfig = async function(event) {
                 nome: 'Pix',
                 tipo: 'pix',
                 opcoesEntrega: ['pix']
-            },
-            {
-                id: 'cartao',
-                nome: 'Cartão',
-                tipo: 'cartao',
-                opcoesEntrega: ['cartao']
             }
         ];
 
@@ -1225,6 +1218,15 @@ async function carregarPedidosDoServidor() {
             
             if (Array.isArray(pedidosServidor)) {
                 if (!db.data) db.data = {};
+
+                // Se o servidor retornar vazio mas já temos pedidos locais, NÃO sobrescrever.
+                // Isso evita "sumir" pedidos quando ocorre falha transitória no backend e ele responde [].
+                try {
+                    const cacheAtual = Array.isArray(db.data.pedidos) ? db.data.pedidos : [];
+                    if (pedidosServidor.length === 0 && cacheAtual.length > 0) {
+                        return cacheAtual;
+                    }
+                } catch (e) {}
                 
                 // REMOVER   baseado no ID
                 const pedidosUnicos = [];
@@ -1239,7 +1241,7 @@ async function carregarPedidosDoServidor() {
                 
                 // Atualizar dados
                 db.data.pedidos = pedidosUnicos;
-                db.saveData();
+                try { db.saveData(); } catch (e) {}
                 
                 return pedidosUnicos;
             }
@@ -1735,6 +1737,8 @@ window.imprimirProximoPedidoGestor = imprimirProximoPedidoGestor;
 let __chatAdminInterval = null;
 let __chatAdminPedidoId = null;
 let __chatAdminLastRenderedLen = 0;
+let __chatAdminFailCount = 0;
+let __chatAdminNextAllowedAt = 0;
 
 function _getChatAdminSeenMap() {
     try {
@@ -1746,13 +1750,6 @@ function _getChatAdminSeenMap() {
     }
 }
 
-function _setChatAdminSeenMap(map) {
-    try { localStorage.setItem('vetera_chat_admin_seen', JSON.stringify(map || {})); } catch (e) {}
-}
-
-function _getAdminToken() {
-    try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
-}
 
 function initChatGestor() {
     if (__chatAdminInterval) return;
@@ -1766,6 +1763,14 @@ async function atualizarChatGestor() {
     const listEl = document.getElementById('chat-admin-list');
     if (!listEl) return;
 
+    // Backoff para evitar flood quando o backend estiver retornando erro
+    try {
+        const now = Date.now();
+        if (__chatAdminNextAllowedAt && now < __chatAdminNextAllowedAt) {
+            return;
+        }
+    } catch (e) {}
+
     try {
         if (statusEl) statusEl.textContent = 'Carregando...';
         const token = _getAdminToken();
@@ -1777,19 +1782,34 @@ async function atualizarChatGestor() {
             try {
                 const payload = await resp.json();
                 details = payload && (payload.detalhes || payload.error || payload.message) ? String(payload.detalhes || payload.error || payload.message) : '';
-                console.warn('[CHAT/ADMIN UI] GET /api/chat/admin falhou:', resp.status, payload);
+                if (__chatAdminFailCount < 3) {
+                    console.warn('[CHAT/ADMIN UI] GET /api/chat/admin falhou:', resp.status, payload);
+                }
             } catch (e) {
                 details = '';
-                console.warn('[CHAT/ADMIN UI] GET /api/chat/admin falhou:', resp.status);
+                if (__chatAdminFailCount < 3) {
+                    console.warn('[CHAT/ADMIN UI] GET /api/chat/admin falhou:', resp.status);
+                }
             }
             if (statusEl) statusEl.textContent = 'Erro (' + resp.status + ')' + (details ? ' - ' + details : '');
+
+            __chatAdminFailCount = (__chatAdminFailCount || 0) + 1;
+            const backoffMs = Math.min(60000, 3000 * Math.pow(2, Math.min(6, __chatAdminFailCount)));
+            __chatAdminNextAllowedAt = Date.now() + backoffMs;
             return;
         }
         const data = await resp.json();
         if (!data || !data.ok) {
             if (statusEl) statusEl.textContent = 'Erro (resposta inválida)';
+            __chatAdminFailCount = (__chatAdminFailCount || 0) + 1;
+            const backoffMs = Math.min(60000, 3000 * Math.pow(2, Math.min(6, __chatAdminFailCount)));
+            __chatAdminNextAllowedAt = Date.now() + backoffMs;
             return;
         }
+
+        // sucesso: reset backoff
+        __chatAdminFailCount = 0;
+        __chatAdminNextAllowedAt = 0;
 
         const seen = _getChatAdminSeenMap();
         let chats = Array.isArray(data.chats) ? data.chats : [];
