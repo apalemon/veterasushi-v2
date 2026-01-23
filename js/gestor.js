@@ -2826,9 +2826,17 @@ async function gerarNotaFiscal(pedidoId) {
         return;
     }
 
-    // Gerar ambas as notas
-    await gerarNotaCozinha(pedido);
-    await gerarNotaCliente(pedido);
+    // Gerar ambas as vias no MESMO PDF (2 páginas)
+    const doc = await gerarNotaCozinha(pedido, { open: false });
+    await gerarNotaCliente(pedido, { doc, open: false, appendPage: true });
+
+    try {
+        const pdfBlob = doc.output('blob');
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        window.open(pdfUrl, '_blank');
+    } catch (e) {
+        // ignora
+    }
 
     // Salvar no histórico
     try {
@@ -2847,7 +2855,7 @@ async function gerarNotaFiscal(pedidoId) {
 }
 
 // ========== NOTA DA COZINHA ==========
-async function gerarNotaCozinha(pedido) {
+async function gerarNotaCozinha(pedido, options) {
     const { jsPDF } = window.jspdf;
     
     // Calcular altura necessária (mais espaço para complementos)
@@ -2862,11 +2870,13 @@ async function gerarNotaCozinha(pedido) {
     
     const pageHeight = Math.max(200, 120 + alturaItens + 50);
     
-    const doc = new jsPDF({
-        unit: 'mm',
-        format: [80, pageHeight],
-        orientation: 'portrait'
-    });
+    const doc = (options && options.doc)
+        ? options.doc
+        : new jsPDF({
+            unit: 'mm',
+            format: [80, pageHeight],
+            orientation: 'portrait'
+        });
 
     const corPreto = [0, 0, 0];
     const corCinza = [100, 100, 100];
@@ -2997,14 +3007,17 @@ async function gerarNotaCozinha(pedido) {
     doc.setTextColor(...corPreto);
     doc.text('Pagamento: ' + formatarFormaPagamento(pedido.formaPagamento), margin, y);
 
-    // Abrir no navegador
-    const pdfBlob = doc.output('blob');
-    const pdfUrl = URL.createObjectURL(pdfBlob);
-    window.open(pdfUrl, '_blank');
+    if (!options || options.open !== false) {
+        const pdfBlob = doc.output('blob');
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        window.open(pdfUrl, '_blank');
+    }
+
+    return doc;
 }
 
 // ========== NOTA DO CLIENTE ==========
-async function gerarNotaCliente(pedido) {
+async function gerarNotaCliente(pedido, options) {
     const { jsPDF } = window.jspdf;
     const config = db.getConfiguracoes();
     
@@ -3024,12 +3037,23 @@ async function gerarNotaCliente(pedido) {
     });
     
     const pageHeight = Math.max(220, 180 + alturaItens);
-    
-    const doc = new jsPDF({
-        unit: 'mm',
-        format: [80, pageHeight],
-        orientation: 'portrait'
-    });
+
+    const hasDoc = !!(options && options.doc);
+    const doc = hasDoc
+        ? options.doc
+        : new jsPDF({
+            unit: 'mm',
+            format: [80, pageHeight],
+            orientation: 'portrait'
+        });
+
+    if (hasDoc && options && options.appendPage) {
+        try {
+            doc.addPage([80, pageHeight]);
+        } catch (e) {
+            // ignora
+        }
+    }
 
     const corPreto = [0, 0, 0];
     const corCinza = [80, 80, 80];
@@ -3232,10 +3256,14 @@ async function gerarNotaCliente(pedido) {
     y += 4;
     doc.text(DADOS_LOJA.nome + ' - Sabor que conquista!', 40, y, {align: 'center'});
 
-    // Abrir no navegador
-    const pdfBlob = doc.output('blob');
-    const pdfUrl = URL.createObjectURL(pdfBlob);
-    window.open(pdfUrl, '_blank');
+
+    if (!options || options.open !== false) {
+        const pdfBlob = doc.output('blob');
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        window.open(pdfUrl, '_blank');
+    }
+
+    return doc;
 }
 
 // Tornar função global
@@ -4522,8 +4550,15 @@ async function gerarNotaFiscalPDV() {
         origem: 'pdv'
     };
 
-    await gerarNotaCozinha(novoPedido);
-    await gerarNotaCliente(novoPedido);
+    const doc = await gerarNotaCozinha(novoPedido, { open: false });
+    await gerarNotaCliente(novoPedido, { doc, open: false, appendPage: true });
+    try {
+        const pdfBlob = doc.output('blob');
+        const pdfUrl = URL.createObjectURL(pdfBlob);
+        window.open(pdfUrl, '_blank');
+    } catch (e) {
+        // ignora
+    }
     
     // Criar pedido completo e salvar em pedidos.json
     // pedidoId já foi declarado acima na linha do QR Code do brinde
