@@ -1766,6 +1766,14 @@ function _getChatAdminSeenMap() {
     }
 }
 
+function _setChatAdminSeenMap(map) {
+    try {
+        localStorage.setItem('vetera_chat_admin_seen', JSON.stringify(map || {}));
+    } catch (e) {
+        // ignora
+    }
+}
+
 
 function initChatGestor() {
     if (__chatAdminInterval) return;
@@ -1967,7 +1975,15 @@ async function _carregarMensagensChatAdmin(tipo, idVal) {
         const seen = _getChatAdminSeenMap();
         const key = (String(tipo) === 'visitor') ? ('v:' + String(idVal)) : ('p:' + String(idVal));
         seen[key] = String(last.ts);
-        _setChatAdminSeenMap(seen);
+        if (typeof window._setChatAdminSeenMap === 'function') {
+            window._setChatAdminSeenMap(seen);
+        } else {
+            try {
+                localStorage.setItem('vetera_chat_admin_seen', JSON.stringify(seen || {}));
+            } catch (e) {
+                // ignora
+            }
+        }
     }
 }
 
@@ -4461,15 +4477,6 @@ async function gerarNotaFiscalPDV() {
     const discount = manualDiscount + paymentDiscountAmount;
     const deliveryFee = Math.max(0, Number(document.getElementById('delivery-fee-pdv')?.value || 0));
     
-    const config = db.getConfiguracoes();
-    const CNPJ = '58.429.088/0001-41';
-
-    // Calcular altura necessária
-    const itemCount = order.length;
-    const baseHeight = 150;
-    const itemsHeight = itemCount * 8;
-    const pageHeight = Math.max(200, baseHeight + itemsHeight + 100);
-
     if (typeof window.jspdf === 'undefined') {
         alert('Biblioteca jsPDF não encontrada. Carregando...');
         const script = document.createElement('script');
@@ -4480,186 +4487,11 @@ async function gerarNotaFiscalPDV() {
         document.head.appendChild(script);
         return;
     }
-    
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF({
-        unit: 'mm',
-        format: [80, pageHeight],
-        orientation: 'portrait'
-    });
 
-    // Cores: preto para destaques, fonte padrão
-    const corPreto = [0, 0, 0];
-    const corCinza = [80, 80, 80];
-    const corTexto = [50, 50, 50];
-
-    const margin = 8;
-    let y = margin;
-
-    // ========== LOGO NO TOPO ==========
-    try {
-        const logoResponse = await fetch('logo.png');
-        if (logoResponse.ok) {
-            const logoBlob = await logoResponse.blob();
-            const logoBase64 = await new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.readAsDataURL(logoBlob);
-            });
-            
-            // Adicionar logo centralizado
-            doc.addImage(logoBase64, 'PNG', 40 - 15, y, 30, 18);
-            y += 20;
-        } else {
-            throw new Error('Logo não encontrado');
-        }
-    } catch (e) {
-        // Se não conseguir, usar nome do estabelecimento
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(16);
-        doc.setTextColor(...corPreto);
-        doc.text((config.nomeEstabelecimento || 'Vetera Sushi'), 40, y + 8, {align:'center'});
-        y += 12;
-    }
-
-    y += 3;
-
-    // ========== CNPJ ==========
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(...corTexto);
-    doc.text('CNPJ: ' + CNPJ, 40, y, {align:'center'});
-    y += 6;
-
-    // ========== NOME DO CLIENTE ==========
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(...corPreto);
-    doc.text(customerName, margin, y);
-    y += 6;
-
-    // ========== ENDEREÇO ==========
-    if (customerAddress) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(...corTexto);
-        const addressLines = splitTextToSizePDV(customerAddress, 30);
-        addressLines.forEach(line => {
-            doc.text(line, margin, y);
-            y += 5;
-        });
-    }
-
-    // ========== FORMA DE PAGAMENTO ==========
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.setTextColor(...corTexto);
-    doc.text('Pagamento: ' + payment, margin, y);
-    y += 7;
-
-    // ========== LINHA DIVISÓRIA ==========
-    doc.setDrawColor(...corPreto);
-    doc.setLineWidth(0.5);
-    doc.line(margin, y, 80 - margin, y);
-    y += 6;
-
-    // ========== ITENS DO PEDIDO ==========
-    order.forEach(function(o) {
-        // Nome do item (simplificado, não detalhado)
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(...corTexto);
-        const itemNome = o.name || 'Item sem nome';
-        // Limitar nome a 35 caracteres
-        const itemNomeLimitado = itemNome.length > 35 ? itemNome.substring(0, 32) + '...' : itemNome;
-        doc.text(itemNomeLimitado, margin, y);
-        
-        // Valor do item à direita
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(8);
-        doc.setTextColor(...corPreto);
-        doc.text('R$ ' + fmt(o.total), 80 - margin, y, {align:'right'});
-        
-        y += 6;
-    });
-
-    y += 4;
-
-    // ========== TOTAL ==========
-    const finalTotal = Math.max(0, orderSubtotal - discount + deliveryFee);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.setTextColor(...corPreto);
-    doc.text('Total: R$ ' + fmt(finalTotal), margin, y);
-    y += 6;
-
-    // ========== VALOR DA ENTREGA ==========
-    if (deliveryFee > 0) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(...corTexto);
-        doc.text('Taxa de Entrega: R$ ' + fmt(deliveryFee), margin, y);
-        y += 5;
-    }
-
-    // ========== DESCONTO ==========
-    if (discount > 0) {
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(8);
-        doc.setTextColor(...corTexto);
-        doc.text('Desconto: R$ ' + fmt(discount), margin, y);
-        y += 5;
-    }
-
-    // ========== LINHA DIVISÓRIA ANTES DO QR CODE ==========
-    y += 3;
-    doc.setDrawColor(...corPreto);
-    doc.setLineWidth(0.5);
-    doc.line(margin, y, 80 - margin, y);
-    y += 6;
-
-    // ========== QR CODE DO BRINDE (5% DESCONTO) ==========
-    // Gerar código único para o brinde
     const pedidoId = Date.now();
-    const codigoBrinde = 'BR' + pedidoId.toString().slice(-6) + Date.now().toString().slice(-4);
-    const urlBrinde = window.location.origin + '/brinde.html?codigo=' + codigoBrinde;
-    
-    // Texto acima do QR Code
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9);
-    doc.setTextColor(...corPreto);
-    doc.text('Cupom de 5% de Desconto', 40, y, {align:'center'});
-    y += 5;
+    const finalTotal = Math.max(0, orderSubtotal - discount + deliveryFee);
 
-    // Gerar QR Code usando API pública
-    try {
-        const qrCodeUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(urlBrinde);
-        const qrResponse = await fetch(qrCodeUrl);
-        if (qrResponse.ok) {
-            const qrBlob = await qrResponse.blob();
-            const qrBase64 = await new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.readAsDataURL(qrBlob);
-            });
-            
-            // Adicionar QR Code centralizado (20mm x 20mm)
-            doc.addImage(qrBase64, 'PNG', 40 - 10, y, 20, 20);
-            y += 22;
-        }
-    } catch (e) {
-        console.error('Erro ao gerar QR Code:', e);
-    }
-
-    // Abrir no navegador ao invés de baixar
-    const pdfBlob = doc.output('blob');
-    const pdfUrl = URL.createObjectURL(pdfBlob);
-    window.open(pdfUrl, '_blank');
-    
-    // Criar pedido completo e salvar em pedidos.json
-    // pedidoId já foi declarado acima na linha do QR Code do brinde
     const itensPedido = order.map(o => {
-        const produto = menuItemsPDV.find(p => p.id === o.id);
         return {
             produtoId: o.id,
             nome: o.name,
@@ -4667,7 +4499,7 @@ async function gerarNotaFiscalPDV() {
             quantidade: o.qty
         };
     });
-    
+
     const novoPedido = {
         id: pedidoId,
         clienteId: null,
@@ -4679,7 +4511,7 @@ async function gerarNotaFiscalPDV() {
         desconto: discount,
         taxaEntrega: deliveryFee,
         total: finalTotal,
-        formaPagamento: payment.toLowerCase(),
+        formaPagamento: payment.toLowerCase().replace('cartão - crédito', 'cartao_credito').replace('cartão - débito', 'cartao_debito').replace('pago pelo ifood', 'ifood'),
         observacoes: '',
         cupom: null,
         data: new Date().toISOString(),
@@ -4689,6 +4521,13 @@ async function gerarNotaFiscalPDV() {
         dataConclusao: new Date().toISOString(),
         origem: 'pdv'
     };
+
+    await gerarNotaCozinha(novoPedido);
+    await gerarNotaCliente(novoPedido);
+    
+    // Criar pedido completo e salvar em pedidos.json
+    // pedidoId já foi declarado acima na linha do QR Code do brinde
+    // novoPedido já foi declarado acima
     
     // Salvar pedido diretamente (já que db.criarPedido sobrescreve status)
     try {

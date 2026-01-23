@@ -122,7 +122,7 @@ module.exports = async (req, res) => {
             // Compatibilidade: categorias como array de nomes
             const categorias = (categoriasDetalhadas && categoriasDetalhadas.length > 0)
                 ? categoriasDetalhadas.map(c => c.nome).filter(Boolean)
-                : [...new Set(produtos.map(p => p.categoria).filter(Boolean))];
+                : [];
 
             let complementos = [];
             try {
