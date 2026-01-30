@@ -3036,7 +3036,7 @@ async function gerarNotaCliente(pedido, options) {
         }
     });
     
-    const pageHeight = Math.max(220, 180 + alturaItens);
+    const pageHeight = Math.max(170, 150 + alturaItens);
 
     const hasDoc = !!(options && options.doc);
     const doc = hasDoc
@@ -3223,38 +3223,7 @@ async function gerarNotaCliente(pedido, options) {
     doc.line(margin, y, 80 - margin, y);
     y += 6;
 
-    // ========== QR CODE DO BRINDE ==========
-    const codigoBrinde = 'BR' + pedido.id.toString().slice(-6) + Date.now().toString().slice(-4);
-    const urlBrinde = window.location.origin + '/brinde.html?codigo=' + codigoBrinde;
-    
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8);
-    doc.setTextColor(...corVermelho);
-    doc.text('Wow! Você ganhou um brinde!', 40, y, {align: 'center'});
-    y += 5;
-
-    try {
-        const qrCodeUrl = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(urlBrinde);
-        const qrResponse = await fetch(qrCodeUrl);
-        if (qrResponse.ok) {
-            const qrBlob = await qrResponse.blob();
-            const qrBase64 = await new Promise((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result);
-                reader.readAsDataURL(qrBlob);
-            });
-            doc.addImage(qrBase64, 'PNG', 40 - 10, y, 20, 20);
-            y += 22;
-        }
-    } catch (e) {}
-
-    // ========== AGRADECIMENTO ==========
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(7);
-    doc.setTextColor(...corCinza);
-    doc.text('Obrigado pela preferência!', 40, y, {align: 'center'});
-    y += 4;
-    doc.text(DADOS_LOJA.nome + ' - Sabor que conquista!', 40, y, {align: 'center'});
+    // Removido bloco de QR/cupom para evitar nota gigante ao compartilhar.
 
 
     if (!options || options.open !== false) {
