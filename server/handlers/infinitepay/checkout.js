@@ -63,6 +63,13 @@ module.exports = async (req, res) => {
   let baseUrl;
   try {
     baseUrl = getPublicBaseUrl(req);
+    const baseHostname = new URL(baseUrl).hostname;
+    if (
+      baseHostname.endsWith('.vercel.app') &&
+      !safeStr(process.env.VERCEL_AUTOMATION_BYPASS_SECRET)
+    ) {
+      throw new Error('Ative o Protection Bypass for Automation na Vercel para permitir a confirmação dos pagamentos.');
+    }
   } catch (error) {
     return res.status(500).json({ ok: false, error: error.message });
   }
@@ -100,6 +107,12 @@ module.exports = async (req, res) => {
   const intentsCol = await getCollection('payment_intents');
   await intentsCol.insertOne(intentDoc);
 
+  const webhookUrl = new URL('/api/infinitepay/webhook', baseUrl);
+  const vercelBypassSecret = safeStr(process.env.VERCEL_AUTOMATION_BYPASS_SECRET);
+  if (vercelBypassSecret) {
+    webhookUrl.searchParams.set('x-vercel-protection-bypass', vercelBypassSecret);
+  }
+
   const phoneNumber = phoneWithCountryCode(draft.clienteTelefone);
   const payload = {
     handle,
@@ -110,7 +123,7 @@ module.exports = async (req, res) => {
       description: 'Pedido Vetera Sushi'
     }],
     redirect_url: baseUrl + '/vetera/cardapio',
-    webhook_url: baseUrl + '/api/infinitepay/webhook',
+    webhook_url: webhookUrl.toString(),
     options: {
       single_payment: true,
       valid_until: expiresAt
