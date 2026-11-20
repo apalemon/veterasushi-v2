@@ -27,7 +27,7 @@ module.exports = async (req, res) => {
   }
 
   const orderNsu = safeStr(body.order_nsu);
-  const transactionNsu = safeStr(body.transaction_nsu);
+  const transactionNsu = safeStr(body.transaction_nsu || body.transaction_id);
   const slug = safeStr(body.invoice_slug || body.slug);
   if (!orderNsu || !transactionNsu || !slug) {
     return res.status(400).json({ ok: false, error: 'Notificação sem os identificadores do pagamento.' });
@@ -36,7 +36,10 @@ module.exports = async (req, res) => {
   try {
     const intentsCol = await getCollection('payment_intents');
     const intent = await intentsCol.findOne({ intentId: orderNsu, provider: 'infinitepay' });
-    if (!intent) return res.status(200).json({ ok: true, ignored: true });
+    if (!intent) {
+      console.error('[InfinitePay] Intenção não encontrada para webhook:', orderNsu);
+      return res.status(404).json({ ok: false, error: 'Intenção de pagamento não encontrada.' });
+    }
 
     const response = await requestInfinitePay('/payment_check', {
       handle,

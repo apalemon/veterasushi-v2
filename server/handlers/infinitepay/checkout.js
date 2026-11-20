@@ -16,6 +16,10 @@ function getPublicBaseUrl(req) {
     return url.origin;
   }
 
+  if (String(process.env.NODE_ENV || '').toLowerCase() === 'production') {
+    throw new Error('Configure PUBLIC_BASE_URL na Vercel com o domínio público do site, sem proteção de implantação.');
+  }
+
   const headers = req && req.headers ? req.headers : {};
   const host = safeStr(headers['x-forwarded-host'] || headers.host).split(',')[0].trim();
   const proto = safeStr(headers['x-forwarded-proto'] || 'https').split(',')[0].trim();
