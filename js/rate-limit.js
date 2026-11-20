@@ -9,7 +9,7 @@
     const CONFIG = {
         maxRequestsPerMinute: 60,  // Máximo de requisições por minuto
         maxPedidosPorHora: 10,     // Máximo de pedidos por hora (por telefone)
-        blockDurationMs: 60000,    // Duração do bloqueio (1 minuto)
+        blockDurationMs: 60000,    // Duração do bloqueio (1 minuto)g
         storageKey: 'vetera_rate_limit'
     };
     

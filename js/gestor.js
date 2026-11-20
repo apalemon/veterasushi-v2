@@ -2788,9 +2788,9 @@ async function getStoreLogo() {
 // ========== DADOS DA LOJA ==========
 const DADOS_LOJA = {
     nome: 'Vetera Sushi',
-    cnpj: '58.429.088/0001-41',
-    endereco: 'R. Doutor João Palombini, 580',
-    bairro: 'Ipanema',
+    cnpj: '68.004.285/0001-72',
+    endereco: 'R. José Braulio da Fonseca, 170',
+    bairro: 'Hípica',
     cidade: 'Porto Alegre - RS',
     telefone: '(51) 98414-9137'
 };
@@ -3230,7 +3230,7 @@ async function gerarNotaCliente(pedido) {
     doc.setTextColor(...corCinza);
     doc.text('Obrigado pela preferência!', 40, y, {align: 'center'});
     y += 4;
-    doc.text(DADOS_LOJA.nome + ' - Sabor que conquista!', 40, y, {align: 'center'});
+    doc.text(DADOS_LOJA.nome, 40, y, {align: 'center'});
 
     // Abrir no navegador
     const pdfBlob = doc.output('blob');
