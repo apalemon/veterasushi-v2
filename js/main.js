@@ -97,6 +97,58 @@ async function handleMercadoPagoPendingFallback() {
     }
 }
 
+async function handleInfinitePayReturn() {
+    const params = new URLSearchParams(String(window.location && window.location.search ? window.location.search : ''));
+    const orderNsu = String(params.get('order_nsu') || '').trim();
+    if (!orderNsu) return;
+
+    const transactionNsu = String(params.get('transaction_nsu') || '').trim();
+    const slug = String(params.get('slug') || '').trim();
+    const startedAt = Date.now();
+    const timeoutMs = 60000;
+    const intervalMs = 2500;
+
+    try {
+        mostrarNotificacaoInApp('Pagamento', 'Confirmando seu pagamento na InfinitePay...', '⏳');
+    } catch (e) {}
+
+    while (Date.now() - startedAt < timeoutMs) {
+        try {
+            const query = new URLSearchParams({ order_nsu: orderNsu });
+            if (transactionNsu) query.set('transaction_nsu', transactionNsu);
+            if (slug) query.set('slug', slug);
+
+            const response = await fetch(window.location.origin + '/api/infinitepay/status?' + query.toString());
+            const data = await response.json().catch(() => null);
+
+            if (data && data.status === 'approved' && data.orderId) {
+                try { localStorage.removeItem('vetera_infinitepay_pending_order'); } catch (e) {}
+                try { adicionarPedidoIdClienteLocal(data.orderId); } catch (e) {}
+                try {
+                    if (typeof db !== 'undefined' && typeof db.carregarPedidosServidor === 'function') {
+                        await db.carregarPedidosServidor();
+                    }
+                } catch (e) {}
+                try {
+                    mostrarNotificacaoInApp('Pagamento', 'Pagamento aprovado! Seu pedido já está em andamento.', '✅');
+                } catch (e) {}
+                return;
+            }
+
+            if (data && (data.status === 'amount_mismatch' || data.status === 'manual_review')) {
+                mostrarNotificacaoInApp('Pagamento', 'Recebemos seu pagamento, mas precisamos confirmar os dados do pedido. Entre em contato com a loja.', '⚠️');
+                return;
+            }
+        } catch (error) {
+            console.warn('[InfinitePay] Erro ao confirmar pagamento:', error);
+        }
+
+        await new Promise(resolve => setTimeout(resolve, intervalMs));
+    }
+
+    mostrarNotificacaoInApp('Pagamento', 'Seu pagamento ainda está sendo confirmado. Se já pagou, aguarde alguns instantes e atualize a página.', '⏳');
+}
+
 // Fechar dropdown ao clicar fora
 document.addEventListener('click', function(e) {
     const dropdown = document.getElementById('user-dropdown');
@@ -441,9 +493,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     // Inicializar cardápio
     inicializarCardapio();
 
-    // Tratar retorno do Mercado Pago (success/pending/failure)
+    // O Mercado Pago continua sendo consultado apenas para pagamentos antigos.
     try { handleMercadoPagoReturn(); } catch (e) {}
     try { handleMercadoPagoPendingFallback(); } catch (e) {}
+    try { handleInfinitePayReturn(); } catch (e) {}
 
     // Iniciar monitoramento de status + chat (se houver pedidos)
     try { iniciarMonitoramentoStatusPedidosCliente(); } catch (e) {}
@@ -3142,7 +3195,7 @@ function renderizarFormasPagamentoCheckout() {
     container.innerHTML = `
       <label style="display:flex; align-items:center; gap:12px; padding:12px; background: rgba(255,255,255,0.03); border-radius:8px; cursor:pointer; margin-bottom:8px;">
         <input type="radio" name="checkout-pagamento" value="pix" style="width:18px; height:18px;" checked>
-        <span style="color:#fff; font-weight:500;">Pix</span>
+        <span style="color:#fff; font-weight:500;">Pix ou cartão pela InfinitePay</span>
       </label>
     `;
     return;
@@ -3526,8 +3579,6 @@ async function processarPedidoCheckout() {
     
     const total = subtotal - desconto - descontoCondicional + taxaEntrega;
     
-    // Forma de pagamento fixa: Mercado Pago
-
     // Preparar itens
     const itensParaPedido = itens.map(item => ({
         produtoId: item.produtoId,
@@ -3557,65 +3608,61 @@ async function processarPedidoCheckout() {
         total: total,
         observacoes: observacoes,
         cupom: cupomAplicado ? cupomAplicado.codigo : null,
-        kitHashi: kitHashi
+        kitHashi: kitHashi,
+        enderecoEntrega: {
+            cep: cep.replace(/\D/g, ''),
+            street: endereco,
+            number: numeroCasa,
+            neighborhood: bairro,
+            city: 'Porto Alegre',
+            state: 'RS',
+            ...(referencia ? { complement: referencia } : {})
+        }
     };
 
-    if (formaPagamento === 'cartao') {
-        alert('Pagamento no cartão está temporariamente indisponível.\n\nPor favor, selecione PIX.');
-        return;
-    }
-
-    // Pix (padrão)
-    // Limpar carrinho e fechar checkout antes de exibir o PIX
+    if (window.__veteraInfinitePayCheckoutInProgress) return;
+    window.__veteraInfinitePayCheckoutInProgress = true;
     try {
-        if (typeof window.carrinho !== 'undefined') {
-            window.carrinho.limpar();
-        }
-        localStorage.removeItem('vetera_carrinho');
-        localStorage.removeItem('vetera_pedido_temporario');
-    } catch (e) {}
-    try { fecharModal('modal-checkout'); } catch (e) {}
-
-    let intentResp = null;
-    try {
-        const resp = await fetch(window.location.origin + '/api/mercadopago/pix', {
+        const resp = await fetch(window.location.origin + '/api/infinitepay/checkout', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 amount: Number(total),
                 draft: draft,
-                description: 'Pagamento PIX - Vetera Sushi'
+                description: 'Pedido Vetera Sushi'
             })
         });
 
         const respText = await resp.text().catch(() => '');
-        intentResp = (() => {
+        const checkoutResp = (() => {
             try { return JSON.parse(respText || 'null'); } catch (e) { return null; }
         })();
 
-        if (!resp.ok || !intentResp || !intentResp.ok) {
-            console.warn('[PIX] Falha ao criar intent PIX:', resp.status, intentResp, respText);
-            const detalhes = intentResp && (intentResp.error || intentResp.message || intentResp.details || intentResp.raw)
-                ? (intentResp.error || intentResp.message || JSON.stringify(intentResp.details || intentResp.raw))
+        if (!resp.ok || !checkoutResp || !checkoutResp.ok || !checkoutResp.checkoutUrl || !checkoutResp.orderNsu) {
+            console.warn('[InfinitePay] Falha ao criar checkout:', resp.status, checkoutResp, respText);
+            const detalhes = checkoutResp && (checkoutResp.error || checkoutResp.message || checkoutResp.details)
+                ? (checkoutResp.error || checkoutResp.message || JSON.stringify(checkoutResp.details))
                 : (respText ? String(respText) : null);
-            alert('Não foi possível iniciar o PIX.' + (detalhes ? ('\n\nDetalhes: ' + String(detalhes).slice(0, 1200)) : ''));
+            alert('Não foi possível iniciar o pagamento.' + (detalhes ? ('\n\nDetalhes: ' + String(detalhes).slice(0, 1200)) : ''));
             return;
         }
-    } catch (e) {
-        console.warn('[PIX] Erro ao criar intent PIX:', e);
-        alert('Erro ao iniciar PIX. Verifique sua conexão e tente novamente.');
-        return;
-    }
 
-    try {
-        await mostrarPixIntent({
-            intentId: intentResp.intentId,
-            qr_code: intentResp.qr_code,
-            qr_code_base64: intentResp.qr_code_base64,
-            amount: Number(total)
-        });
+        try {
+            localStorage.setItem('vetera_infinitepay_pending_order', JSON.stringify({
+                orderNsu: checkoutResp.orderNsu,
+                createdAt: Date.now()
+            }));
+            if (typeof window.carrinho !== 'undefined') window.carrinho.limpar();
+            localStorage.removeItem('vetera_carrinho');
+            localStorage.removeItem('vetera_pedido_temporario');
+        } catch (e) {}
+        try { fecharModal('modal-checkout'); } catch (e) {}
+        window.location.assign(checkoutResp.checkoutUrl);
     } catch (e) {
-        console.warn('[PIX] Erro ao exibir modal PIX:', e);
+        console.warn('[InfinitePay] Erro ao criar checkout:', e);
+        alert('Erro ao iniciar o pagamento. Verifique sua conexão e tente novamente.');
+    } finally {
+        window.__veteraInfinitePayCheckoutInProgress = false;
     }
 }
 

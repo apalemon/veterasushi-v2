@@ -56,10 +56,13 @@ module.exports = async (req, res) => {
         return true;
       }
 
-      // MERCADO PAGO:
-      // - /api/mercadopago/preference: público (cliente cria pagamento)
-      // - /api/mercadopago/webhook: público (MP notifica)
+      // Pagamentos:
+      // - Mercado Pago: compatibilidade com pagamentos pendentes antigos
+      // - InfinitePay: checkout público e notificações do provedor
       if (first === 'mercadopago') {
+        return false;
+      }
+      if (first === 'infinitepay') {
         return false;
       }
 
