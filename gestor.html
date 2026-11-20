@@ -59,23 +59,11 @@
                 <a id="nav-pedidos" href="#" class="nav-item" onclick="mostrarSecao('pedidos'); return false;">
                     <span>Pedidos</span>
                 </a>
-                <a href="#" class="nav-item" onclick="mostrarSecao('chat'); return false;">
-                    <span>Chat</span>
-                </a>
                 <a href="#" class="nav-item" onclick="mostrarSecao('detalhes'); return false;">
                     <span>Detalhes</span>
                 </a>
                 <a href="#" class="nav-item" onclick="mostrarSecao('cupons'); return false;">
                     <span>Cupons</span>
-                </a>
-                <a id="nav-pagamentos" href="#" class="nav-item" onclick="mostrarSecao('pagamentos'); return false;">
-                    <span>Pagamentos</span>
-                </a>
-                <a href="#" class="nav-item" onclick="mostrarSecao('entradas'); return false;">
-                    <span>Entradas</span>
-                </a>
-                <a href="#" class="nav-item" onclick="mostrarSecao('horarios'); return false;">
-                    <span>Horários</span>
                 </a>
             </nav>
         </aside>
@@ -141,9 +129,6 @@
                                 </button>
                                 <button class="btn btn-secondary" onclick="mostrarSecao('cupons')" style="width: 100%; justify-content: flex-start;">
                                     <i class="fas fa-ticket-alt"></i> Cupons
-                                </button>
-                                <button class="btn btn-secondary" onclick="mostrarSecao('pagamentos')" style="width: 100%; justify-content: flex-start;">
-                                    <i class="fas fa-credit-card"></i> Pagamentos
                                 </button>
                             </div>
                         </div>
@@ -344,7 +329,9 @@
                 <!-- FILTROS -->
                 <div class="filtros-container">
                     <button class="filtro-btn active" onclick="filtrarPorStatus('em_preparo')"><i class="fas fa-utensils"></i> Em Preparo</button>
-                    <button class="filtro-btn" onclick="filtrarPorStatus('finalizado')"><i class="fas fa-check-double"></i> Finalizados</button>
+                    <button class="filtro-btn" onclick="filtrarPorStatus('pronto')"><i class="fas fa-check"></i> Pedido pronto</button>
+                    <button class="filtro-btn" onclick="filtrarPorStatus('saiu_para_entrega')"><i class="fas fa-motorcycle"></i> Saiu para entrega</button>
+                    <button class="filtro-btn" onclick="filtrarPorStatus('entregue')"><i class="fas fa-check-double"></i> Entregues</button>
                 </div>
 
                 <!-- LISTA DE PEDIDOS -->

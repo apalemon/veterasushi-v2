@@ -373,6 +373,19 @@
   border: 1px solid #3b82f6;
 }
 
+.status-pronto {
+  background: rgba(245, 158, 11, 0.2);
+  color: var(--aviso);
+  border: 1px solid var(--aviso);
+}
+
+.status-saiu_para_entrega {
+  background: rgba(168, 85, 247, 0.2);
+  color: #a855f7;
+  border: 1px solid #a855f7;
+}
+
+.status-entregue,
 .status-finalizado,
 .status-concluido {
   background: rgba(34, 197, 94, 0.2);

@@ -2167,8 +2167,8 @@ function filtrarPorStatus(status) {
     document.querySelectorAll('.filtro-btn').forEach(function(btn) {
         btn.classList.remove('active');
     });
-    if (event && event.target) {
-        event.target.classList.add('active');
+    if (event && event.currentTarget) {
+        event.currentTarget.classList.add('active');
     }
     
     renderizarPedidos();
@@ -2195,7 +2195,12 @@ function renderizarPedidos() {
 
     // Filtrar por status
     let pedidos = pedidosDisponiveis.filter(function(p) {
-        return p && p.status === filtroStatus;
+        if (!p) return false;
+        const status = String(p.status || '').toLowerCase();
+        if (filtroStatus === 'entregue') {
+            return ['entregue', 'concluido', 'finalizado'].includes(status);
+        }
+        return status === filtroStatus;
     });
 
     // FILTRAR: Pedidos recusados e ocultos NÃO aparecem na lista principal
@@ -2396,14 +2401,23 @@ function abrirDetalhesPedido(pedidoId) {
 
     html += '<div style="display: flex; gap: 1rem; flex-wrap: wrap;">';
     
-    // Pagamento é automático via PIX (Mercado Pago). Não existe aprovação manual.
+    // O pagamento é confirmado pelo provedor; não há aprovação manual nesta tela.
     
     if (pedido.statusPagamento === 'pago' && pedido.status === 'aguardando_pagamento') {
         html += '<button class="btn btn-primary" onclick="iniciarPreparo(' + pedido.id + ')" style="flex: 1; min-width: 200px;">Iniciar Preparo</button>';
     }
     
     if (pedido.status === 'em_preparo') {
-        html += '<button class="btn btn-success" onclick="finalizarPedidoGestor(' + pedido.id + ')" style="flex: 1; min-width: 200px;"><i class="fas fa-check-circle"></i> Concluir Pedido</button>';
+        html += '<button class="btn btn-secondary" onclick="enviarMensagemWhatsAppPedido(' + pedido.id + ', \'recebido\')" style="flex: 1; min-width: 200px;"><i class="fab fa-whatsapp"></i> Avisar pedido recebido</button>';
+        html += '<button class="btn btn-success" onclick="finalizarPedidoGestor(' + pedido.id + ')" style="flex: 1; min-width: 200px;"><i class="fas fa-check-circle"></i> Pedido pronto</button>';
+    } else if (pedido.status === 'pronto') {
+        html += '<button class="btn btn-secondary" onclick="enviarMensagemWhatsAppPedido(' + pedido.id + ', \'status\')" style="flex: 1; min-width: 200px;"><i class="fab fa-whatsapp"></i> Avisar cliente pelo WhatsApp</button>';
+        html += '<button class="btn btn-success" onclick="avancarStatusPedidoGestor(' + pedido.id + ', \'saiu_para_entrega\')" style="flex: 1; min-width: 200px;"><i class="fas fa-motorcycle"></i> Saiu para entrega</button>';
+    } else if (pedido.status === 'saiu_para_entrega') {
+        html += '<button class="btn btn-secondary" onclick="enviarMensagemWhatsAppPedido(' + pedido.id + ', \'status\')" style="flex: 1; min-width: 200px;"><i class="fab fa-whatsapp"></i> Avisar cliente pelo WhatsApp</button>';
+        html += '<button class="btn btn-success" onclick="avancarStatusPedidoGestor(' + pedido.id + ', \'entregue\')" style="flex: 1; min-width: 200px;"><i class="fas fa-check-double"></i> Confirmar entrega</button>';
+    } else if (['entregue', 'concluido', 'finalizado'].includes(String(pedido.status || '').toLowerCase())) {
+        html += '<button class="btn btn-secondary" onclick="enviarMensagemWhatsAppPedido(' + pedido.id + ', \'status\')" style="flex: 1; min-width: 200px;"><i class="fab fa-whatsapp"></i> Avisar entrega pelo WhatsApp</button>';
     }
     
     html += '<button class="btn btn-secondary" onclick="gerarNotaFiscal(' + pedido.id + ')" style="flex: 1; min-width: 200px;"><i class="fas fa-file-pdf"></i> Gerar Nota Fiscal</button>';
@@ -2718,16 +2732,88 @@ async function iniciarPreparo(pedidoId) {
 }
 
 async function finalizarPedidoGestor(pedidoId) {
-    const pedido = await db.atualizarPedido(pedidoId, { 
-        status: 'concluido',
-        statusPagamento: 'pago',
-        dataConclusao: new Date().toISOString()
-    });
-    if (pedido) {
-        // Recarregar pedidos do servidor para garantir sincronização
+    return avancarStatusPedidoGestor(pedidoId, 'pronto');
+}
+
+function enviarMensagemWhatsAppPedido(pedidoId, etapa) {
+    const pedido = db.getPedido(pedidoId);
+    if (!pedido) {
+        alert('Pedido não encontrado.');
+        return;
+    }
+
+    const telefone = normalizarTelefoneWhatsAppPedido(pedido.clienteTelefone);
+    if (!telefone) {
+        alert('O pedido não tem um telefone válido para contato pelo WhatsApp.');
+        return;
+    }
+
+    const mensagensPorStatus = {
+        em_preparo: 'Recebemos seu pedido e ele já está sendo preparado.',
+        pronto: 'Seu pedido está pronto e será encaminhado para entrega.',
+        saiu_para_entrega: 'Seu pedido saiu para entrega.',
+        entregue: 'Seu pedido foi entregue. Obrigado pela preferência!',
+        concluido: 'Seu pedido foi entregue. Obrigado pela preferência!',
+        finalizado: 'Seu pedido foi entregue. Obrigado pela preferência!'
+    };
+    const statusAtual = String(pedido.status || '').toLowerCase();
+    const mensagem = etapa === 'recebido'
+        ? 'Olá, ' + (pedido.clienteNome || '') + '! Recebemos seu pedido #' + pedido.id + ' e ele já está sendo preparado.'
+        : 'Olá, ' + (pedido.clienteNome || '') + '! ' + (mensagensPorStatus[statusAtual] || 'Atualização do pedido.') + ' (Pedido #' + pedido.id + ')';
+    window.open('https://wa.me/' + telefone + '?text=' + encodeURIComponent(mensagem), '_blank', 'noopener,noreferrer');
+}
+
+function normalizarTelefoneWhatsAppPedido(telefone) {
+    let digits = String(telefone || '').replace(/\D/g, '');
+    if (digits.length === 10 || digits.length === 11) digits = '55' + digits;
+    return digits.length >= 12 && digits.length <= 13 ? digits : '';
+}
+
+async function avancarStatusPedidoGestor(pedidoId, novoStatus) {
+    const pedidoAtual = db.getPedido(pedidoId);
+    if (!pedidoAtual) {
+        alert('Pedido não encontrado.');
+        return;
+    }
+
+    const etapas = {
+        pronto: { mensagem: 'Seu pedido está pronto e será encaminhado para entrega.', data: 'dataPronto' },
+        saiu_para_entrega: { mensagem: 'Seu pedido saiu para entrega.', data: 'dataSaiuParaEntrega' },
+        entregue: { mensagem: 'Seu pedido foi entregue. Obrigado pela preferência!', data: 'dataEntrega' }
+    };
+    const etapa = etapas[novoStatus];
+    if (!etapa) {
+        alert('Etapa de pedido inválida.');
+        return;
+    }
+
+    const telefone = normalizarTelefoneWhatsAppPedido(pedidoAtual.clienteTelefone);
+    const abaWhatsApp = telefone ? window.open('', '_blank') : null;
+    try {
+        const atualizacao = {
+            status: novoStatus,
+            statusPagamento: 'pago',
+            [etapa.data]: new Date().toISOString()
+        };
+        const pedido = await db.atualizarPedido(pedidoId, atualizacao);
+        if (!pedido) throw new Error('Não foi possível salvar o novo status.');
+
         await carregarPedidosDoServidor();
         renderizarPedidos();
         abrirDetalhesPedido(pedidoId);
+
+        if (telefone && abaWhatsApp) {
+            const mensagem = 'Olá, ' + (pedidoAtual.clienteNome || '') + '! ' + etapa.mensagem + ' (Pedido #' + pedidoId + ')';
+            abaWhatsApp.location.href = 'https://wa.me/' + telefone + '?text=' + encodeURIComponent(mensagem);
+        } else if (telefone) {
+            alert('O status foi atualizado, mas o navegador bloqueou a abertura do WhatsApp. Abra novamente a etapa para tentar enviar a mensagem.');
+        } else {
+            alert('O status foi atualizado, mas o pedido não tem um telefone válido para contato pelo WhatsApp.');
+        }
+    } catch (error) {
+        if (abaWhatsApp) abaWhatsApp.close();
+        console.error('[PEDIDOS] Erro ao avançar etapa:', error);
+        alert('Não foi possível atualizar o pedido: ' + (error && error.message ? error.message : error));
     }
 }
 
@@ -2749,6 +2835,8 @@ async function recusarPedido(pedidoId) {
 window.confirmarPagamento = undefined;
 window.iniciarPreparo = iniciarPreparo;
 window.finalizarPedidoGestor = finalizarPedidoGestor;
+window.avancarStatusPedidoGestor = avancarStatusPedidoGestor;
+window.enviarMensagemWhatsAppPedido = enviarMensagemWhatsAppPedido;
 window.recusarPedido = recusarPedido;
 
 // Função fmt do PDV
@@ -2860,7 +2948,16 @@ async function gerarNotaCozinha(pedido) {
         if (item.observacao) alturaItens += 6;
     });
     
-    const pageHeight = Math.max(200, 120 + alturaItens + 50);
+    const linhasEndereco = pedido.clienteEndereco
+        ? splitTextToSizeNota(pedido.clienteEndereco, 38).length
+        : 0;
+    const linhasObservacoes = pedido.observacoes
+        ? splitTextToSizeNota(pedido.observacoes, 38).length
+        : 0;
+    const pageHeight = Math.max(
+        80,
+        75 + alturaItens + linhasEndereco * 4 + (linhasObservacoes ? 17 + linhasObservacoes * 4 : 0)
+    );
     
     const doc = new jsPDF({
         unit: 'mm',
@@ -3023,7 +3120,10 @@ async function gerarNotaCliente(pedido) {
         }
     });
     
-    const pageHeight = Math.max(220, 180 + alturaItens);
+    const linhasEndereco = pedido.clienteEndereco
+        ? splitTextToSizeNota(pedido.clienteEndereco, 40).length
+        : 0;
+    const pageHeight = Math.max(160, 160 + alturaItens + linhasEndereco * 4);
     
     const doc = new jsPDF({
         unit: 'mm',
@@ -3244,6 +3344,8 @@ window.gerarNotaFiscal = gerarNotaFiscal;
 window.confirmarPagamento = confirmarPagamento;
 window.iniciarPreparo = iniciarPreparo;
 window.finalizarPedidoGestor = finalizarPedidoGestor;
+window.avancarStatusPedidoGestor = avancarStatusPedidoGestor;
+window.enviarMensagemWhatsAppPedido = enviarMensagemWhatsAppPedido;
 window.abrirDetalhesPedido = abrirDetalhesPedido;
 window.filtrarPorStatus = filtrarPorStatus;
 window.filtrarPedidos = filtrarPedidos;
@@ -3262,9 +3364,12 @@ function formatarStatus(status) {
         'em_preparo': 'Em Preparo',
         'em preparo': 'Em Preparo', // Variante
         'preparo': 'Em Preparo',
-        'concluido': 'Concluído',
-        'concluído': 'Concluído',
-        'finalizado': 'Finalizado',
+        'pronto': 'Pedido pronto',
+        'saiu_para_entrega': 'Saiu para entrega',
+        'entregue': 'Entregue',
+        'concluido': 'Entregue',
+        'concluído': 'Entregue',
+        'finalizado': 'Entregue',
         'recusado': 'Recusado',
         'cancelado': 'CANCELADO',
         'cancelado_cliente': 'CANCELADO'

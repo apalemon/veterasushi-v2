@@ -1068,27 +1068,30 @@ header {
   }
 
   .carrinho-flutuante {
-    padding: 1rem 1.25rem;
-    flex-direction: column;
-    align-items: stretch;
-    gap: 1rem;
+    padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom));
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem;
   }
 
   .carrinho-info {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.75rem;
-    width: 100%;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.5rem 0.75rem;
+    width: auto;
+    flex: 1;
+    flex-wrap: wrap;
   }
 
   .carrinho-total {
-    font-size: 1.3rem;
-    width: 100%;
+    font-size: 1.05rem;
+    width: auto;
   }
 
   .finalizar-btn {
-    width: 100%;
-    padding: 1rem;
+    width: auto;
+    min-height: 46px;
+    padding: 0.75rem 1rem;
     justify-content: center;
   }
 
@@ -1158,7 +1161,7 @@ header {
   }
 
   .categorias {
-    padding: 0.75rem 0;
+    padding: 0.5rem 0 0.75rem;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
@@ -1170,8 +1173,8 @@ header {
   }
 
   .categoria-btn {
-    padding: 0.9rem 1.6rem;
-    font-size: 1rem;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
     min-width: auto;
     flex-shrink: 0;
     white-space: nowrap;
@@ -1194,33 +1197,70 @@ header {
 
   .produtos-grid {
     grid-template-columns: 1fr;
-    gap: 1rem;
-  }
-
-  .produto-imagem-container {
-    height: 140px;
-  }
-
-  .produto-controles {
-    flex-direction: column;
     gap: 0.75rem;
   }
 
+  .produto-imagem-container {
+    height: 110px;
+  }
+
+  .produto-conteudo {
+    padding: 0.9rem;
+  }
+
+  .produto-nome {
+    font-size: 1rem;
+  }
+
+  .produto-descricao {
+    font-size: 0.82rem;
+    line-height: 1.4;
+  }
+
+  .produto-controles {
+    flex-direction: row;
+    gap: 0.5rem;
+  }
+
   .quantidade-controle {
-    width: 100%;
+    width: auto;
+    flex-shrink: 0;
     justify-content: center;
   }
 
   .adicionar-btn {
-    width: 100%;
+    flex: 1;
+    min-height: 44px;
+    padding: 0.7rem 0.8rem;
   }
 
   .carrinho-flutuante {
-    padding: 1rem;
+    padding: 0.65rem 0.75rem calc(0.65rem + env(safe-area-inset-bottom));
+    gap: 0.5rem;
   }
 
   .carrinho-total {
-    font-size: 1.2rem;
+    font-size: 0.95rem;
+  }
+
+  .carrinho-itens {
+    font-size: 0.78rem;
+  }
+
+  .carrinho-flutuante > div:last-child {
+    gap: 0.4rem !important;
+  }
+
+  .carrinho-flutuante .finalizar-btn {
+    min-height: 44px;
+    padding: 0.65rem 0.75rem;
+    font-size: 0.82rem;
+    white-space: nowrap;
+  }
+
+  .carrinho-flutuante button[title="Limpar carrinho"] {
+    min-width: 40px;
+    padding: 8px 10px !important;
   }
 
   .modal {

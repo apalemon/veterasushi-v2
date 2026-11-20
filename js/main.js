@@ -130,7 +130,19 @@ async function handleInfinitePayReturn() {
                     }
                 } catch (e) {}
                 try {
-                    mostrarNotificacaoInApp('Pagamento', 'Pagamento aprovado! Seu pedido já está em andamento.', '✅');
+                    const pedidoId = String(data.orderId);
+                    const pedido = typeof db !== 'undefined' && typeof db.getPedido === 'function'
+                        ? db.getPedido(data.orderId)
+                        : { id: data.orderId };
+                    const statusCache = _getPedidosStatusCacheCliente();
+                    statusCache[pedidoId] = String((pedido && pedido.status) || 'em_preparo').toLowerCase();
+                    _setPedidosStatusCacheCliente(statusCache);
+                    if (!_jaMostrouPopupPreparo(pedidoId)) {
+                        _marcarPopupPreparoMostrado(pedidoId);
+                        mostrarModalPedidoEmPreparo(pedido);
+                    } else {
+                        mostrarNotificacaoInApp('Pedido recebido', 'Pagamento aprovado e pedido #' + pedidoId + ' aceito pela loja.', '✅');
+                    }
                 } catch (e) {}
                 return;
             }
@@ -592,7 +604,7 @@ function mostrarModalPedidoPronto(pedido) {
         const numeroWhats = '+55 51 984149137';
         const numeroWhatsDigits = '5551984149137';
         const pedidoId = pedido && pedido.id ? pedido.id : '';
-        const textoWhats = encodeURIComponent('Olá! Meu pedido #' + pedidoId + ' foi concluído.');
+        const textoWhats = encodeURIComponent('Olá! Meu pedido #' + pedidoId + ' está pronto. Quando sairá para entrega?');
         const linkWhats = 'https://wa.me/' + numeroWhatsDigits + '?text=' + textoWhats;
 
         const overlay = document.createElement('div');
@@ -608,13 +620,13 @@ function mostrarModalPedidoPronto(pedido) {
             '<div style="width:80px;height:80px;border-radius:50%;background:rgba(59,130,246,0.12);border:2px solid rgba(59,130,246,0.35);display:flex;align-items:center;justify-content:center;margin-bottom:14px;">' +
                 '<i class="fas fa-check-circle" style="font-size:34px;color:#60a5fa;"></i>' +
             '</div>' +
-            '<div style="font-size:22px;font-weight:800;color:#fff;text-align:center;">Pedido concluído</div>' +
+            '<div style="font-size:22px;font-weight:800;color:#fff;text-align:center;">Pedido pronto</div>' +
             '<div style="margin-top:6px;font-size:14px;color:rgba(255,255,255,0.65);">Pedido #' + pedidoId + '</div>';
 
         const body = document.createElement('div');
         body.style.cssText = 'padding:18px 24px 24px;text-align:center;';
         body.innerHTML =
-            '<div style="color:rgba(255,255,255,0.85);font-size:15px;line-height:1.5;margin-bottom:16px;">Seu pedido foi concluído pelo restaurante.</div>' +
+            '<div style="color:rgba(255,255,255,0.85);font-size:15px;line-height:1.5;margin-bottom:16px;">Seu pedido está pronto e em breve sairá para entrega.</div>' +
             '<div style="display:flex;gap:12px;">' +
                 '<a href="' + linkWhats + '" target="_blank" rel="noopener noreferrer" style="flex:1;display:flex;align-items:center;justify-content:center;text-decoration:none;background:linear-gradient(135deg,#22c55e,#16a34a);border-radius:10px;color:#fff;padding:14px 18px;font-weight:700;">' +
                     '<i class="fab fa-whatsapp" style="margin-right:8px;"></i>WhatsApp' +
@@ -634,11 +646,11 @@ function mostrarModalPedidoPronto(pedido) {
 
         try {
             if (typeof window.mostrarNotificacao === 'function') {
-                window.mostrarNotificacao('Pedido concluído', 'Seu pedido #' + pedidoId + ' foi concluído.', '✅');
+                window.mostrarNotificacao('Pedido pronto', 'Seu pedido #' + pedidoId + ' está pronto e em breve sairá para entrega.', '✅');
             }
         } catch (e) {}
     } catch (e) {
-        try { mostrarAvisoPedidoCliente('Seu pedido foi concluído.'); } catch (e2) {}
+        try { mostrarAvisoPedidoCliente('Seu pedido está pronto e em breve sairá para entrega.'); } catch (e2) {}
     }
 }
 
@@ -704,7 +716,7 @@ function mostrarModalPedidoEmPreparo(pedido) {
         iconContainer.innerHTML = '<i class="fas fa-utensils" style="font-size: 32px; color: #22c55e;"></i>';
 
         const title = document.createElement('h2');
-        title.textContent = 'Pedido em Preparo!';
+        title.textContent = 'Pedido recebido!';
         title.style.cssText = 'margin: 0; font-size: 22px; font-weight: 700; color: #fff; text-align: center;';
 
         const pedidoNum = document.createElement('div');
@@ -720,7 +732,7 @@ function mostrarModalPedidoEmPreparo(pedido) {
         body.style.cssText = 'padding: 20px 25px 25px; text-align: center;';
 
         const mensagem = document.createElement('p');
-        mensagem.textContent = 'Seu pedido foi aprovado e já está sendo preparado! Em breve estará pronto para entrega.';
+        mensagem.textContent = 'Pagamento confirmado e pedido aceito! A loja já está preparando seu pedido.';
         mensagem.style.cssText = 'margin: 0 0 20px; font-size: 15px; color: rgba(255,255,255,0.8); line-height: 1.5;';
 
         const whatsInfo = document.createElement('div');
@@ -852,14 +864,22 @@ async function verificarAtualizacoesStatusPedidosCliente() {
                 }
             }
 
-            // Concluído/pronto
-            if (statusAtual === 'concluido' && statusAnterior !== 'concluido') {
+            // Pedido pronto
+            if (statusAtual === 'pronto' && statusAnterior !== 'pronto') {
                 if (!_jaMostrouPopupPronto(id)) {
                     _marcarPopupProntoMostrado(id);
                     mostrarModalPedidoPronto(p);
                 } else {
-                    try { mostrarAvisoPedidoCliente('Seu pedido foi concluído.'); } catch (e) {}
+                    try { mostrarAvisoPedidoCliente('Seu pedido está pronto e em breve sairá para entrega.'); } catch (e) {}
                 }
+            }
+
+            if (statusAtual === 'saiu_para_entrega' && statusAnterior !== statusAtual) {
+                mostrarAvisoPedidoCliente('Seu pedido #' + id + ' saiu para entrega.');
+            }
+
+            if (['entregue', 'concluido', 'finalizado'].includes(statusAtual) && statusAnterior !== statusAtual) {
+                mostrarAvisoPedidoCliente('Seu pedido #' + id + ' foi entregue. Obrigado pela preferência!');
             }
 
             cache[id] = statusAtual;
@@ -1243,16 +1263,16 @@ function initChatWidgetCliente() {
         const bubble = document.createElement('button');
         bubble.id = 'vetera-chat-bubble';
         bubble.type = 'button';
-        bubble.setAttribute('aria-label', 'Abrir chat');
+        bubble.setAttribute('aria-label', 'Falar com a loja pelo WhatsApp');
         bubble.style.cssText = `
             position: fixed;
             right: 18px;
-            bottom: 18px;
+            bottom: calc(96px + env(safe-area-inset-bottom));
             width: 56px;
             height: 56px;
             border-radius: 50%;
             border: 1px solid rgba(255,255,255,0.12);
-            background: linear-gradient(135deg, rgba(220,38,38,0.9), rgba(185,28,28,0.9));
+            background: linear-gradient(135deg, #22c55e, #16a34a);
             color: #fff;
             box-shadow: 0 18px 60px rgba(0,0,0,0.45);
             cursor: pointer;
@@ -1261,7 +1281,7 @@ function initChatWidgetCliente() {
             align-items: center;
             justify-content: center;
         `;
-        bubble.innerHTML = '<i class="fas fa-comments" style="font-size: 20px;"></i>';
+        bubble.innerHTML = '<i class="fab fa-whatsapp" style="font-size: 24px;"></i>';
 
         const badge = document.createElement('div');
         badge.id = 'vetera-chat-badge';
@@ -1326,7 +1346,6 @@ function initChatWidgetCliente() {
             </div>
         `;
 
-        document.body.appendChild(panel);
         document.body.appendChild(bubble);
 
         let pollTimer = null;
@@ -1547,9 +1566,16 @@ function initChatWidgetCliente() {
             stopPolling();
         }
 
+        bubble.setAttribute('role', 'button');
+        bubble.setAttribute('aria-label', 'Falar com a loja pelo WhatsApp');
         bubble.addEventListener('click', () => {
-            if (panel.style.display === 'none') openPanel();
-            else closePanel();
+            const ids = typeof getPedidoIdsClienteLocal === 'function' ? getPedidoIdsClienteLocal() : [];
+            const pedidoId = Array.isArray(ids) && ids.length ? String(ids[0]) : '';
+            const mensagem = pedidoId
+                ? 'Olá! Preciso de ajuda com o pedido #' + pedidoId + '.'
+                : 'Olá! Tenho uma dúvida sobre o cardápio.';
+            const link = 'https://wa.me/5551984149137?text=' + encodeURIComponent(mensagem);
+            window.open(link, '_blank', 'noopener,noreferrer');
         });
 
         panel.querySelector('#vetera-chat-close')?.addEventListener('click', closePanel);
@@ -1694,16 +1720,6 @@ function initChatWidgetCliente() {
             }
         });
 
-        // polling leve mesmo fechado (só para badge)
-        setInterval(() => {
-            if (panel.style.display !== 'none') return;
-            populatePedidos();
-            const ids = (typeof getPedidoIdsClienteLocal === 'function') ? (getPedidoIdsClienteLocal() || []) : [];
-            const first = ids && ids.length > 0 ? String(ids[0]) : '';
-            if (!first) return;
-            activePedidoId = first;
-            pollOnce().catch(() => {});
-        }, 8000);
     } catch (e) {
         console.warn('[CHAT] Falha ao iniciar widget:', e);
     }
@@ -4720,8 +4736,9 @@ function fecharModalMeusPedidos() {
 
 function formatarStatusPedidoCliente(status) {
     const s = String(status || '').toLowerCase();
-    if (s === 'concluido') return 'Concluído';
-    if (s === 'finalizado') return 'Concluído';
+    if (s === 'pronto') return 'Pedido pronto';
+    if (s === 'saiu_para_entrega') return 'Saiu para entrega';
+    if (s === 'entregue' || s === 'concluido' || s === 'finalizado') return 'Entregue';
     if (s === 'cancelado') return 'Cancelado';
     if (s === 'recusado') return 'Recusado';
     if (s === 'em_preparo') return 'Em preparo';
@@ -4772,7 +4789,7 @@ async function renderizarMeusPedidos() {
         const dataMs = new Date(p.dataCriacao || p.data || p.timestamp || Date.now()).getTime();
         const dentro10 = (Date.now() - dataMs) <= 10 * 60 * 1000;
         const status = String(p.status || '').toLowerCase();
-        const podeCancelar = dentro10 && status !== 'concluido' && status !== 'recusado' && status !== 'cancelado';
+        const podeCancelar = dentro10 && !['pronto', 'saiu_para_entrega', 'entregue', 'concluido', 'finalizado', 'recusado', 'cancelado'].includes(status);
         const total = Number(p.total) || 0;
         const dataFmt = new Date(dataMs).toLocaleString('pt-BR');
         return '<div style="background: rgba(0,0,0,0.25); border: 1px solid var(--borda); border-radius: 12px; padding: 14px; margin-bottom: 10px;">' +
@@ -4799,7 +4816,7 @@ async function cancelarPedidoCliente(pedidoId) {
         const dataMs = new Date(pedido.dataCriacao || pedido.data || pedido.timestamp || Date.now()).getTime();
         const dentro10 = (Date.now() - dataMs) <= 10 * 60 * 1000;
         const status = String(pedido.status || '').toLowerCase();
-        if (!dentro10 || status === 'concluido' || status === 'recusado' || status === 'cancelado') {
+        if (!dentro10 || ['pronto', 'saiu_para_entrega', 'entregue', 'concluido', 'finalizado', 'recusado', 'cancelado'].includes(status)) {
             alert('Este pedido não pode mais ser cancelado.');
             return;
         }
