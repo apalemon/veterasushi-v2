@@ -2134,7 +2134,10 @@ function abrirModalCombo(produto, quantidade = 1) {
         </div>
     `;
 
-    if (partes.length > 0) html += `
+    const temEscolhaDeUtensilios = partes.some(parte =>
+        String(parte.nome || '').toLocaleLowerCase('pt-BR') === 'utensílios'
+    );
+    if (partes.length > 0 && !temEscolhaDeUtensilios) html += `
         <div style="margin-bottom: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--borda);">
             <h3 style="margin: 0 0 10px 0; color: var(--text-primary); font-size: 1.05rem; font-weight: 700;">
                 Kit
@@ -2197,14 +2200,16 @@ function abrirModalCombo(produto, quantidade = 1) {
         
         produto.adicionais.forEach((adicional, adicionalIndex) => {
             const adicionalId = `combo-${produto.id}-adicional-${adicionalIndex}`;
+            const indisponivel = adicional.disponivel === false;
             html += `
-                <label style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; background: var(--bg-primary); border: 2px solid var(--borda); border-radius: 8px; cursor: pointer; transition: all 0.2s;" 
+                <label style="display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 12px; background: var(--bg-primary); border: 2px solid var(--borda); border-radius: 8px; cursor: ${indisponivel ? 'not-allowed' : 'pointer'}; opacity: ${indisponivel ? '0.55' : '1'}; transition: all 0.2s;"
                        onmouseover="this.style.borderColor='var(--vermelho-claro)'; this.style.background='rgba(220,38,38,0.05)'" 
                        onmouseout="this.style.borderColor='var(--borda)'; this.style.background='var(--bg-primary)'">
-                    <span style="flex: 1; color: var(--text-primary); font-size: 0.95rem;">${adicional.nome}</span>
+                    <span style="flex: 1; color: var(--text-primary); font-size: 0.95rem;">${adicional.nome}${indisponivel ? ' (indisponível)' : ''}</span>
                     <span style="color: var(--vermelho-claro); font-weight: 600;">➕ R$ ${(Number(adicional.preco) || 0).toFixed(2)}</span>
                     <input type="checkbox" 
                            id="${adicionalId}"
+                           ${indisponivel ? 'disabled' : ''}
                            style="width: 20px; height: 20px; accent-color: var(--vermelho-claro); cursor: pointer;"
                            onchange="atualizarPrecoCombo(); validarAdicionaisMaximo(event)">
                 </label>
