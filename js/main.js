@@ -102,6 +102,24 @@ async function handleInfinitePayReturn() {
     const orderNsu = String(params.get('order_nsu') || '').trim();
     if (!orderNsu) return;
 
+    let pedidoPendente = null;
+    for (const storageName of ['localStorage', 'sessionStorage']) {
+        try {
+            const salvo = JSON.parse(window[storageName].getItem('vetera_infinitepay_pending_order') || 'null');
+            if (salvo && String(salvo.orderNsu) === orderNsu) {
+                const criadoEm = Number(salvo.createdAt || 0);
+                if (!criadoEm || Date.now() - criadoEm <= 2 * 60 * 60 * 1000) {
+                    pedidoPendente = salvo;
+                } else {
+                    window[storageName].removeItem('vetera_infinitepay_pending_order');
+                }
+                break;
+            }
+        } catch (error) {
+            console.warn('[InfinitePay] Não foi possível ler os dados locais do pedido:', error);
+        }
+    }
+
     const transactionNsu = String(params.get('transaction_nsu') || '').trim();
     const slug = String(params.get('slug') || '').trim();
     const startedAt = Date.now();
@@ -122,7 +140,14 @@ async function handleInfinitePayReturn() {
             const data = await response.json().catch(() => null);
 
             if (data && data.status === 'approved' && data.orderId) {
-                try { localStorage.removeItem('vetera_infinitepay_pending_order'); } catch (e) {}
+                const pedidoId = String(data.orderId);
+                for (const storageName of ['localStorage', 'sessionStorage']) {
+                    try {
+                        window[storageName].removeItem('vetera_infinitepay_pending_order');
+                    } catch (error) {
+                        console.warn('[InfinitePay] Não foi possível limpar os dados locais do pedido:', error);
+                    }
+                }
                 try { adicionarPedidoIdClienteLocal(data.orderId); } catch (e) {}
                 try {
                     if (typeof db !== 'undefined' && typeof db.carregarPedidosServidor === 'function') {
@@ -130,7 +155,6 @@ async function handleInfinitePayReturn() {
                     }
                 } catch (e) {}
                 try {
-                    const pedidoId = String(data.orderId);
                     const pedido = typeof db !== 'undefined' && typeof db.getPedido === 'function'
                         ? db.getPedido(data.orderId)
                         : { id: data.orderId };
@@ -144,6 +168,36 @@ async function handleInfinitePayReturn() {
                         mostrarNotificacaoInApp('Pedido recebido', 'Pagamento aprovado e pedido #' + pedidoId + ' aceito pela loja.', '✅');
                     }
                 } catch (e) {}
+
+                const whatsappPedido = pedidoPendente && pedidoPendente.whatsapp;
+                if (whatsappPedido) {
+                    const itensMensagem = Array.isArray(whatsappPedido.itens)
+                        ? whatsappPedido.itens.map(item => `• ${item.quantidade}x ${item.nome}`).join('\n')
+                        : '';
+                    const totalMensagem = Number(whatsappPedido.total);
+                    const totalFormatado = Number.isFinite(totalMensagem)
+                        ? new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(totalMensagem)
+                        : 'não informado';
+                    const mensagem = [
+                        'Olá! Acabei de fazer um pedido na Vetera Sushi.',
+                        `Pedido: #${pedidoId}`,
+                        `Cliente: ${whatsappPedido.clienteNome || 'não informado'}`,
+                        `Endereço: ${whatsappPedido.clienteEndereco || 'não informado'}`,
+                        'Itens:',
+                        itensMensagem || '• não informado',
+                        `Total: ${totalFormatado}`,
+                        'Pagamento confirmado pela InfinitePay.'
+                    ].join('\n');
+
+                    try {
+                        window.history.replaceState({}, document.title, window.location.pathname + window.location.hash);
+                    } catch (error) {
+                        console.warn('[InfinitePay] Não foi possível limpar os parâmetros de retorno:', error);
+                    }
+                    window.setTimeout(() => {
+                        window.location.assign('https://wa.me/5551984149137?text=' + encodeURIComponent(mensagem));
+                    }, 1500);
+                }
                 return;
             }
 
@@ -1851,8 +1905,10 @@ function renderizarProdutos() {
     // Renderizar produtos por categoria com divisórias
     let html = '';
     const categoriasOrdenadas = Object.keys(produtosPorCategoria).sort((a, b) => {
-        const ordemA = categoriasDados.find(c => c.nome === a)?.ordem || 999;
-        const ordemB = categoriasDados.find(c => c.nome === b)?.ordem || 999;
+        const dadosA = categoriasDados.find(c => c.nome === a);
+        const dadosB = categoriasDados.find(c => c.nome === b);
+        const ordemA = dadosA && Number.isFinite(dadosA.ordem) ? dadosA.ordem : 999;
+        const ordemB = dadosB && Number.isFinite(dadosB.ordem) ? dadosB.ordem : 999;
         return ordemA - ordemB;
     });
 
@@ -3681,15 +3737,36 @@ async function processarPedidoCheckout() {
             return;
         }
 
+        const pedidoPendente = {
+            orderNsu: checkoutResp.orderNsu,
+            createdAt: Date.now(),
+            whatsapp: {
+                clienteNome: draft.clienteNome,
+                clienteEndereco: draft.clienteEndereco,
+                itens: draft.itens.map(item => ({
+                    nome: item.nome,
+                    quantidade: item.quantidade
+                })),
+                total: draft.total
+            }
+        };
         try {
-            localStorage.setItem('vetera_infinitepay_pending_order', JSON.stringify({
-                orderNsu: checkoutResp.orderNsu,
-                createdAt: Date.now()
-            }));
+            localStorage.setItem('vetera_infinitepay_pending_order', JSON.stringify(pedidoPendente));
+        } catch (error) {
+            console.error('[InfinitePay] Não foi possível guardar a mensagem de confirmação localmente:', error);
+            try {
+                sessionStorage.setItem('vetera_infinitepay_pending_order', JSON.stringify(pedidoPendente));
+            } catch (sessionError) {
+                console.error('[InfinitePay] Não foi possível guardar a confirmação na sessão:', sessionError);
+            }
+        }
+        try {
             if (typeof window.carrinho !== 'undefined') window.carrinho.limpar();
             localStorage.removeItem('vetera_carrinho');
             localStorage.removeItem('vetera_pedido_temporario');
-        } catch (e) {}
+        } catch (error) {
+            console.warn('[InfinitePay] Não foi possível limpar o carrinho local:', error);
+        }
         try { fecharModal('modal-checkout'); } catch (e) {}
         window.location.assign(checkoutResp.checkoutUrl);
     } catch (e) {

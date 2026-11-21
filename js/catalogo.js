@@ -9,6 +9,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Hot's",
       "ativo": true,
       "ordem": 1,
+      "imagem": "",
       "tipo": "produto"
     },
     {
@@ -19,6 +20,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Hot's",
       "ativo": true,
       "ordem": 2,
+      "imagem": "",
       "tipo": "produto"
     },
     {
@@ -29,6 +31,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Hot's",
       "ativo": true,
       "ordem": 3,
+      "imagem": "",
       "tipo": "produto"
     },
     {
@@ -65,6 +68,17 @@ window.VETERA_CATALOGO = {
       "tipo": "produto"
     },
     {
+      "id": 9001,
+      "nome": "Pedido teste (não compre)",
+      "descricao": "Item para testar o fluxo de pedido.",
+      "preco": 1.00,
+      "categoria": "Entradas",
+      "ativo": true,
+      "ordem": 3,
+      "imagem": "",
+      "tipo": "produto"
+    },
+    {
       "id": 8001,
       "nome": "Onigiri Filadélfia Salmão com Cream Cheese",
       "descricao": "Bolinho triangular de arroz com salmão, cream cheese, cebolinha, alga nori e gergelim.",
@@ -72,6 +86,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Onigiris",
       "ativo": true,
       "ordem": 1,
+      "imagem": "",
       "tipo": "produto"
     },
     {
@@ -82,6 +97,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Onigiris",
       "ativo": true,
       "ordem": 2,
+      "imagem": "",
       "tipo": "produto"
     },
     {
@@ -515,6 +531,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Pokes",
       "ativo": true,
       "ordem": 2,
+      "imagem": "",
       "tipo": "produto"
     },
     {
@@ -547,6 +564,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Combos",
       "ativo": true,
       "ordem": 1,
+      "imagem": "",
       "tipo": "produto"
     },
     {
@@ -557,6 +575,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Combos",
       "ativo": true,
       "ordem": 2,
+      "imagem": "",
       "tipo": "produto"
     },
     {
@@ -567,6 +586,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Combos",
       "ativo": true,
       "ordem": 3,
+      "imagem": "",
       "tipo": "produto"
     },
     {
@@ -577,6 +597,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Combos",
       "ativo": true,
       "ordem": 4,
+      "imagem": "",
       "tipo": "produto"
     },
     {
@@ -587,6 +608,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Combos",
       "ativo": true,
       "ordem": 5,
+      "imagem": "",
       "tipo": "produto"
     },
     {
@@ -597,6 +619,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Combos",
       "ativo": true,
       "ordem": 6,
+      "imagem": "",
       "tipo": "produto"
     },
     {
@@ -607,6 +630,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Combos",
       "ativo": true,
       "ordem": 7,
+      "imagem": "",
       "tipo": "produto"
     },
     {
@@ -617,6 +641,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Combos",
       "ativo": true,
       "ordem": 8,
+      "imagem": "",
       "tipo": "produto"
     },
     {
@@ -682,6 +707,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Salmão",
       "ativo": true,
       "ordem": 6,
+      "imagem": "",
       "tipo": "produto"
     }
   ],
