@@ -271,6 +271,95 @@
   box-shadow: var(--sombra-card);
 }
 
+.whatsapp-instructions {
+  margin: 0 0 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 12px;
+  background: rgba(34, 197, 94, 0.08);
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.whatsapp-instructions strong {
+  color: #22c55e;
+  margin-right: 0.25rem;
+}
+
+.whatsapp-order-card {
+  border-left: 4px solid #22c55e;
+}
+
+.whatsapp-order-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+}
+
+.whatsapp-order-actions .btn {
+  flex: 1;
+  justify-content: center;
+}
+
+.whatsapp-order-actions .btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.ifood-instructions {
+  margin-bottom: 1.25rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.ifood-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-bottom: 1.5rem;
+}
+
+.ifood-catalog-section {
+  padding: 1.25rem;
+  border: 1px solid var(--borda);
+  border-radius: 12px;
+  background: var(--bg-secondary);
+}
+
+.ifood-catalog-section h2 {
+  margin: 0 0 1rem;
+  color: var(--text-primary);
+  font-size: 1.15rem;
+}
+
+.ifood-product-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid var(--borda);
+}
+
+.ifood-product-row:last-child {
+  border-bottom: 0;
+}
+
+.ifood-product-name {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.ifood-product-category,
+.ifood-product-status {
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
 .pedido-card-gestor::before {
   content: '';
   position: absolute;
@@ -626,6 +715,31 @@
 
   .pedido-total-gestor {
     font-size: 1.2rem;
+  }
+
+  .whatsapp-header-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .whatsapp-order-actions {
+    flex-direction: column;
+  }
+
+  .ifood-actions {
+    flex-direction: column;
+  }
+
+  .ifood-actions .btn {
+    justify-content: center;
+  }
+
+  .ifood-product-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .ifood-product-status {
+    grid-column: 1 / -1;
   }
 }
 

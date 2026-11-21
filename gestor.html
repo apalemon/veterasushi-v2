@@ -59,6 +59,12 @@
                 <a id="nav-pedidos" href="#" class="nav-item" onclick="mostrarSecao('pedidos'); return false;">
                     <span>Pedidos</span>
                 </a>
+                <a id="nav-whatsapp" href="#" class="nav-item" onclick="mostrarSecao('whatsapp'); return false;">
+                    <span>WhatsApp</span>
+                </a>
+                <a id="nav-cardapio" href="#" class="nav-item" onclick="mostrarSecao('cardapio'); return false;">
+                    <span>Cardápio</span>
+                </a>
                 <a href="#" class="nav-item" onclick="mostrarSecao('detalhes'); return false;">
                     <span>Detalhes</span>
                 </a>
@@ -337,6 +343,54 @@
                 <!-- LISTA DE PEDIDOS -->
                 <div class="pedidos-grid" id="pedidos-grid">
                     <!-- Pedidos serão inseridos aqui -->
+                </div>
+            </section>
+
+            <!-- SEÇÃO WHATSAPP -->
+            <section id="sec-whatsapp" class="gestor-section">
+                <div class="section-header">
+                    <h1>WhatsApp</h1>
+                    <div class="header-actions whatsapp-header-actions">
+                        <input type="search" class="search-input" id="whatsapp-search" placeholder="Buscar pedido, cliente ou telefone..." oninput="renderizarWhatsAppGestor()">
+                        <button class="btn btn-secondary" type="button" onclick="atualizarListaWhatsAppGestor()">
+                            <i class="fas fa-sync-alt"></i> Atualizar
+                        </button>
+                    </div>
+                </div>
+                <div class="whatsapp-instructions">
+                    <strong>Mensagens prontas por etapa do pedido.</strong>
+                    Ao clicar, o WhatsApp abre fora do Gestor com o texto preenchido. Confira e toque em Enviar.
+                </div>
+                <div class="pedidos-grid" id="whatsapp-pedidos-grid"></div>
+            </section>
+
+            <!-- SEÇÃO CARDÁPIO IFOOD -->
+            <section id="sec-cardapio" class="gestor-section">
+                <div class="section-header">
+                    <h1>Cardápio iFood</h1>
+                    <button class="btn btn-secondary" type="button" onclick="renderizarCardapioIfoodGestor()">
+                        <i class="fas fa-sync-alt"></i> Atualizar lista local
+                    </button>
+                </div>
+                <div class="ifood-instructions">
+                    A página do iFood abre em outra aba para você fazer a verificação humana e consultar o cardápio.
+                    Esta tela mostra o cardápio cadastrado no Gestor para comparação manual. A sincronização automática
+                    só poderá ser ativada após conectar uma API oficial autorizada pelo iFood.
+                </div>
+                <div class="ifood-actions">
+                    <a class="btn btn-primary" href="https://www.ifood.com.br/delivery/porto-alegre-rs/sushi--temakeria---vetera-sushi-hipica/" target="_blank" rel="noopener noreferrer">
+                        <i class="fas fa-external-link-alt"></i> Abrir cardápio público no iFood
+                    </a>
+                    <a class="btn btn-secondary" href="https://portal.ifood.com.br/" target="_blank" rel="noopener noreferrer">
+                        <i class="fas fa-store"></i> Abrir Portal do Parceiro
+                    </a>
+                    <a class="btn btn-secondary" href="https://developer.ifood.com.br/" target="_blank" rel="noopener noreferrer">
+                        <i class="fas fa-code"></i> Acessar iFood Developer
+                    </a>
+                </div>
+                <div class="ifood-catalog-section">
+                    <h2>Produtos no Gestor</h2>
+                    <div id="ifood-catalogo-gestor"></div>
                 </div>
             </section>
 

@@ -900,6 +900,8 @@ window.atualizarHeaderGestor = function() {
         // Sidebar links
         const links = {
             'nav-pedidos': perms.pedidos !== false,
+            'nav-whatsapp': perms.pedidos !== false,
+            'nav-cardapio': !!perms.produtos,
             'nav-produtos': !!perms.produtos,
             'nav-pagamentos': !!perms.pagamentos,
             'nav-configuracoes': !!perms.configuracoes,
@@ -1644,6 +1646,8 @@ function mostrarSecao(secao) {
         'inicio': 'Dashboard',
         'nova-venda': 'Nova Venda',
         'pedidos': 'Pedidos',
+        'whatsapp': 'WhatsApp',
+        'cardapio': 'Cardápio iFood',
         'ocultos': 'Pedidos Ocultos',
         'detalhes': 'Detalhes de Vendas',
         'chat': 'Chat',
@@ -1676,6 +1680,12 @@ function mostrarSecao(secao) {
     if (secao === 'chat') {
         try { initChatGestor(); } catch (e) {}
         try { atualizarChatGestor(); } catch (e) {}
+    }
+    if (secao === 'whatsapp') {
+        renderizarWhatsAppGestor();
+    }
+    if (secao === 'cardapio') {
+        renderizarCardapioIfoodGestor();
     }
 
     try { _gestorPararSomNovoPedido(); } catch (e) {}
@@ -2763,6 +2773,111 @@ function enviarMensagemWhatsAppPedido(pedidoId, etapa) {
     window.open('https://wa.me/' + telefone + '?text=' + encodeURIComponent(mensagem), '_blank', 'noopener,noreferrer');
 }
 
+function renderizarWhatsAppGestor() {
+    const container = document.getElementById('whatsapp-pedidos-grid');
+    if (!container) return;
+
+    const statuses = ['em_preparo', 'pronto', 'saiu_para_entrega', 'entregue', 'concluido', 'finalizado'];
+    const termo = String(document.getElementById('whatsapp-search')?.value || '').trim().toLowerCase();
+    const pedidos = (typeof db !== 'undefined' && typeof db.getPedidos === 'function' ? db.getPedidos() : [])
+        .filter(pedido => pedido && statuses.includes(String(pedido.status || '').toLowerCase()))
+        .sort((a, b) => new Date(b.dataCriacao || b.data || b.timestamp || 0) - new Date(a.dataCriacao || a.data || a.timestamp || 0))
+        .filter(pedido => {
+            if (!termo) return true;
+            return [pedido.id, pedido.clienteNome, pedido.clienteTelefone]
+                .some(valor => String(valor || '').toLowerCase().includes(termo));
+        })
+        .slice(0, 100);
+
+    if (pedidos.length === 0) {
+        container.innerHTML = '<p style="text-align:center;color:var(--texto-medio);padding:2rem;grid-column:1/-1;">Nenhum pedido encontrado para contato.</p>';
+        return;
+    }
+
+    const labels = {
+        em_preparo: 'Mensagem: pedido recebido',
+        pronto: 'Mensagem: pedido pronto',
+        saiu_para_entrega: 'Mensagem: saiu para entrega',
+        entregue: 'Mensagem: pedido entregue',
+        concluido: 'Mensagem: pedido entregue',
+        finalizado: 'Mensagem: pedido entregue'
+    };
+
+    container.innerHTML = pedidos.map(pedido => {
+        const status = String(pedido.status || '').toLowerCase();
+        const pedidoId = String(pedido.id || '').replace(/[^a-zA-Z0-9_-]/g, '');
+        const telefone = normalizarTelefoneWhatsAppPedido(pedido.clienteTelefone);
+        const nome = typeof sanitizeHTML === 'function'
+            ? sanitizeHTML(pedido.clienteNome || 'Cliente sem nome')
+            : String(pedido.clienteNome || 'Cliente sem nome').replace(/[<>]/g, '');
+        const telefoneVisivel = typeof sanitizeHTML === 'function'
+            ? sanitizeHTML(pedido.clienteTelefone || 'Sem telefone')
+            : String(pedido.clienteTelefone || 'Sem telefone').replace(/[<>]/g, '');
+        const statusLabel = typeof sanitizeHTML === 'function'
+            ? sanitizeHTML(formatarStatus(status))
+            : formatarStatus(status);
+        const data = new Date(pedido.dataCriacao || pedido.data || pedido.timestamp || Date.now()).toLocaleString('pt-BR');
+        const total = currencyFmt.format(Number(pedido.total) || 0);
+
+        return '<article class="pedido-card-gestor whatsapp-order-card">' +
+            '<div class="pedido-header-gestor">' +
+                '<div class="pedido-id-gestor">Pedido #' + pedidoId + '</div>' +
+                '<span class="pedido-status-badge status-' + status + '">' + statusLabel + '</span>' +
+            '</div>' +
+            '<div class="pedido-info-gestor"><strong>Cliente:</strong> ' + nome + '</div>' +
+            '<div class="pedido-info-gestor"><strong>WhatsApp:</strong> ' + telefoneVisivel + '</div>' +
+            '<div class="pedido-info-gestor"><strong>Data:</strong> ' + data + '</div>' +
+            '<div class="pedido-total-gestor">Total: ' + total + '</div>' +
+            '<div class="whatsapp-order-actions">' +
+                '<button type="button" class="btn btn-success" data-whatsapp-order="' + pedidoId + '"' + (telefone ? '' : ' disabled') + '>' +
+                    '<i class="fab fa-whatsapp"></i> ' + labels[status] +
+                '</button>' +
+                '<button type="button" class="btn btn-secondary" data-whatsapp-details="' + pedidoId + '">Ver pedido</button>' +
+            '</div>' +
+        '</article>';
+    }).join('');
+
+    container.querySelectorAll('[data-whatsapp-order]').forEach(button => {
+        button.addEventListener('click', () => enviarMensagemWhatsAppPedido(button.dataset.whatsappOrder, 'status'));
+    });
+    container.querySelectorAll('[data-whatsapp-details]').forEach(button => {
+        button.addEventListener('click', () => abrirDetalhesPedido(button.dataset.whatsappDetails));
+    });
+}
+
+function renderizarCardapioIfoodGestor() {
+    const container = document.getElementById('ifood-catalogo-gestor');
+    if (!container) return;
+
+    const produtos = typeof db !== 'undefined' && typeof db.getProdutos === 'function'
+        ? db.getProdutos()
+        : [];
+    if (!Array.isArray(produtos) || produtos.length === 0) {
+        container.innerHTML = '<p style="color:var(--texto-medio);">Nenhum produto cadastrado no Gestor.</p>';
+        return;
+    }
+
+    container.innerHTML = produtos.map(produto => {
+        const nome = typeof sanitizeHTML === 'function'
+            ? sanitizeHTML(produto.nome || 'Produto sem nome')
+            : String(produto.nome || 'Produto sem nome').replace(/[<>]/g, '');
+        const categoria = typeof sanitizeHTML === 'function'
+            ? sanitizeHTML(produto.categoria || 'Sem categoria')
+            : String(produto.categoria || 'Sem categoria').replace(/[<>]/g, '');
+        const status = produto.ativo === false ? 'Pausado no Gestor' : 'Ativo no Gestor';
+        return '<div class="ifood-product-row">' +
+            '<div class="ifood-product-name">' + nome + '</div>' +
+            '<div class="ifood-product-category">' + categoria + '</div>' +
+            '<div class="ifood-product-status">' + status + ' · ' + currencyFmt.format(Number(produto.preco) || 0) + '</div>' +
+        '</div>';
+    }).join('');
+}
+
+async function atualizarListaWhatsAppGestor() {
+    await carregarPedidosDoServidor();
+    renderizarWhatsAppGestor();
+}
+
 function normalizarTelefoneWhatsAppPedido(telefone) {
     let digits = String(telefone || '').replace(/\D/g, '');
     if (digits.length === 10 || digits.length === 11) digits = '55' + digits;
@@ -2837,6 +2952,9 @@ window.iniciarPreparo = iniciarPreparo;
 window.finalizarPedidoGestor = finalizarPedidoGestor;
 window.avancarStatusPedidoGestor = avancarStatusPedidoGestor;
 window.enviarMensagemWhatsAppPedido = enviarMensagemWhatsAppPedido;
+window.renderizarWhatsAppGestor = renderizarWhatsAppGestor;
+window.atualizarListaWhatsAppGestor = atualizarListaWhatsAppGestor;
+window.renderizarCardapioIfoodGestor = renderizarCardapioIfoodGestor;
 window.recusarPedido = recusarPedido;
 
 // Função fmt do PDV
