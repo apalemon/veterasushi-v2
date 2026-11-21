@@ -1030,8 +1030,18 @@ document.addEventListener('DOMContentLoaded', async function() {
     renderizarCategorias();
     renderizarCondicionais();
     
-    // Carregar horários do servidor antes de renderizar
+    // Carregar horários e registrar a presença desta aba no servidor.
     await carregarHorariosDoServidor();
+    try {
+        await enviarHeartbeatGestor(true);
+    } catch (error) {
+        console.error('[HORARIOS] Não foi possível registrar a presença do Gestor:', error);
+    }
+    setInterval(() => {
+        enviarHeartbeatGestor(false).catch(error => {
+            console.error('[HORARIOS] Falha ao renovar a presença do Gestor:', error);
+        });
+    }, 60000);
     renderizarHorarios();
     
     carregarConfiguracoes();
@@ -1606,6 +1616,8 @@ window.toggleFreteGratis = toggleFreteGratis;
 
 // Mostrar seção
 function mostrarSecao(secao) {
+    if (secao === 'pedidos' || secao === 'detalhes') secao = 'relatorios';
+
     document.querySelectorAll('.gestor-section').forEach(function(sec) {
         sec.classList.remove('active');
     });
@@ -1618,14 +1630,10 @@ function mostrarSecao(secao) {
     const nomesSecoes = {
         'inicio': 'Dashboard',
         'nova-venda': 'Nova Venda',
-        'pedidos': 'Pedidos',
-        'whatsapp': 'WhatsApp',
-        'cardapio': 'Cardápio iFood',
+        'relatorios': 'Relatórios',
         'ocultos': 'Pedidos Ocultos',
-        'detalhes': 'Detalhes de Vendas',
         'chat': 'Chat',
         'produtos': 'Produtos',
-        'catalogo': 'Catálogo',
         'destaque': 'Destaque',
         'cupons': 'Cupons',
         'categorias': 'Categorias',
@@ -1648,6 +1656,10 @@ function mostrarSecao(secao) {
     if (secao === 'inicio') {
         try { window.carregarDashboard(); } catch (e) {}
     }
+    if (secao === 'relatorios') {
+        renderizarPedidos();
+        renderizarDetalhes();
+    }
     if (secao === 'pagamentos') {
         try { window.carregarPagamentosConfig(); } catch (e) {}
     }
@@ -1655,16 +1667,6 @@ function mostrarSecao(secao) {
         try { initChatGestor(); } catch (e) {}
         try { atualizarChatGestor(); } catch (e) {}
     }
-    if (secao === 'whatsapp') {
-        renderizarWhatsAppGestor();
-    }
-    if (secao === 'cardapio') {
-        renderizarCardapioIfoodGestor();
-    }
-    if (secao === 'catalogo') {
-        try { renderizarProdutos(); } catch (e) { console.error('[CATÁLOGO] Erro ao abrir catálogo:', e); }
-    }
-
     try { _gestorPararSomNovoPedido(); } catch (e) {}
 }
 
@@ -4372,10 +4374,18 @@ window.previewImagemProdutoGestor = function(event) {
 // NOVA VENDA (igual ao PDV)
 // ============================================
 
+function produtosElegiveisNFCe(produtos) {
+    return (produtos || []).filter(produto => {
+        const categoria = String(produto.categoria || '').trim().toLowerCase();
+        const nome = String(produto.nome || '').trim().toLowerCase();
+        return categoria !== 'monte seu combo' && !nome.startsWith('combo personalizado ');
+    });
+}
+
 // Inicializar Nova Venda
 function inicializarNovaVenda() {
     // Carregar produtos do banco de dados
-    const produtos = db.getProdutos();
+    const produtos = produtosElegiveisNFCe(db.getProdutos());
     menuItemsPDV = produtos.map(function(produto) {
         return {
             id: produto.id,
@@ -4431,7 +4441,7 @@ function recarregarMenuPDVPreservandoQuantidades() {
         });
 
         // Recarregar itens do menu conforme produtos atuais
-        const produtos = db.getProdutos();
+        const produtos = produtosElegiveisNFCe(db.getProdutos());
         menuItemsPDV = (produtos || []).map(function(produto) {
             return {
                 id: produto.id,
@@ -4823,7 +4833,7 @@ window.limparPedidoPDV = limparPedidoPDV;
 window.gerarNotaFiscalPDV = gerarNotaFiscalPDV;
 
 // ============================================
-// SEÇÃO DETALHES (Relatório)
+// RELATÓRIOS DE VENDAS
 // ============================================
 
 // currencyFmt já definido no início do arquivo
@@ -4832,17 +4842,15 @@ function inicializarDetalhes() {
     const monthFilter = document.getElementById('month-filter-detalhes');
     if (monthFilter) {
         const pedidos = db.getPedidos();
-        const meses = Array.from(new Set(pedidos.map(p => getMonthKey(p.data || p.timestamp))));
+        const meses = Array.from(new Set(pedidos
+            .filter(p => p && (p.data || p.dataCriacao || p.timestamp))
+            .map(p => getMonthKey(p.dataCriacao || p.data || p.timestamp))));
         meses.sort().reverse();
-        
-        if (meses.length === 0) {
-            const todayKey = getMonthKey(new Date().toISOString());
-            meses.push(todayKey);
-        }
-        
-        monthFilter.innerHTML = meses.map(key => 
+
+        monthFilter.innerHTML = '<option value="all">Todos os períodos</option>' + meses.map(key =>
             `<option value="${key}">${formatMonthLabel(key)}</option>`
         ).join('');
+        monthFilter.value = 'all';
         
         monthFilter.addEventListener('change', () => {
             renderizarDetalhes();
@@ -4868,9 +4876,25 @@ function formatMonthLabel(key) {
     return `${monthNames[parseInt(month) - 1]} ${year}`;
 }
 
+function obterTimestampPedido(pedido) {
+    const data = pedido && (pedido.dataCriacao || pedido.data || pedido.timestamp);
+    if (!data) return 0;
+    const timestamp = typeof data === 'number' ? data : new Date(data).getTime();
+    return Number.isFinite(timestamp) ? timestamp : 0;
+}
+
+function pedidoFoiCancelado(pedido) {
+    return String(pedido && pedido.status || '').trim().toLowerCase() === 'cancelado';
+}
+
+function valorNumericoPedido(valor) {
+    const numero = Number(valor || 0);
+    return Number.isFinite(numero) ? numero : 0;
+}
+
 async function renderizarDetalhes() {
     const monthFilter = document.getElementById('month-filter-detalhes');
-    const selectedKey = monthFilter ? monthFilter.value : getMonthKey(new Date().toISOString());
+    const selectedKey = monthFilter ? monthFilter.value : 'all';
     
     // IMPORTANTE: GET /api/pedidos (sem ids) é protegido (exige Bearer token).
     // Usar a função padrão do gestor, que já envia o token.
@@ -4882,10 +4906,11 @@ async function renderizarDetalhes() {
 
     const pedidos = db.getPedidos();
     const filtered = (pedidos || []).filter(p => {
-        if (!p || (!p.data && !p.timestamp)) return false;
-        const pedidoKey = getMonthKey(p.data || p.timestamp || new Date().toISOString());
+        if (!p || (!p.data && !p.dataCriacao && !p.timestamp)) return false;
+        if (selectedKey === 'all') return true;
+        const pedidoKey = getMonthKey(p.dataCriacao || p.data || p.timestamp);
         return pedidoKey === selectedKey;
-    });
+    }).sort((a, b) => obterTimestampPedido(b) - obterTimestampPedido(a));
 
     renderizarResumoDetalhes(filtered);
     renderizarTabelaDetalhes(filtered);
@@ -4894,18 +4919,22 @@ async function renderizarDetalhes() {
 
 function renderizarResumoDetalhes(pedidos) {
     const totalPedidos = pedidos.length;
-    const bruto = pedidos.reduce((sum, p) => sum + (p.subtotal || 0), 0);
-    const descontos = pedidos.reduce((sum, p) => sum + (p.desconto || 0), 0);
-    const total = pedidos.reduce((sum, p) => sum + (p.total || 0), 0);
+    const vendas = pedidos.filter(p => !pedidoFoiCancelado(p));
+    const bruto = vendas.reduce((sum, p) => sum + valorNumericoPedido(p.subtotal), 0);
+    const descontos = vendas.reduce((sum, p) => sum + valorNumericoPedido(p.desconto), 0);
+    const taxaEntrega = vendas.reduce((sum, p) => sum + valorNumericoPedido(p.taxaEntrega), 0);
+    const total = vendas.reduce((sum, p) => sum + Math.max(0, valorNumericoPedido(p.total) - valorNumericoPedido(p.taxaEntrega)), 0);
     
     const pedidosEl = document.getElementById('summary-pedidos');
     const brutoEl = document.getElementById('summary-bruto');
     const descontosEl = document.getElementById('summary-descontos');
+    const taxaEntregaEl = document.getElementById('summary-taxa-entrega');
     const totalEl = document.getElementById('summary-total');
     
     if (pedidosEl) pedidosEl.textContent = totalPedidos;
     if (brutoEl) brutoEl.textContent = currencyFmt.format(bruto);
     if (descontosEl) descontosEl.textContent = currencyFmt.format(descontos);
+    if (taxaEntregaEl) taxaEntregaEl.textContent = currencyFmt.format(taxaEntrega);
     if (totalEl) totalEl.textContent = currencyFmt.format(total);
 }
 
@@ -4914,7 +4943,7 @@ function renderizarTabelaDetalhes(pedidos) {
     if (!container) return;
     
     if (pedidos.length === 0) {
-        container.innerHTML = '<div style="text-align: center; color: var(--texto-medio); padding: 2rem;">Nenhuma venda registrada para este mês.</div>';
+        container.innerHTML = '<div style="text-align: center; color: var(--texto-medio); padding: 2rem;">Nenhum pedido registrado neste período.</div>';
         return;
     }
     
@@ -4922,7 +4951,7 @@ function renderizarTabelaDetalhes(pedidos) {
     const groupedByDay = new Map();
     pedidos.forEach(p => {
         // Garantir que estamos usando a data correta do pedido
-        let dataRef = p.data || p.dataCriacao;
+        let dataRef = p.dataCriacao || p.data;
         
         // Se não tiver data ISO, usar timestamp
         if (!dataRef && p.timestamp) {
@@ -4941,15 +4970,21 @@ function renderizarTabelaDetalhes(pedidos) {
         groupedByDay.get(dayKey).push(p);
     });
     
-    const sortedDays = Array.from(groupedByDay.keys()).sort((a, b) => 
-        new Date(b.split('/').reverse().join('-')) - new Date(a.split('/').reverse().join('-'))
+    const dataLocalPorDia = dayKey => {
+        const [dia, mes, ano] = dayKey.split('/').map(Number);
+        return new Date(ano, mes - 1, dia);
+    };
+    const sortedDays = Array.from(groupedByDay.keys()).sort((a, b) =>
+        dataLocalPorDia(b) - dataLocalPorDia(a)
     );
     
     let html = '';
     sortedDays.forEach(dayKey => {
-        const dayPedidos = groupedByDay.get(dayKey);
-        const dayTotal = dayPedidos.reduce((sum, p) => sum + (p.total || 0), 0);
-        const date = new Date(dayKey.split('/').reverse().join('-'));
+        const dayPedidos = groupedByDay.get(dayKey).sort((a, b) => obterTimestampPedido(b) - obterTimestampPedido(a));
+        const vendasDoDia = dayPedidos.filter(p => !pedidoFoiCancelado(p));
+        const dayTotal = vendasDoDia.reduce((sum, p) => sum + Math.max(0, valorNumericoPedido(p.total) - valorNumericoPedido(p.taxaEntrega)), 0);
+        const dayTaxaEntrega = vendasDoDia.reduce((sum, p) => sum + valorNumericoPedido(p.taxaEntrega), 0);
+        const date = dataLocalPorDia(dayKey);
         const dayName = date.toLocaleDateString('pt-BR', { weekday: 'long' });
         
         html += `<div style="margin-bottom: 35px; background: rgba(0, 0, 0, 0.2); border: 1px solid rgba(220, 38, 38, 0.15); border-radius: 12px; padding: 20px;">`;
@@ -4961,31 +4996,46 @@ function renderizarTabelaDetalhes(pedidos) {
         html += `</div>`;
         html += `<div style="display: flex; align-items: center; gap: 20px;">`;
         html += `<span style="color: var(--texto-medio); font-size: 13px; font-weight: 500;">${dayPedidos.length} pedido${dayPedidos.length !== 1 ? 's' : ''}</span>`;
-        html += `<span style="color: #fff; font-size: 18px; font-weight: 700; background: rgba(220, 38, 38, 0.2); padding: 8px 16px; border-radius: 6px; border: 1px solid rgba(220, 38, 38, 0.3);">${currencyFmt.format(dayTotal)}</span>`;
+        html += `<span style="color: var(--texto-medio); font-size: 13px;">Entrega: ${currencyFmt.format(dayTaxaEntrega)}</span>`;
+        html += `<span style="color: #fff; font-size: 18px; font-weight: 700; background: rgba(220, 38, 38, 0.2); padding: 8px 16px; border-radius: 6px; border: 1px solid rgba(220, 38, 38, 0.3);">Ganhos: ${currencyFmt.format(dayTotal)}</span>`;
         html += `</div>`;
         html += `</div>`;
         
-        html += `<table style="width: 100%; border-collapse: collapse; margin-top: 0; font-size: 13px;">`;
+        html += `<div style="overflow-x: auto;">`;
+        html += `<table style="width: 100%; min-width: 980px; border-collapse: collapse; margin-top: 0; font-size: 13px;">`;
         html += `<thead><tr style="background: rgba(0, 0, 0, 0.3); border-bottom: 2px solid rgba(220, 38, 38, 0.2);">`;
         html += `<th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--texto-medio); font-weight: 600;">Hora</th>`;
         html += `<th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--texto-medio); font-weight: 600;">Cliente</th>`;
         html += `<th style="padding: 12px; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--texto-medio); font-weight: 600;">Itens</th>`;
-        html += `<th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--texto-medio); font-weight: 600;">Total</th>`;
+        html += `<th style="padding: 12px; text-align: center; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--texto-medio); font-weight: 600;">Status</th>`;
+        html += `<th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--texto-medio); font-weight: 600;">Entrega</th>`;
+        html += `<th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--texto-medio); font-weight: 600;">Total pago</th>`;
+        html += `<th style="padding: 12px; text-align: right; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--texto-medio); font-weight: 600;">Ganho sem entrega</th>`;
         html += `<th style="padding: 12px; text-align: center; font-size: 12px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--texto-medio); font-weight: 600;">Ações</th>`;
         html += `</tr></thead><tbody>`;
         
         dayPedidos.forEach(p => {
-            const dataRef = p.data || p.dataCriacao || (p.timestamp ? new Date(p.timestamp).toISOString() : null);
+            const dataRef = p.dataCriacao || p.data || (p.timestamp ? new Date(p.timestamp).toISOString() : null);
             const hora = dataRef ? new Date(dataRef).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit', timeZone: 'America/Sao_Paulo' }) : '--:--';
             const itensList = (p.itens || []).map(i => `${i.nome} (${i.quantidade})`).join(', ');
-            const clienteNomeSeguro = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(p.clienteNome || 'N/A') : String(p.clienteNome || 'N/A').replace(/[<>]/g, '');
+            const cliente = [p.clienteNome || 'N/A', p.clienteTelefone || ''].filter(Boolean).join(' · ');
+            const clienteNomeSeguro = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(cliente) : String(cliente).replace(/[<>]/g, '');
             const itensListSeguro = typeof sanitizeHTML !== 'undefined' ? sanitizeHTML(itensList || 'N/A') : String(itensList || 'N/A').replace(/[<>]/g, '');
+            const statusSeguro = typeof sanitizeHTML !== 'undefined'
+                ? sanitizeHTML(formatarStatus(p.status || ''))
+                : String(formatarStatus(p.status || '')).replace(/[<>]/g, '');
+            const taxaEntrega = valorNumericoPedido(p.taxaEntrega);
+            const totalPedido = valorNumericoPedido(p.total);
+            const ganhoSemEntrega = Math.max(0, totalPedido - taxaEntrega);
             
             html += `<tr style="transition: background 0.2s ease;" onmouseover="this.style.background='rgba(220, 38, 38, 0.05)'" onmouseout="this.style.background='transparent'">`;
             html += `<td style="padding: 12px; border-bottom: 1px solid rgba(220, 38, 38, 0.1); color: #fff;">${hora}</td>`;
             html += `<td style="padding: 12px; border-bottom: 1px solid rgba(220, 38, 38, 0.1); color: #fff;">${clienteNomeSeguro}</td>`;
             html += `<td style="padding: 12px; border-bottom: 1px solid rgba(220, 38, 38, 0.1); color: var(--texto-medio); font-size: 12px;">${itensListSeguro}</td>`;
-            html += `<td style="padding: 12px; border-bottom: 1px solid rgba(220, 38, 38, 0.1); text-align: right; color: var(--vermelho-claro); font-weight: 600;">${currencyFmt.format(p.total || 0)}</td>`;
+            html += `<td style="padding: 12px; border-bottom: 1px solid rgba(220, 38, 38, 0.1); text-align: center; color: #fff;">${statusSeguro}</td>`;
+            html += `<td style="padding: 12px; border-bottom: 1px solid rgba(220, 38, 38, 0.1); text-align: right; color: var(--texto-medio);">${currencyFmt.format(taxaEntrega)}</td>`;
+            html += `<td style="padding: 12px; border-bottom: 1px solid rgba(220, 38, 38, 0.1); text-align: right; color: #fff;">${currencyFmt.format(totalPedido)}</td>`;
+            html += `<td style="padding: 12px; border-bottom: 1px solid rgba(220, 38, 38, 0.1); text-align: right; color: var(--vermelho-claro); font-weight: 600;">${pedidoFoiCancelado(p) ? currencyFmt.format(0) : currencyFmt.format(ganhoSemEntrega)}</td>`;
             html += `<td style="padding: 12px; border-bottom: 1px solid rgba(220, 38, 38, 0.1); text-align: center;">`;
             html += `<div style="display: flex; gap: 8px; justify-content: center; align-items: center;">`;
             html += `<button onclick="editarPedidoDetalhes(${p.id})" style="background: rgba(59, 130, 246, 0.2); border: 1px solid rgba(59, 130, 246, 0.4); color: #60a5fa; padding: 6px 10px; border-radius: 6px; cursor: pointer; transition: all 0.2s; font-size: 14px;" onmouseover="this.style.background='rgba(59, 130, 246, 0.3)'; this.style.borderColor='rgba(59, 130, 246, 0.6)'" onmouseout="this.style.background='rgba(59, 130, 246, 0.2)'; this.style.borderColor='rgba(59, 130, 246, 0.4)'" title="Editar pedido">`;
@@ -5003,6 +5053,7 @@ function renderizarTabelaDetalhes(pedidos) {
         });
         
         html += `</tbody></table>`;
+        html += `</div>`;
         html += `</div>`;
     });
     
@@ -5127,7 +5178,7 @@ function renderizarResumoItensDetalhes(pedidos) {
     if (!container) return;
     
     const itemsMap = new Map();
-    pedidos.forEach(p => {
+    pedidos.filter(p => !pedidoFoiCancelado(p)).forEach(p => {
         (p.itens || []).forEach(item => {
             const key = item.nome;
             if (!itemsMap.has(key)) {
@@ -5167,21 +5218,22 @@ function renderizarResumoItensDetalhes(pedidos) {
 
 function exportarDetalhesCSV() {
     const monthFilter = document.getElementById('month-filter-detalhes');
-    const selectedKey = monthFilter ? monthFilter.value : getMonthKey(new Date().toISOString());
+    const selectedKey = monthFilter ? monthFilter.value : 'all';
     
     const pedidos = db.getPedidos();
-    const filtered = pedidos.filter(p => {
-        const pedidoKey = getMonthKey(p.data || p.timestamp || new Date().toISOString());
-        return pedidoKey === selectedKey;
-    });
+    const filtered = pedidos.filter(p => selectedKey === 'all' ||
+        getMonthKey(p.dataCriacao || p.data || p.timestamp || new Date().toISOString()) === selectedKey)
+        .sort((a, b) => obterTimestampPedido(b) - obterTimestampPedido(a));
     
-    let csv = 'Data,Hora,Cliente,Telefone,Itens,Subtotal,Desconto,Taxa Entrega,Total,Forma Pagamento\n';
+    let csv = 'Data,Hora,Cliente,Telefone,Itens,Status,Subtotal,Desconto,Taxa Entrega,Total pago,Ganho sem entrega,Forma Pagamento\n';
     filtered.forEach(p => {
-        const date = new Date(p.data || p.timestamp);
-        const dataStr = date.toLocaleDateString('pt-BR');
-        const horaStr = date.toLocaleTimeString('pt-BR');
+        const date = new Date(p.dataCriacao || p.data || p.timestamp);
+        const dataStr = date.toLocaleDateString('pt-BR', { timeZone: 'America/Sao_Paulo' });
+        const horaStr = date.toLocaleTimeString('pt-BR', { timeZone: 'America/Sao_Paulo' });
         const itensStr = (p.itens || []).map(i => `${i.nome} (${i.quantidade})`).join('; ');
-        csv += `"${dataStr}","${horaStr}","${p.clienteNome || ''}","${p.clienteTelefone || ''}","${itensStr}","${p.subtotal || 0}","${p.desconto || 0}","${p.taxaEntrega || 0}","${p.total || 0}","${p.formaPagamento || ''}"\n`;
+        const taxaEntrega = valorNumericoPedido(p.taxaEntrega);
+        const ganhoSemEntrega = pedidoFoiCancelado(p) ? 0 : Math.max(0, valorNumericoPedido(p.total) - taxaEntrega);
+        csv += `"${dataStr}","${horaStr}","${p.clienteNome || ''}","${p.clienteTelefone || ''}","${itensStr}","${formatarStatus(p.status || '')}","${p.subtotal || 0}","${p.desconto || 0}","${taxaEntrega}","${p.total || 0}","${ganhoSemEntrega}","${p.formaPagamento || ''}"\n`;
     });
     
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -6155,6 +6207,7 @@ async function carregarHorariosDoServidor() {
             try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
         })();
         const response = await fetch(window.location.origin + '/api/horarios', {
+            cache: 'no-store',
             headers: {
                 ...(token ? { 'Authorization': 'Bearer ' + token } : {})
             }
@@ -6168,13 +6221,13 @@ async function carregarHorariosDoServidor() {
                 // Garantir estrutura mínima
                 if (!horarios.dias || typeof horarios.dias !== 'object') {
                     horarios.dias = {
-                        domingo: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                        segunda: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                        terca: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                        quarta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                        quinta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                        sexta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                        sabado: { aberto: true, abertura: '18:30', fechamento: '23:30' }
+                        domingo: { aberto: false, abertura: '19:00', fechamento: '23:30' },
+                        segunda: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                        terca: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                        quarta: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                        quinta: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                        sexta: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                        sabado: { aberto: true, abertura: '19:00', fechamento: '23:30' }
                     };
                 }
                 db.data.horarios = horarios;
@@ -6197,6 +6250,39 @@ async function carregarHorariosDoServidor() {
         }
     }
     return false;
+}
+
+async function enviarHeartbeatGestor(limparStatusManual) {
+    const token = (() => {
+        try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+    })();
+    if (!token) throw new Error('Token de administrador ausente.');
+
+    const body = { gestorHeartbeatAt: new Date().toISOString() };
+    if (limparStatusManual) body.statusManual = null;
+    const response = await fetch(window.location.origin + '/api/horarios', {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + token
+        },
+        body: JSON.stringify(body)
+    });
+    if (!response.ok) {
+        const details = await response.text();
+        throw new Error('Resposta ' + response.status + ': ' + details);
+    }
+
+    const horarios = await response.json();
+    if (!horarios || typeof horarios !== 'object') {
+        throw new Error('O servidor retornou um estado de horários inválido.');
+    }
+    if (!db.data) db.data = {};
+    db.data.horarios = horarios;
+    db.saveData();
+    atualizarStatusHorarios();
+    atualizarBotoesAbrirFechar();
+    return horarios;
 }
 
 // Inicializar horários no banco de dados se não existir
@@ -6223,13 +6309,13 @@ function inicializarHorarios() {
             fuso: 'America/Sao_Paulo',
             statusManual: null, // null = usar horários automáticos, true/false = status manual
             dias: {
-                domingo: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                segunda: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                terca: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                quarta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                quinta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                sexta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                sabado: { aberto: true, abertura: '18:30', fechamento: '23:30' }
+                domingo: { aberto: false, abertura: '19:00', fechamento: '23:30' },
+                segunda: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                terca: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                quarta: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                quinta: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                sexta: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                sabado: { aberto: true, abertura: '19:00', fechamento: '23:30' }
             }
         };
         db.saveData();
@@ -6240,12 +6326,12 @@ function inicializarHorarios() {
     const diasPadrao = ['domingo','segunda','terca','quarta','quinta','sexta','sabado'];
     diasPadrao.forEach(d => {
         if (!db.data.horarios.dias[d] || typeof db.data.horarios.dias[d] !== 'object') {
-            db.data.horarios.dias[d] = { aberto: true, abertura: '18:30', fechamento: '23:30' };
+            db.data.horarios.dias[d] = { aberto: d !== 'domingo', abertura: '19:00', fechamento: '23:30' };
         } else {
             // garantir chaves individuais
             const cd = db.data.horarios.dias[d];
-            if (typeof cd.aberto !== 'boolean') cd.aberto = true;
-            if (!cd.abertura) cd.abertura = '18:30';
+            if (typeof cd.aberto !== 'boolean') cd.aberto = d !== 'domingo';
+            if (!cd.abertura) cd.abertura = '19:00';
             if (!cd.fechamento) cd.fechamento = '23:30';
         }
     });
@@ -6284,7 +6370,7 @@ function renderizarHorarios() {
     
     // Renderizar campos para cada dia
     container.innerHTML = dias.map(dia => {
-        const config = horarios?.dias?.[dia] ?? { aberto: true, abertura: '18:30', fechamento: '23:30' };
+        const config = horarios?.dias?.[dia] ?? { aberto: dia !== 'domingo', abertura: '19:00', fechamento: '23:30' };
         return `
             <div style="display: grid; grid-template-columns: 200px 1fr 1fr 1fr; gap: 15px; align-items: center; padding: 15px; background: var(--bg-secondary); border-radius: 8px;">
                 <div style="font-weight: 600; color: var(--text-primary);">${getNomeDia(dia)}</div>
@@ -6294,7 +6380,7 @@ function renderizarHorarios() {
                 </label>
                 <div>
                     <label class="form-label" style="font-size: 12px; margin-bottom: 5px;">Abertura</label>
-                    <input type="time" class="form-input" id="horario-${dia}-abertura" value="${config.abertura || '18:30'}" ${!config.aberto ? 'disabled' : ''} onchange="atualizarStatusHorarios()">
+                    <input type="time" class="form-input" id="horario-${dia}-abertura" value="${config.abertura || '19:00'}" ${!config.aberto ? 'disabled' : ''} onchange="atualizarStatusHorarios()">
                 </div>
                 <div>
                     <label class="form-label" style="font-size: 12px; margin-bottom: 5px;">Fechamento</label>
@@ -6445,9 +6531,15 @@ window.salvarHorarios = async function(event) {
 // Salvar horários no servidor
 async function salvarHorariosNoServidor(horarios) {
     try {
+        const token = (() => {
+            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
+        })();
         const response = await fetch(window.location.origin + '/api/horarios', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: {
+                'Content-Type': 'application/json',
+                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
+            },
             body: JSON.stringify(horarios)
         });
         
@@ -6826,24 +6918,26 @@ window.voltarModoAutomatico = async function() {
 window.verificarStatusLoja = function() {
     inicializarHorarios();
     const horarios = getHorarios();
-    
-    // Verificar status manual primeiro (tem prioridade)
-    if (horarios.statusManual !== null && horarios.statusManual !== undefined) {
-        if (horarios.statusManual) {
-            return {
-                aberta: true,
-                mensagem: 'Loja aberta manualmente',
-                proximoFechamento: null,
-                statusManual: true
-            };
-        } else {
-            return {
-                aberta: false,
-                mensagem: 'Loja fechada manualmente. Aguarde abertura.',
-                proximoFechamento: null,
-                statusManual: false
-            };
-        }
+
+    const heartbeat = typeof horarios.gestorHeartbeatAt === 'number'
+        ? horarios.gestorHeartbeatAt
+        : Date.parse(horarios.gestorHeartbeatAt || '');
+    const agoraMs = Date.now();
+    if (!Number.isFinite(heartbeat) || heartbeat > agoraMs + 30000 || agoraMs - heartbeat >= 120000) {
+        return {
+            aberta: false,
+            mensagem: 'A loja está fechada automaticamente porque o Gestor está offline.',
+            proximoFechamento: null
+        };
+    }
+
+    if (horarios.statusManual === false) {
+        return {
+            aberta: false,
+            mensagem: 'Loja fechada manualmente. Aguarde abertura.',
+            proximoFechamento: null,
+            statusManual: false
+        };
     }
     
     // Se sistema de horários estiver desativado, loja sempre aberta

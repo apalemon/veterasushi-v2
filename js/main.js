@@ -3511,6 +3511,8 @@ async function atualizarTotaisCheckout() {
 
 // Processar pedido do checkout
 async function processarPedidoCheckout() {
+    await carregarHorariosDoServidorMain();
+
     // Verificar se a loja está aberta
     if (typeof verificarStatusLoja === 'function') {
         const status = verificarStatusLoja();
@@ -4235,13 +4237,13 @@ function inicializarHorarios() {
             fuso: 'America/Sao_Paulo',
             statusManual: null,
             dias: {
-                domingo: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                segunda: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                terca: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                quarta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                quinta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                sexta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                sabado: { aberto: true, abertura: '18:30', fechamento: '23:30' }
+                domingo: { aberto: false, abertura: '19:00', fechamento: '23:30' },
+                segunda: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                terca: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                quarta: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                quinta: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                sexta: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                sabado: { aberto: true, abertura: '19:00', fechamento: '23:30' }
             }
         };
         db.saveData();
@@ -4251,11 +4253,11 @@ function inicializarHorarios() {
     const diasPadrao = ['domingo','segunda','terca','quarta','quinta','sexta','sabado'];
     diasPadrao.forEach(d => {
         if (!db.data.horarios.dias[d] || typeof db.data.horarios.dias[d] !== 'object') {
-            db.data.horarios.dias[d] = { aberto: true, abertura: '18:30', fechamento: '23:30' };
+            db.data.horarios.dias[d] = { aberto: d !== 'domingo', abertura: '19:00', fechamento: '23:30' };
         } else {
             const cd = db.data.horarios.dias[d];
-            if (typeof cd.aberto !== 'boolean') cd.aberto = true;
-            if (!cd.abertura) cd.abertura = '18:30';
+            if (typeof cd.aberto !== 'boolean') cd.aberto = d !== 'domingo';
+            if (!cd.abertura) cd.abertura = '19:00';
             if (!cd.fechamento) cd.fechamento = '23:30';
         }
     });
@@ -4265,7 +4267,7 @@ function inicializarHorarios() {
 // Carregar horários do servidor (versão para main.js)
 async function carregarHorariosDoServidorMain() {
     try {
-        const response = await fetch(window.location.origin + '/api/horarios');
+        const response = await fetch(window.location.origin + '/api/horarios', { cache: 'no-store' });
         if (response.ok) {
             let horarios = await response.json();
             // Se o servidor retornar uma lista, usar o primeiro elemento
@@ -4277,13 +4279,13 @@ async function carregarHorariosDoServidorMain() {
                 // Garantir que a estrutura mínima exista
                 if (!horarios.dias || typeof horarios.dias !== 'object') {
                     horarios.dias = {
-                        domingo: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                        segunda: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                        terca: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                        quarta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                        quinta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                        sexta: { aberto: true, abertura: '18:30', fechamento: '23:30' },
-                        sabado: { aberto: true, abertura: '18:30', fechamento: '23:30' }
+                        domingo: { aberto: false, abertura: '19:00', fechamento: '23:30' },
+                        segunda: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                        terca: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                        quarta: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                        quinta: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                        sexta: { aberto: true, abertura: '19:00', fechamento: '23:30' },
+                        sabado: { aberto: true, abertura: '19:00', fechamento: '23:30' }
                     };
                 }
                 db.data.horarios = horarios;
@@ -4311,30 +4313,31 @@ async function carregarHorariosDoServidorMain() {
 // Verificar se a loja está aberta (versão para main.js)
 window.verificarStatusLoja = function() {
     if (!db || !db.data) {
-        // Se não tiver db, assumir que está aberta
-        return { aberta: true, mensagem: 'Loja aberta' };
+        return { aberta: false, mensagem: 'Não foi possível verificar se o Gestor está ativo.' };
     }
     
     inicializarHorarios();
     const horarios = db.data.horarios;
+
+    const heartbeat = typeof horarios.gestorHeartbeatAt === 'number'
+        ? horarios.gestorHeartbeatAt
+        : Date.parse(horarios.gestorHeartbeatAt || '');
+    const agoraMs = Date.now();
+    if (!Number.isFinite(heartbeat) || heartbeat > agoraMs + 30000 || agoraMs - heartbeat >= 120000) {
+        return {
+            aberta: false,
+            mensagem: 'A loja está fechada porque o Gestor está offline.',
+            proximoFechamento: null
+        };
+    }
     
-    // Verificar status manual primeiro (tem prioridade)
-    if (horarios.statusManual !== null && horarios.statusManual !== undefined) {
-        if (horarios.statusManual) {
-            return {
-                aberta: true,
-                mensagem: 'Loja aberta',
-                proximoFechamento: null,
-                statusManual: true
-            };
-        } else {
-            return {
-                aberta: false,
-                mensagem: 'No momento estamos fechados. Aguarde abertura.',
-                proximoFechamento: null,
-                statusManual: false
-            };
-        }
+    if (horarios.statusManual === false) {
+        return {
+            aberta: false,
+            mensagem: 'No momento estamos fechados. Aguarde abertura.',
+            proximoFechamento: null,
+            statusManual: false
+        };
     }
     
     // Se sistema de horários estiver desativado, loja sempre aberta

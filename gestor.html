@@ -25,7 +25,6 @@
             </a>
             <nav>
                 <ul class="nav-menu">
-                    <li><a id="menu-link-cardapio-gestor" href="/vetera/cardapio">Cardápio</a></li>
                     <li id="gestor-logged-in-item" style="display: none; align-items: center; gap: 0.5rem;">
                         <span style="color: var(--text-secondary); font-weight: 500;">Olá, <span id="gestor-nome-header"></span></span>
                     </li>
@@ -56,20 +55,8 @@
                 <a href="#" class="nav-item" onclick="mostrarSecao('nova-venda'); return false;">
                     <span>Emitir NFC-e</span>
                 </a>
-                <a id="nav-pedidos" href="#" class="nav-item" onclick="mostrarSecao('pedidos'); return false;">
-                    <span>Pedidos</span>
-                </a>
-                <a id="nav-whatsapp" href="#" class="nav-item" onclick="mostrarSecao('whatsapp'); return false;">
-                    <span>WhatsApp</span>
-                </a>
-                <a id="nav-cardapio" href="#" class="nav-item" onclick="mostrarSecao('cardapio'); return false;">
-                    <span>Cardápio</span>
-                </a>
-                <a id="nav-catalogo" href="#" class="nav-item" onclick="mostrarSecao('catalogo'); return false;">
-                    <span>Catálogo</span>
-                </a>
-                <a href="#" class="nav-item" onclick="mostrarSecao('detalhes'); return false;">
-                    <span>Detalhes</span>
+                <a href="#" class="nav-item" onclick="mostrarSecao('relatorios'); return false;">
+                    <span>Relatórios</span>
                 </a>
                 <a href="#" class="nav-item" onclick="mostrarSecao('cupons'); return false;">
                     <span>Cupons</span>
@@ -133,8 +120,8 @@
                                 <button class="btn btn-primary" onclick="mostrarSecao('nova-venda')" style="width: 100%; justify-content: flex-start;">
                                     <i class="fas fa-plus-circle"></i> Emitir NFC-e
                                 </button>
-                                <button class="btn btn-secondary" onclick="mostrarSecao('pedidos')" style="width: 100%; justify-content: flex-start;">
-                                    <i class="fas fa-shopping-bag"></i> Ver Pedidos
+                                <button class="btn btn-secondary" onclick="mostrarSecao('relatorios')" style="width: 100%; justify-content: flex-start;">
+                                    <i class="fas fa-shopping-bag"></i> Relatórios e Pedidos
                                 </button>
                                 <button class="btn btn-secondary" onclick="mostrarSecao('cupons')" style="width: 100%; justify-content: flex-start;">
                                     <i class="fas fa-ticket-alt"></i> Cupons
@@ -319,84 +306,6 @@
                 </div>
             </div>
             
-            <!-- SEÇÃO PEDIDOS -->
-            <section id="sec-pedidos" class="gestor-section">
-                <div class="section-header">
-                    <h1>Gestor de Pedidos</h1>
-                    <div class="header-actions">
-                        <div id="status-loja-gestor" style="display: flex; align-items: center; gap: 8px; margin-right: 16px; font-size: 14px; font-weight: 600;">
-                            <span id="status-loja-indicator" style="width: 10px; height: 10px; border-radius: 50%; background: var(--status-fechada);"></span>
-                            <span id="status-loja-text">Carregando...</span>
-                        </div>
-                        <input type="text" class="search-input" id="search-pedidos" placeholder="🔍 Pesquisar pedidos..." onkeyup="filtrarPedidos()">
-                        <div class="status-badge" id="novos-pedidos-badge" style="display: none;">
-                            <span id="novos-pedidos-count">0</span> novos
-                        </div>
-                    </div>
-                </div>
-
-                <!-- FILTROS -->
-                <div class="filtros-container">
-                    <button class="filtro-btn active" onclick="filtrarPorStatus('em_preparo')"><i class="fas fa-utensils"></i> Em Preparo</button>
-                    <button class="filtro-btn" onclick="filtrarPorStatus('pronto')"><i class="fas fa-check"></i> Pedido pronto</button>
-                    <button class="filtro-btn" onclick="filtrarPorStatus('saiu_para_entrega')"><i class="fas fa-motorcycle"></i> Saiu para entrega</button>
-                    <button class="filtro-btn" onclick="filtrarPorStatus('entregue')"><i class="fas fa-check-double"></i> Entregues</button>
-                </div>
-
-                <!-- LISTA DE PEDIDOS -->
-                <div class="pedidos-grid" id="pedidos-grid">
-                    <!-- Pedidos serão inseridos aqui -->
-                </div>
-            </section>
-
-            <!-- SEÇÃO WHATSAPP -->
-            <section id="sec-whatsapp" class="gestor-section">
-                <div class="section-header">
-                    <h1>WhatsApp</h1>
-                    <div class="header-actions whatsapp-header-actions">
-                        <input type="search" class="search-input" id="whatsapp-search" placeholder="Buscar pedido, cliente ou telefone..." oninput="renderizarWhatsAppGestor()">
-                        <button class="btn btn-secondary" type="button" onclick="atualizarListaWhatsAppGestor()">
-                            <i class="fas fa-sync-alt"></i> Atualizar
-                        </button>
-                    </div>
-                </div>
-                <div class="whatsapp-instructions">
-                    <strong>Mensagens prontas por etapa do pedido.</strong>
-                    Ao clicar, o WhatsApp abre fora do Gestor com o texto preenchido. Confira e toque em Enviar.
-                </div>
-                <div class="pedidos-grid" id="whatsapp-pedidos-grid"></div>
-            </section>
-
-            <!-- SEÇÃO CARDÁPIO IFOOD -->
-            <section id="sec-cardapio" class="gestor-section">
-                <div class="section-header">
-                    <h1>Cardápio iFood</h1>
-                    <button class="btn btn-secondary" type="button" onclick="renderizarCardapioIfoodGestor()">
-                        <i class="fas fa-sync-alt"></i> Atualizar lista local
-                    </button>
-                </div>
-                <div class="ifood-instructions">
-                    A página do iFood abre em outra aba para você fazer a verificação humana e consultar o cardápio.
-                    Esta tela mostra o cardápio cadastrado no Gestor para comparação manual. A sincronização automática
-                    só poderá ser ativada após conectar uma API oficial autorizada pelo iFood.
-                </div>
-                <div class="ifood-actions">
-                    <a class="btn btn-primary" href="https://www.ifood.com.br/delivery/porto-alegre-rs/sushi--temakeria---vetera-sushi-hipica/" target="_blank" rel="noopener noreferrer">
-                        <i class="fas fa-external-link-alt"></i> Abrir cardápio público no iFood
-                    </a>
-                    <a class="btn btn-secondary" href="https://portal.ifood.com.br/" target="_blank" rel="noopener noreferrer">
-                        <i class="fas fa-store"></i> Abrir Portal do Parceiro
-                    </a>
-                    <a class="btn btn-secondary" href="https://developer.ifood.com.br/" target="_blank" rel="noopener noreferrer">
-                        <i class="fas fa-code"></i> Acessar iFood Developer
-                    </a>
-                </div>
-                <div class="ifood-catalog-section">
-                    <h2>Produtos no Gestor</h2>
-                    <div id="ifood-catalogo-gestor"></div>
-                </div>
-            </section>
-
             <!-- SEÇÃO OCULTOS -->
             <section id="sec-ocultos" class="gestor-section">
                 <div class="section-header">
@@ -455,10 +364,10 @@
                 </div>
             </section>
 
-            <!-- SEÇÃO DETALHES (Relatório) -->
-            <section id="sec-detalhes" class="gestor-section">
+            <!-- SEÇÃO RELATÓRIOS, COM OPERAÇÃO DOS PEDIDOS -->
+            <section id="sec-relatorios" class="gestor-section">
                 <div class="section-header">
-                    <h1>Detalhes de Vendas</h1>
+                    <h1>Relatórios</h1>
                     <div class="header-actions">
                         <select id="month-filter-detalhes" style="padding: 8px 12px; border-radius: 8px; border: 1px solid rgba(220, 38, 38, 0.3); background: rgba(0, 0, 0, 0.5); color: #fff;">
                             <!-- Meses serão inseridos aqui -->
@@ -470,12 +379,16 @@
                 </div>
                 
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 15px; margin-top: 20px; margin-bottom: 25px;">
+                    <div style="background: rgba(220, 38, 38, 0.14); border: 1px solid rgba(220, 38, 38, 0.35); border-radius: 10px; padding: 18px;">
+                        <div style="font-size: 12px; color: var(--texto-medio); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; font-weight: 600;">Total recebido (sem entrega)</div>
+                        <div style="font-size: 24px; font-weight: 700; color: var(--vermelho-claro);" id="summary-total">R$ 0,00</div>
+                    </div>
                     <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(220, 38, 38, 0.1); border-radius: 10px; padding: 18px;">
                         <div style="font-size: 12px; color: var(--texto-medio); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; font-weight: 600;">Pedidos</div>
                         <div style="font-size: 24px; font-weight: 700; color: #fff;" id="summary-pedidos">0</div>
                     </div>
                     <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(220, 38, 38, 0.1); border-radius: 10px; padding: 18px;">
-                        <div style="font-size: 12px; color: var(--texto-medio); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; font-weight: 600;">Bruto</div>
+                        <div style="font-size: 12px; color: var(--texto-medio); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; font-weight: 600;">Vendas brutas</div>
                         <div style="font-size: 24px; font-weight: 700; color: #fff;" id="summary-bruto">R$ 0,00</div>
                     </div>
                     <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(220, 38, 38, 0.1); border-radius: 10px; padding: 18px;">
@@ -483,61 +396,44 @@
                         <div style="font-size: 24px; font-weight: 700; color: #fff;" id="summary-descontos">R$ 0,00</div>
                     </div>
                     <div style="background: rgba(0, 0, 0, 0.3); border: 1px solid rgba(220, 38, 38, 0.1); border-radius: 10px; padding: 18px;">
-                        <div style="font-size: 12px; color: var(--texto-medio); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; font-weight: 600;">Total Líquido</div>
-                        <div style="font-size: 24px; font-weight: 700; color: var(--vermelho-claro);" id="summary-total">R$ 0,00</div>
+                        <div style="font-size: 12px; color: var(--texto-medio); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 8px; font-weight: 600;">Taxas de entrega (separadas)</div>
+                        <div style="font-size: 24px; font-weight: 700; color: #fff;" id="summary-taxa-entrega">R$ 0,00</div>
                     </div>
+                </div>
+
+                <div style="background: var(--cinza-medio); border: 1px solid rgba(220, 38, 38, 0.1); border-radius: 12px; padding: 20px; margin-bottom: 25px;">
+                    <div class="section-header">
+                        <h2 style="margin: 0; font-size: 18px; font-weight: 600; color: #fff;">Pedidos em andamento</h2>
+                        <div class="header-actions">
+                            <div id="status-loja-gestor" style="display: flex; align-items: center; gap: 8px; margin-right: 8px; font-size: 14px; font-weight: 600;">
+                                <span id="status-loja-indicator" style="width: 10px; height: 10px; border-radius: 50%; background: var(--status-fechada);"></span>
+                                <span id="status-loja-text">Carregando...</span>
+                            </div>
+                            <input type="text" class="search-input" id="search-pedidos" placeholder="🔍 Pesquisar pedidos..." onkeyup="filtrarPedidos()">
+                            <div class="status-badge" id="novos-pedidos-badge" style="display: none;">
+                                <span id="novos-pedidos-count">0</span> novos
+                            </div>
+                        </div>
+                    </div>
+                    <div class="filtros-container">
+                        <button class="filtro-btn active" onclick="filtrarPorStatus('em_preparo')"><i class="fas fa-utensils"></i> Em Preparo</button>
+                        <button class="filtro-btn" onclick="filtrarPorStatus('pronto')"><i class="fas fa-check"></i> Pedido pronto</button>
+                        <button class="filtro-btn" onclick="filtrarPorStatus('saiu_para_entrega')"><i class="fas fa-motorcycle"></i> Saiu para entrega</button>
+                        <button class="filtro-btn" onclick="filtrarPorStatus('entregue')"><i class="fas fa-check-double"></i> Entregues</button>
+                    </div>
+                    <div class="pedidos-grid" id="pedidos-grid"></div>
                 </div>
                 
                 <div style="background: var(--cinza-medio); border: 1px solid rgba(220, 38, 38, 0.1); border-radius: 12px; padding: 25px; margin-bottom: 25px;">
-                    <h2 style="margin: 0 0 15px 0; font-size: 18px; font-weight: 600; color: #fff;">Vendas Registradas</h2>
+                    <h2 style="margin: 0 0 15px 0; font-size: 18px; font-weight: 600; color: #fff;">Todos os pedidos</h2>
                     <div id="sales-table-container-detalhes">
-                        <!-- Tabela será inserida aqui -->
                     </div>
                 </div>
                 
                 <div style="background: var(--cinza-medio); border: 1px solid rgba(220, 38, 38, 0.1); border-radius: 12px; padding: 25px;">
                     <h2 style="margin: 0 0 15px 0; font-size: 18px; font-weight: 600; color: #fff;">Resumo por Item</h2>
                     <div id="items-summary-container-detalhes">
-                        <!-- Resumo será inserido aqui -->
                     </div>
-                </div>
-            </section>
-
-            <!-- SEÇÃO CATÁLOGO -->
-            <section id="sec-catalogo" class="gestor-section">
-                <div class="section-header">
-                    <div>
-                        <h1>Catálogo</h1>
-                        <p class="catalogo-subtitle">Gerencie produtos, preços, categorias e complementos do cardápio.</p>
-                    </div>
-                    <div class="catalogo-header-actions">
-                        <button class="btn btn-secondary" type="button" onclick="window.adicionarCategoriaCatalogo()">+ Categoria</button>
-                        <button id="btn-exportar-catalogo" class="btn btn-secondary" type="button" onclick="window.exportarCatalogo()">Baixar catalogo.js</button>
-                        <button id="btn-add-produto" class="btn btn-primary" type="button" onclick="window.abrirModalProduto()">+ Novo item</button>
-                    </div>
-                </div>
-                <div id="catalogo-status" class="catalogo-status" role="status" aria-live="polite"></div>
-                <div class="catalogo-stats">
-                    <article><span>Itens no catálogo</span><strong id="catalogo-stat-total">0</strong></article>
-                    <article><span>Disponíveis</span><strong id="catalogo-stat-ativos">0</strong></article>
-                    <article><span>Categorias</span><strong id="catalogo-stat-categorias">0</strong></article>
-                </div>
-                <div class="catalogo-toolbar">
-                    <label class="catalogo-search">
-                        <i class="fas fa-search" aria-hidden="true"></i>
-                        <input id="catalogo-busca" type="search" placeholder="Buscar item pelo nome ou descrição" autocomplete="off">
-                    </label>
-                    <select id="catalogo-filtro-categoria" class="form-select" aria-label="Filtrar por categoria">
-                        <option value="">Todas as categorias</option>
-                    </select>
-                    <select id="catalogo-filtro-status" class="form-select" aria-label="Filtrar por disponibilidade">
-                        <option value="">Todos os status</option>
-                        <option value="ativo">Disponíveis</option>
-                        <option value="pausado">Pausados</option>
-                    </select>
-                </div>
-                <div class="produtos-admin-grid" id="produtos-admin-grid">
-                    <!-- Produtos serão inseridos aqui -->
                 </div>
             </section>
 
@@ -1194,9 +1090,8 @@
     <script src="/js/database.js"></script>
     <script src="/js/auth.js"></script>
     <script src="/js/security.js"></script>
-    <script src="/js/gestor.js?v=20260123"></script>
+    <script src="/js/gestor.js?v=relatorios-presenca-1"></script>
     <script src="/js/gestor-dashboard-complementos.js"></script>
-    <script src="/js/catalogo-gestor.js"></script>
 
     <div id="modal-imagem-editor" style="display:none; position:fixed; inset:0; background: rgba(0,0,0,0.65); z-index: 99999; align-items:center; justify-content:center; padding: 16px;">
         <div style="width: min(980px, 96vw); background: #0f0f12; border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; overflow: hidden; box-shadow: 0 24px 80px rgba(0,0,0,0.55);">

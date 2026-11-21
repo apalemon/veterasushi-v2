@@ -1,6 +1,7 @@
 const crypto = require('crypto');
 const { getCollection } = require('../../mongodb');
 const { amountToCents, requestInfinitePay } = require('../../infinitepay');
+const { avaliarStatusLoja } = require('../../loja-status');
 
 function safeStr(value) {
   return String(value == null ? '' : value).trim();
@@ -86,6 +87,21 @@ module.exports = async (req, res) => {
   const draftAmountCents = amountToCents(draft.total);
   if (draftAmountCents !== amountCents) {
     return res.status(400).json({ ok: false, error: 'O valor do pagamento não corresponde ao total do pedido.' });
+  }
+
+  try {
+    const horariosCol = await getCollection('horarios');
+    const horarios = await horariosCol.findOne({ _id: 'main' });
+    const statusLoja = avaliarStatusLoja(horarios || {});
+    if (!statusLoja.aberta) {
+      return res.status(409).json({ ok: false, error: statusLoja.mensagem });
+    }
+  } catch (error) {
+    console.error('[InfinitePay] Não foi possível confirmar se a loja está aberta:', error);
+    return res.status(503).json({
+      ok: false,
+      error: 'Não foi possível confirmar o funcionamento da loja. Tente novamente em instantes.'
+    });
   }
 
   const orderNsu = crypto.randomBytes(16).toString('hex');
