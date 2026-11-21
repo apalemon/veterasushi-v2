@@ -5,6 +5,7 @@
 class Database {
   constructor() {
     this.data = null;
+    this.catalogoStatus = 'local';
     // Opção B: no site público, não persistir banco no localStorage.
     // Somente telas administrativas (gestor/pdv) podem usar vetera_database como cache.
     try {
@@ -31,12 +32,8 @@ class Database {
       if (!valor || typeof valor !== 'string') return valor;
       const v = valor.trim();
       if (!v) return v;
-      // Base64 desativado: nunca retornar data URL.
-      // Se vier data:image..., remover.
-      if (v.startsWith('data:image')) return '';
-
       // URLs absolutas e paths absolutos são mantidos.
-      if (v.startsWith('http') || v.startsWith('/')) return v;
+      if (v.startsWith('http') || v.startsWith('/') || v.startsWith('data:image/')) return v;
 
       // Se for um base64 "puro" (sem prefixo), remover.
       if (v.length > 200 && /^[A-Za-z0-9+/=]+$/.test(v)) {
@@ -109,14 +106,18 @@ class Database {
       if (!this.data.usuarios) this.data.usuarios = [];
       if (!this.data.complementos) this.data.complementos = [];
       
-      // SEMPRE inicializar produtos manualmente (ignorar MongoDB)
+      // O catálogo publicado vem do arquivo; o rascunho do Gestor fica neste navegador.
+      this.data.complementos = [];
       this.inicializarProdutosManualmente();
+      this.carregarCatalogoProjeto();
+      this.catalogoBaseLocal = JSON.stringify(this.obterCatalogoAtual());
+      if (this._useLocalStorage) this.carregarRascunhoCatalogo();
+      this.catalogoStatus = 'local';
       
-      // SEMPRE recarregar do arquivo para garantir dados atualizados (async)
-      // Mas produtos sempre serão sobrescritos pelos manuais
+      // Carregar configurações e outros dados da aplicação, sem substituir o catálogo local.
       this.fetchInitialData().catch((err) => {
         console.error('[DATABASE] Erro ao buscar dados iniciais:', err);
-        // Manter dados atuais em memória
+        this.catalogoStatus = 'local';
       });
 
       // No cliente público, pedidos são tratados via main.js (por IDs), para não baixar lista inteira.
@@ -142,6 +143,78 @@ class Database {
       this.fetchInitialData().catch(() => {});
       if (this._useLocalStorage) this.carregarPedidosServidor().catch(() => {});
     }
+  }
+
+  carregarCatalogoProjeto() {
+    const catalogo = window.VETERA_CATALOGO;
+    if (!catalogo || !Array.isArray(catalogo.produtos)) return false;
+    this.data.produtos = catalogo.produtos.map(produto => ({ ...produto }));
+    this.data.categorias = Array.isArray(catalogo.categorias)
+      ? catalogo.categorias.map(categoria => typeof categoria === 'string' ? categoria : ({ ...categoria }))
+      : [];
+    this.data.complementos = Array.isArray(catalogo.complementos)
+      ? catalogo.complementos.map(complemento => ({ ...complemento }))
+      : [];
+    return true;
+  }
+
+  obterCatalogoAtual() {
+    return {
+      produtos: Array.isArray(this.data?.produtos) ? this.data.produtos : [],
+      categorias: Array.isArray(this.data?.categorias) ? this.data.categorias : [],
+      complementos: Array.isArray(this.data?.complementos) ? this.data.complementos : []
+    };
+  }
+
+  carregarRascunhoCatalogo() {
+    try {
+      const salvo = localStorage.getItem('vetera_catalogo_local');
+      if (!salvo) return;
+      const rascunho = JSON.parse(salvo);
+      if (!rascunho || !rascunho.catalogo || rascunho.base !== this.catalogoBaseLocal) {
+        localStorage.removeItem('vetera_catalogo_local');
+        return;
+      }
+      if (JSON.stringify(rascunho.catalogo) === this.catalogoBaseLocal) {
+        localStorage.removeItem('vetera_catalogo_local');
+        return;
+      }
+      this.data.produtos = Array.isArray(rascunho.catalogo.produtos) ? rascunho.catalogo.produtos : this.data.produtos;
+      this.data.categorias = Array.isArray(rascunho.catalogo.categorias) ? rascunho.catalogo.categorias : this.data.categorias;
+      this.data.complementos = Array.isArray(rascunho.catalogo.complementos) ? rascunho.catalogo.complementos : this.data.complementos;
+    } catch (error) {
+      console.error('[CATÁLOGO] Não foi possível carregar o rascunho local:', error);
+    }
+  }
+
+  salvarCatalogoLocal(produtos = this.data.produtos, categorias = this.data.categorias, complementos = this.data.complementos) {
+    if (!Array.isArray(produtos)) throw new Error('O catálogo precisa ser uma lista de produtos.');
+    const catalogo = {
+      produtos: produtos.map(produto => ({ ...produto })),
+      categorias: Array.isArray(categorias) ? categorias.map(categoria =>
+      typeof categoria === 'string' ? categoria : ({ ...categoria })
+      ) : [],
+      complementos: Array.isArray(complementos) ? complementos.map(complemento => ({ ...complemento })) : []
+    };
+
+    if (this._useLocalStorage) {
+      try {
+        localStorage.setItem('vetera_catalogo_local', JSON.stringify({
+          base: this.catalogoBaseLocal,
+          catalogo
+        }));
+      } catch (error) {
+        console.error('[CATÁLOGO] Não foi possível salvar o rascunho local:', error);
+        throw new Error('O navegador não conseguiu salvar o rascunho. Verifique o espaço disponível.');
+      }
+    }
+
+    this.data.produtos = catalogo.produtos;
+    this.data.categorias = catalogo.categorias;
+    this.data.complementos = catalogo.complementos;
+    this.catalogoStatus = 'local';
+    window.dispatchEvent(new CustomEvent('vetera:catalogo-atualizado'));
+    return { success: true };
   }
 
   // Carregar pedidos do servidor (pedidos.json) - SEMPRE usar servidor como fonte principal
@@ -235,29 +308,14 @@ class Database {
         // O servidor é a fonte da verdade para cupons
         const cuponsDoArquivo = dataFromFile.cupons || [];
         
-        // IGNORAR COMPLETAMENTE produtos do MongoDB - sempre usar produtos manuais do código
-        // Produtos manuais serão inicializados DEPOIS e sobrescreverão qualquer coisa
-        console.log('[DATABASE] ⚠️ Produtos do MongoDB ignorados - usando apenas produtos manuais');
-
-        // Preservar categorias e outras configurações do servidor, mas produtos SEMPRE manuais
-        const categoriasServidor = dataFromFile.categorias || [];
-        const categoriasManuais = ['Monte seu Combo', 'Pokes'];
-        
-        // Mesclar categorias (manuais têm prioridade)
-        const categoriasUnicas = [...new Set([...categoriasManuais, ...categoriasServidor])];
+        this.catalogoStatus = 'local';
 
         this.data = {
-          ...this.data, // Preservar dados locais (usuários, pedidos, etc)
-          produtos: [], // SEMPRE usar produtos manuais - ignorar MongoDB
-          categorias: categoriasUnicas,
+          ...this.data,
           cupons: cuponsDoArquivo,
           configuracoes: dataFromFile.configuracoes || this.data.configuracoes || {},
           produtosPausados: this.data.produtosPausados || []
         };
-        
-        // SEMPRE inicializar produtos manualmente DEPOIS de carregar do servidor
-        // Isso garante que produtos manuais SEMPRE sobrescrevem qualquer coisa do MongoDB
-        this.inicializarProdutosManualmente();
 
         // Sincronizar condicionais do servidor (promoções/regras)
         try {
@@ -300,34 +358,10 @@ class Database {
           }
         })();
         
-        // Carregar categorias do servidor (se disponível)
-        try {
-          const token = (() => {
-            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
-          })();
-          const respCat = await fetch((window.ENV?.apiBaseUrl || window.location.origin) + '/api/categorias', {
-            headers: {
-              ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-            }
-          });
-          if (respCat.ok) {
-            const cats = await respCat.json();
-            if (Array.isArray(cats) && cats.length > 0) {
-              this.data.categorias = cats;
-            }
-          }
-        } catch (e) {
-          // Ignorar erro ao carregar categorias
-        }
-        
-        // Garantir que categorias existam
-        if (!this.data.categorias || this.data.categorias.length === 0) {
-          this.data.categorias = this.data.produtos 
-            ? [...new Set(this.data.produtos.map(p => p.categoria).filter(Boolean))]
-            : [];
-        }
         this.saveData();
+        window.dispatchEvent(new CustomEvent('vetera:catalogo-atualizado'));
       } else {
+        this.catalogoStatus = 'local';
         if (response.status !== 200) {
           console.error('[DATABASE] Erro ao carregar dados:', response.status);
         }
@@ -351,6 +385,7 @@ class Database {
         }
       }
     } catch (error) {
+      this.catalogoStatus = 'local';
       try {
         console.error('[DATABASE] Erro ao buscar dados:', error);
         console.error('[DATABASE] Debug fetchInitialData url:', (window.ENV?.apiBaseUrl || window.location.origin) + '/api/database');
@@ -376,28 +411,12 @@ class Database {
     }
   }
 
-  // Salvar categorias no servidor
-  async salvarCategorias() {
-    if (!this._useLocalStorage) return;
-    
+  salvarCategorias(categorias = this.data.categorias) {
     try {
-      const token = (() => {
-        try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
-      })();
-      const response = await fetch((window.ENV?.apiBaseUrl || window.location.origin) + '/api/categorias', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-        },
-        body: JSON.stringify(this.data.categorias || [])
-      });
-      
-      if (!response.ok) {
-        console.warn('[DATABASE] Erro ao salvar categorias no servidor:', response.status);
-      }
-    } catch (e) {
-      console.warn('[DATABASE] Erro ao salvar categorias:', e);
+      return this.salvarCatalogoLocal(this.data.produtos, categorias, this.data.complementos);
+    } catch (error) {
+      alert(error.message || 'Não foi possível salvar as categorias neste navegador.');
+      throw error;
     }
   }
 
@@ -405,7 +424,11 @@ class Database {
   saveData() {
     try {
       if (!this._useLocalStorage) return;
-      localStorage.setItem('vetera_database', JSON.stringify(this.data));
+      const dados = { ...this.data };
+      delete dados.produtos;
+      delete dados.categorias;
+      delete dados.complementos;
+      localStorage.setItem('vetera_database', JSON.stringify(dados));
     } catch (error) {
       console.error('Erro ao salvar dados:', error);
     }
@@ -459,7 +482,7 @@ class Database {
         return ao - bo;
       });
 
-      // Normalizar imagem (base64 desativado)
+      // Manter imagens incorporadas no arquivo local do catálogo.
       return (produtos || []).map(p => {
         if (!p || typeof p !== 'object') return p;
         if (!p.imagem) return p;
@@ -495,8 +518,7 @@ class Database {
           ordem: index,
           divisoria: false // padrão sem divisória
         }));
-        this.saveData();
-        this.salvarCategorias(); // Salvar no servidor
+        this.salvarCategorias();
         return this.data.categorias.map(c => c.nome);
       }
     }
@@ -510,8 +532,7 @@ class Database {
         ordem: index,
         divisoria: false
       }));
-      this.saveData();
-      this.salvarCategorias(); // Salvar no servidor
+      this.salvarCategorias();
       return categoriasUnicas;
     }
     
@@ -1018,8 +1039,8 @@ class Database {
   inicializarProdutosManualmente() {
     if (!this.data) this.data = {};
     
-    // SEMPRE limpar produtos existentes e usar apenas os manuais
-    console.log('[DATABASE] 🔄 Inicializando produtos manuais (ignorando MongoDB)...');
+    // O catálogo manual é o ponto de partida quando ainda não existe um arquivo publicado.
+    console.log('[DATABASE] 🔄 Inicializando catálogo padrão local...');
     this.data.produtos = [];
     
     // Limpar e inicializar categorias no formato correto (objetos com nome, ordem, divisoria)

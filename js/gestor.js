@@ -789,47 +789,20 @@ const currencyFmt = new Intl.NumberFormat('pt-BR', { style: 'currency', currency
 async function toggleProdutoAtivo(produtoId) {
     try {
         if (!db.data || !Array.isArray(db.data.produtos)) return;
-        if (!Array.isArray(db.data.produtosPausados)) db.data.produtosPausados = [];
         const idx = db.data.produtos.findIndex(p => p.id === produtoId);
         if (idx === -1) return;
         const atual = db.data.produtos[idx];
         const novoAtivo = atual.ativo === false ? true : false;
-        db.data.produtos[idx] = { ...atual, ativo: novoAtivo };
-
-        // Manter lista robusta de IDs pausados
-        try {
-            const idNum = Number(produtoId);
-            const idToStore = Number.isFinite(idNum) ? idNum : produtoId;
-            if (novoAtivo === false) {
-                if (!db.data.produtosPausados.includes(idToStore)) db.data.produtosPausados.push(idToStore);
-            } else {
-                db.data.produtosPausados = (db.data.produtosPausados || []).filter(x => String(x) !== String(idToStore));
-            }
-        } catch (e) {
-            // ignora
-        }
-        db.saveData();
-
-        try {
-            const token = (() => {
-                try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
-            })();
-            await fetch(window.location.origin + '/api/produtos', {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-                },
-                body: JSON.stringify(db.data.produtos || [])
-            });
-        } catch (e) {
-            // Salvo localmente, servidor pode estar indisponível
-        }
+        const produtos = db.data.produtos.map((produto, index) =>
+            index === idx ? { ...produto, ativo: novoAtivo } : produto
+        );
+        await db.salvarCatalogoLocal(produtos);
 
         renderizarProdutos();
         try { recarregarMenuPDVPreservandoQuantidades(); } catch (e) {}
     } catch (e) {
         console.error('[PRODUTOS] ❌ Erro ao pausar/ativar:', e);
+        alert(e.message || 'Não foi possível salvar o catálogo local.');
     }
 }
 
@@ -902,7 +875,7 @@ window.atualizarHeaderGestor = function() {
             'nav-pedidos': perms.pedidos !== false,
             'nav-whatsapp': perms.pedidos !== false,
             'nav-cardapio': !!perms.produtos,
-            'nav-produtos': !!perms.produtos,
+            'nav-catalogo': !!perms.produtos,
             'nav-pagamentos': !!perms.pagamentos,
             'nav-configuracoes': !!perms.configuracoes,
             'nav-usuarios': !!perms.usuarios
@@ -1652,6 +1625,7 @@ function mostrarSecao(secao) {
         'detalhes': 'Detalhes de Vendas',
         'chat': 'Chat',
         'produtos': 'Produtos',
+        'catalogo': 'Catálogo',
         'destaque': 'Destaque',
         'cupons': 'Cupons',
         'categorias': 'Categorias',
@@ -1686,6 +1660,9 @@ function mostrarSecao(secao) {
     }
     if (secao === 'cardapio') {
         renderizarCardapioIfoodGestor();
+    }
+    if (secao === 'catalogo') {
+        try { renderizarProdutos(); } catch (e) { console.error('[CATÁLOGO] Erro ao abrir catálogo:', e); }
     }
 
     try { _gestorPararSomNovoPedido(); } catch (e) {}
@@ -3517,6 +3494,11 @@ function formatarFormaPagamento(forma) {
 
 // Renderizar produtos
 function renderizarProdutos() {
+    if (typeof window.renderizarCatalogo === 'function') {
+        window.renderizarCatalogo();
+        return;
+    }
+
     const container = document.getElementById('produtos-admin-grid');
     if (!container) return;
 
@@ -3555,60 +3537,40 @@ function renderizarProdutos() {
 }
 
 // Mover produto para cima (ordem) e persistir
-function moverProdutoUp(produtoId) {
-    const todos = db.data?.produtos || [];
+async function moverProdutoUp(produtoId) {
+    const todos = (db.data?.produtos || []).map(produto => ({ ...produto }));
     const idx = todos.findIndex(p => p.id === produtoId);
     if (idx > 0) {
         const aux = todos[idx - 1];
         todos[idx - 1] = todos[idx];
         todos[idx] = aux;
-        // atualizar ordem baseada na posição dentro do array completo
         todos.forEach((p, i) => p.ordem = i);
-        db.data.produtos = todos;
-        db.saveData();
-        // Persistir no servidor (enviar array completo)
-        const token = (() => {
-            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
-        })();
-        fetch(window.location.origin + '/api/produtos', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-            },
-            body: JSON.stringify(todos)
-        }).then(resp => {
-            if (!resp.ok) console.warn('Não foi possível atualizar ordem no servidor');
-        }).catch(e => console.warn('Erro ao atualizar ordem:', e));
-        renderizarProdutos();
+        try {
+            await db.salvarCatalogoLocal(todos);
+            renderizarProdutos();
+        } catch (e) {
+            console.error('[PRODUTOS] Erro ao reordenar:', e);
+            alert(e.message || 'Não foi possível reordenar os produtos.');
+        }
     }
 }
 
 // Mover produto para baixo (ordem) e persistir
-function moverProdutoDown(produtoId) {
-    const todos = db.data?.produtos || [];
+async function moverProdutoDown(produtoId) {
+    const todos = (db.data?.produtos || []).map(produto => ({ ...produto }));
     const idx = todos.findIndex(p => p.id === produtoId);
     if (idx !== -1 && idx < todos.length - 1) {
         const aux = todos[idx + 1];
         todos[idx + 1] = todos[idx];
         todos[idx] = aux;
         todos.forEach((p, i) => p.ordem = i);
-        db.data.produtos = todos;
-        db.saveData();
-        const token = (() => {
-            try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
-        })();
-        fetch(window.location.origin + '/api/produtos', {
-            method: 'POST',
-            headers: { 
-                'Content-Type': 'application/json',
-                ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-            },
-            body: JSON.stringify(todos)
-        }).then(resp => {
-            if (!resp.ok) console.warn('Não foi possível atualizar ordem no servidor');
-        }).catch(e => console.warn('Erro ao atualizar ordem:', e));
-        renderizarProdutos();
+        try {
+            await db.salvarCatalogoLocal(todos);
+            renderizarProdutos();
+        } catch (e) {
+            console.error('[PRODUTOS] Erro ao reordenar:', e);
+            alert(e.message || 'Não foi possível reordenar os produtos.');
+        }
     }
 }
 
@@ -3855,31 +3817,16 @@ function editarProdutoGestor(id) {
     }
 }
 
-function excluirProdutoGestor(id) {
+async function excluirProdutoGestor(id) {
     if (!confirm('Deseja realmente excluir este produto?')) return;
-    if (db.data.produtos) {
-        db.data.produtos = db.data.produtos.filter(function(p) { return p.id !== id; });
-        db.saveData();
-        // Persistir no servidor
-        (async () => {
-            try {
-                const token = (() => {
-                    try { return localStorage.getItem('vetera_admin_token'); } catch (e) { return null; }
-                })();
-                await fetch(window.location.origin + '/api/produtos', {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        ...(token ? { 'Authorization': 'Bearer ' + token } : {})
-                    },
-                    body: JSON.stringify(db.data.produtos || [])
-                });
-                try { await db.fetchInitialData(); } catch (e) {}
-            } catch (e) {
-                // Servidor pode estar indisponível; mantém local
-            }
-        })();
+    if (!Array.isArray(db.data?.produtos)) return;
+    try {
+        const produtos = db.data.produtos.filter(function(p) { return String(p.id) !== String(id); });
+        await db.salvarCatalogoLocal(produtos);
         renderizarProdutos();
+    } catch (e) {
+        console.error('[PRODUTOS] Erro ao excluir:', e);
+        alert(e.message || 'Não foi possível excluir o produto do catálogo local.');
     }
 }
 
@@ -3970,7 +3917,7 @@ function abrirModalCategoria() {
         divisoria: false
     });
     db.saveData();
-    db.salvarCategorias(); // Salvar no servidor
+    db.salvarCategorias();
     renderizarCategorias();
 }
 
@@ -3993,7 +3940,7 @@ function excluirCategoria(nome) {
         });
 
         db.saveData();
-        db.salvarCategorias(); // Salvar no servidor
+        db.salvarCategorias();
         renderizarCategorias();
     }
 }
@@ -4012,7 +3959,7 @@ window.toggleDivisoriaCategoria = function(nome, ativo) {
             categoria.divisoria = ativo;
         }
         db.saveData();
-        db.salvarCategorias(); // Salvar no servidor
+        db.salvarCategorias();
     }
 };
 
@@ -4050,7 +3997,7 @@ window.moverCategoria = function(nome, direcao) {
     });
 
     db.saveData();
-    db.salvarCategorias(); // Salvar no servidor
+    db.salvarCategorias();
 
     renderizarCategorias();
 };
@@ -4356,7 +4303,7 @@ function excluirDestaque(id) {
 }
 
 // Remover foto de produto (apenas limpa referência e salva no servidor)
-function removerFotoProduto(produtoId = null) {
+async function removerFotoProduto(produtoId = null) {
     // Se chamado sem id, tentar ler do modal
     let id = produtoId;
     if (!id) {
@@ -4369,17 +4316,24 @@ function removerFotoProduto(produtoId = null) {
     if (!produto) return alert('Produto não encontrado.');
 
     if (!confirm('Remover foto deste produto? Esta ação apenas limpa a referência da imagem.')) return;
-    produto.imagem = '';
-    db.saveData();
-
-    // Salvar no servidor (substituir produtos)
-    fetch(window.location.origin + '/api/produtos', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(db.data.produtos) }).catch(e => console.warn('[PRODUTOS] Erro ao salvar:', e));
+    try {
+        const produtos = db.data.produtos.map(item =>
+            item.id === id ? { ...item, imagem: '' } : item
+        );
+        await db.salvarCatalogoLocal(produtos);
+    } catch (e) {
+        console.error('[PRODUTOS] Erro ao remover foto:', e);
+        alert(e.message || 'Não foi possível salvar a alteração local.');
+        return;
+    }
 
     // Atualizar preview e botões
     const preview = document.getElementById('produto-imagem-preview');
     if (preview) {
         preview.innerHTML = '<div class="image-preview-placeholder">Foto</div>';
     }
+    const imagemUrl = document.getElementById('produto-imagem-url');
+    if (imagemUrl) imagemUrl.value = '';
     const removerBtn = document.getElementById('produto-remover-foto');
     if (removerBtn) removerBtn.style.display = 'none';
     renderizarProdutos();

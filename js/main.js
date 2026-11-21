@@ -964,15 +964,11 @@ async function inicializarCardapio() {
             };
         }
         
-        // SEMPRE recarregar do arquivo para garantir dados atualizados
+        // Carregar o catálogo atual do servidor; produtos locais são apenas fallback.
         try {
             await db.fetchInitialData();
-            // Após carregar, garantir que produtos manuais estão carregados
-            db.inicializarProdutosManualmente();
         } catch (e) {
             console.error('[MAIN] ❌ Erro ao buscar dados:', e);
-            // Se falhar, garantir produtos manuais mesmo assim
-            db.inicializarProdutosManualmente();
         }
 
         try {
@@ -2049,8 +2045,11 @@ function adicionarAoCarrinho(produtoId) {
         const qtdElement = document.getElementById(`qtd-${idSeguro}`);
         const quantidade = qtdElement ? (parseInt(qtdElement.textContent) || 1) : 1;
         
-        // Se for um combo, abrir modal de seleção de partes
-        if (produto && produto.tipo === 'combo' && produto.partes && produto.partes.length > 0) {
+        // Abrir o seletor para combos e itens com complementos configuráveis.
+        if (produto && (
+            (produto.tipo === 'combo' && Array.isArray(produto.partes) && produto.partes.length > 0) ||
+            (Array.isArray(produto.adicionais) && produto.adicionais.length > 0)
+        )) {
             abrirModalCombo(produto, quantidade);
             return;
         }
@@ -2062,7 +2061,8 @@ function adicionarAoCarrinho(produtoId) {
         }
         
         // Se for um produto normal (sem combo, sem finalizações), adicionar direto ao carrinho
-        if (produto && produto.tipo !== 'combo' && (!produto.finalizacoes || produto.finalizacoes.length === 0)) {
+        if (produto && produto.tipo !== 'combo' && (!produto.finalizacoes || produto.finalizacoes.length === 0) &&
+            (!Array.isArray(produto.adicionais) || produto.adicionais.length === 0)) {
             carrinho.adicionarItem(idSeguro, quantidade);
             return;
         }
@@ -2123,17 +2123,18 @@ function abrirModalCombo(produto, quantidade = 1) {
     
     const titulo = document.getElementById('modal-combo-titulo');
     const conteudo = document.getElementById('modal-combo-conteudo');
+    const partes = Array.isArray(produto.partes) ? produto.partes : [];
     
     titulo.textContent = produto.nome + (quantidade > 1 ? ` (${quantidade}x)` : '');
     
     let html = `
         <div style="margin-bottom: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--borda);">
             <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">${produto.descricao || ''}</div>
-            <div style="font-size: 1.5rem; font-weight: 700; color: var(--vermelho-claro);">R$ ${produto.preco.toFixed(2)}</div>
+            <div style="font-size: 1.5rem; font-weight: 700; color: var(--vermelho-claro);">R$ ${(Number(produto.preco) || 0).toFixed(2)}</div>
         </div>
     `;
 
-    html += `
+    if (partes.length > 0) html += `
         <div style="margin-bottom: 20px; padding: 15px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--borda);">
             <h3 style="margin: 0 0 10px 0; color: var(--text-primary); font-size: 1.05rem; font-weight: 700;">
                 Kit
@@ -2148,7 +2149,7 @@ function abrirModalCombo(produto, quantidade = 1) {
     `;
     
     // Renderizar partes
-    produto.partes.forEach((parte, parteIndex) => {
+    partes.forEach((parte, parteIndex) => {
         html += `
             <div style="margin-bottom: 25px; padding: 20px; background: var(--bg-secondary); border-radius: 12px; border: 1px solid var(--borda);">
                 <h3 style="margin: 0 0 10px 0; color: var(--text-primary); font-size: 1.1rem; font-weight: 700;">
@@ -2201,11 +2202,11 @@ function abrirModalCombo(produto, quantidade = 1) {
                        onmouseover="this.style.borderColor='var(--vermelho-claro)'; this.style.background='rgba(220,38,38,0.05)'" 
                        onmouseout="this.style.borderColor='var(--borda)'; this.style.background='var(--bg-primary)'">
                     <span style="flex: 1; color: var(--text-primary); font-size: 0.95rem;">${adicional.nome}</span>
-                    <span style="color: var(--vermelho-claro); font-weight: 600;">➕ R$ ${adicional.preco.toFixed(2)}</span>
+                    <span style="color: var(--vermelho-claro); font-weight: 600;">➕ R$ ${(Number(adicional.preco) || 0).toFixed(2)}</span>
                     <input type="checkbox" 
                            id="${adicionalId}"
                            style="width: 20px; height: 20px; accent-color: var(--vermelho-claro); cursor: pointer;"
-                           onchange="atualizarPrecoCombo(); validarAdicionaisMaximo()">
+                           onchange="atualizarPrecoCombo(); validarAdicionaisMaximo(event)">
                 </label>
             `;
         });
@@ -2249,10 +2250,11 @@ function atualizarPrecoCombo() {
     if (!window.comboAtual) return;
     
     const produto = window.comboAtual;
-    let precoTotal = produto.preco;
+    const partes = Array.isArray(produto.partes) ? produto.partes : [];
+    let precoTotal = Number(produto.preco) || 0;
     
     // Calcular preço das partes selecionadas
-    produto.partes.forEach((parte, parteIndex) => {
+    partes.forEach((parte, parteIndex) => {
         const radioName = `combo-${produto.id}-parte-${parteIndex}`;
         const radioSelecionado = document.querySelector(`input[name="${radioName}"]:checked`);
         if (radioSelecionado) {
@@ -2269,7 +2271,7 @@ function atualizarPrecoCombo() {
         produto.adicionais.forEach((adicional, adicionalIndex) => {
             const checkbox = document.getElementById(`combo-${produto.id}-adicional-${adicionalIndex}`);
             if (checkbox && checkbox.checked) {
-                precoTotal += adicional.preco;
+                precoTotal += Number(adicional.preco) || 0;
             }
         });
     }
@@ -2285,8 +2287,9 @@ function atualizarPrecoCombo() {
 }
 
 // Validar máximo de adicionais
-function validarAdicionaisMaximo() {
-    if (!window.comboAtual || !window.comboAtual.adicionaisMaximo) return;
+function validarAdicionaisMaximo(evento) {
+    const limite = Math.max(0, Number(window.comboAtual?.adicionaisMaximo) || 0);
+    if (!window.comboAtual || !limite) return;
     
     const produto = window.comboAtual;
     const adicionaisSelecionados = produto.adicionais.filter((_, index) => {
@@ -2294,9 +2297,9 @@ function validarAdicionaisMaximo() {
         return checkbox && checkbox.checked;
     }).length;
     
-    if (adicionaisSelecionados > produto.adicionaisMaximo) {
-        alert(`Você pode selecionar no máximo ${produto.adicionaisMaximo} adicionais.`);
-        event.target.checked = false;
+    if (adicionaisSelecionados > limite) {
+        alert(`Você pode selecionar no máximo ${limite} adicionais.`);
+        if (evento && evento.target) evento.target.checked = false;
         atualizarPrecoCombo();
     }
 }
@@ -2306,10 +2309,20 @@ function adicionarComboAoCarrinho(produtoId, quantidade) {
     if (!window.comboAtual) return;
     
     const produto = window.comboAtual;
+    const partes = Array.isArray(produto.partes) ? produto.partes : [];
+    const maxAdicionais = Math.max(0, Number(produto.adicionaisMaximo) || 0);
+    const adicionaisMarcados = (produto.adicionais || []).filter((_, index) => {
+        const checkbox = document.getElementById(`combo-${produto.id}-adicional-${index}`);
+        return checkbox && checkbox.checked;
+    }).length;
+    if (maxAdicionais > 0 && adicionaisMarcados > maxAdicionais) {
+        alert(`Você pode selecionar no máximo ${maxAdicionais} adicionais.`);
+        return;
+    }
     
     // Validar partes obrigatórias
-    for (let i = 0; i < produto.partes.length; i++) {
-        const parte = produto.partes[i];
+    for (let i = 0; i < partes.length; i++) {
+        const parte = partes[i];
         if (parte.obrigatorio) {
             const radioName = `combo-${produtoId}-parte-${i}`;
             const selecionado = document.querySelector(`input[name="${radioName}"]:checked`);
@@ -2332,7 +2345,7 @@ function adicionarComboAoCarrinho(produtoId, quantidade) {
         selecoes.kitHashi = !!(kitEl && kitEl.checked);
     } catch (e) {}
     
-    produto.partes.forEach((parte, parteIndex) => {
+    partes.forEach((parte, parteIndex) => {
         const radioName = `combo-${produtoId}-parte-${parteIndex}`;
         const radioSelecionado = document.querySelector(`input[name="${radioName}"]:checked`);
         if (radioSelecionado) {
@@ -2351,14 +2364,14 @@ function adicionarComboAoCarrinho(produtoId, quantidade) {
             if (checkbox && checkbox.checked) {
                 selecoes.adicionais.push({
                     nome: adicional.nome,
-                    preco: adicional.preco
+                    preco: Number(adicional.preco) || 0
                 });
             }
         });
     }
     
     // Calcular preço total
-    let precoTotal = produto.preco;
+    let precoTotal = Number(produto.preco) || 0;
     selecoes.partes.forEach(p => precoTotal += (p.precoAdicional || 0));
     selecoes.adicionais.forEach(a => precoTotal += (a.preco || 0));
     
@@ -4552,7 +4565,7 @@ function renderizarDestaques(destaques) {
     return;
 }
 
-// Aplicar ordem dos produtos com destaque ativo (coloca-os no topo como ordens 0..n-1) e persiste se necessário
+// Aplicar ordem dos produtos destacados apenas à lista desta sessão do cardápio.
 function aplicarOrdemDestaque() {
     try {
         if (!db || !db.data) return;
@@ -4587,19 +4600,9 @@ function aplicarOrdemDestaque() {
 
         if (!precisaAtualizar) return; // nada a fazer
 
-        // Aplicar atualização local e salvar
+        // A ordenação de destaques fica restrita à lista em memória do cardápio público.
         db.data.produtos = novoArray;
         db.saveData();
-
-        // Persistir no servidor (substitui coleção)
-        fetch(window.location.origin + '/api/produtos', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(db.data.produtos || [])
-        }).then(resp => {
-            if (!resp.ok) console.warn('[DESTAQUE] Não foi possível atualizar ordem no servidor');
-            else console.log('[DESTAQUE] Ordem dos produtos atualizada no servidor');
-        }).catch(e => console.warn('[DESTAQUE] Erro ao persistir ordem:', e));
 
     } catch (err) {
         console.warn('[DESTAQUE] aplicarOrdemDestaque falhou:', err);
