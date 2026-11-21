@@ -25,15 +25,19 @@ try:
 except Exception:
     load_dotenv()
 
-SERVER_BASE_URL = os.getenv("SERVER_BASE_URL", "").strip().rstrip("/")
+PUBLIC_BASE_URL = "https://www.veterasushi.bar"
+SERVER_BASE_URL = os.getenv("SERVER_BASE_URL", PUBLIC_BASE_URL).strip().rstrip("/")
 PRINT_APP_TOKEN = os.getenv("PRINT_APP_TOKEN", "").strip()
 PRINTER_NAME = os.getenv("PRINTER_NAME", "").strip()
 STORE_NAME = os.getenv("STORE_NAME", "Vetera Sushi").strip()
-DISCOUNT_URL_BASE = os.getenv("DISCOUNT_URL_BASE", "").strip().rstrip("/")
+DISCOUNT_URL_BASE = os.getenv(
+    "DISCOUNT_URL_BASE",
+    PUBLIC_BASE_URL + "/brinde.html",
+).strip().rstrip("/")
 POLL_SECONDS = float(os.getenv("POLL_SECONDS", "3"))
 
 DEFAULT_COUPON = "VETERA5FY003"
-DEFAULT_DISCOUNT_URL_BASE = "https://veterasushi.bar/brinde.html"
+DEFAULT_DISCOUNT_URL_BASE = PUBLIC_BASE_URL + "/brinde.html"
 
 app = Flask(__name__)
 

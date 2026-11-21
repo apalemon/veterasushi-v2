@@ -3,22 +3,21 @@ const { getCollection } = require('../../mongodb');
 const { amountToCents, requestInfinitePay } = require('../../infinitepay');
 const { avaliarStatusLoja } = require('../../loja-status');
 
+const DEFAULT_PUBLIC_BASE_URL = 'https://www.veterasushi.bar';
+
 function safeStr(value) {
   return String(value == null ? '' : value).trim();
 }
 
 function getPublicBaseUrl(req) {
+  if (String(process.env.NODE_ENV || '').toLowerCase() === 'production') {
+    return DEFAULT_PUBLIC_BASE_URL;
+  }
+
   const configured = safeStr(process.env.PUBLIC_BASE_URL);
   if (configured) {
     const url = new URL(configured);
-    if (String(process.env.NODE_ENV || '').toLowerCase() === 'production' && url.protocol !== 'https:') {
-      throw new Error('PUBLIC_BASE_URL precisa usar HTTPS em produção');
-    }
     return url.origin;
-  }
-
-  if (String(process.env.NODE_ENV || '').toLowerCase() === 'production') {
-    throw new Error('Configure PUBLIC_BASE_URL na Vercel com o domínio público do site, sem proteção de implantação.');
   }
 
   const headers = req && req.headers ? req.headers : {};

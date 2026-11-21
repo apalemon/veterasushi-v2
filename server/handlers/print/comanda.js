@@ -170,7 +170,7 @@ module.exports = async (req, res) => {
     const endereco = escapeHtml(pedido.clienteEndereco || '');
 
     const brindeCode = 'VETERA5FY003';
-    const brindeUrl = 'https://veterasushi.bar/brinde.html?codigo=' + encodeURIComponent(brindeCode);
+    const brindeUrl = 'https://www.veterasushi.bar/brinde.html?codigo=' + encodeURIComponent(brindeCode);
     const qrImg = 'https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=' + encodeURIComponent(brindeUrl);
 
     const html = `<!doctype html>

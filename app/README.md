@@ -30,20 +30,20 @@ Obs.: se o `pip` não encontrar build compatível do `pywin32` para sua versão 
 
 Crie um arquivo `.env` (ou `.ENV`) dentro da pasta `app/` com:
 
-- `SERVER_BASE_URL` = URL do seu sistema (ex.: `https://seusite.com`)
+- `SERVER_BASE_URL` = URL do sistema (padrão: `https://www.veterasushi.bar`)
 - `PRINT_APP_TOKEN` = o mesmo token configurado no servidor (Vercel) em `PRINT_APP_TOKEN`
 - `PRINTER_NAME` = nome da impressora no Windows (ex.: `EPSON TM-T88V Receipt`)
 - `STORE_NAME` = nome do restaurante (topo do cupom)
-- `DISCOUNT_URL_BASE` = URL base do cardápio para QR (ex.: `https://seusite.com`)
+- `DISCOUNT_URL_BASE` = URL do cupom para o QR (padrão: `https://www.veterasushi.bar/brinde.html`)
 
 Exemplo:
 
 ```env
-SERVER_BASE_URL=https://seusite.com
+SERVER_BASE_URL=https://www.veterasushi.bar
 PRINT_APP_TOKEN=coloque-um-token-grande-aqui
 PRINTER_NAME=EPSON TM-T88V Receipt
 STORE_NAME=Vetera Sushi
-DISCOUNT_URL_BASE=https://seusite.com
+DISCOUNT_URL_BASE=https://www.veterasushi.bar/brinde.html
 ```
 
 ## Instalação
