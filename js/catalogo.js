@@ -9,7 +9,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Hot's",
       "ativo": true,
       "ordem": 1,
-      "imagem": "",
+      "imagem": "bighot.avif",
       "tipo": "produto"
     },
     {
@@ -20,7 +20,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Hot's",
       "ativo": true,
       "ordem": 2,
-      "imagem": "",
+      "imagem": "hotroll.avif",
       "tipo": "produto"
     },
     {
@@ -31,7 +31,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Hot's",
       "ativo": true,
       "ordem": 3,
-      "imagem": "",
+      "imagem": "hot20.avif",
       "tipo": "produto"
     },
     {
@@ -42,7 +42,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Hot's",
       "ativo": true,
       "ordem": 4,
-      "imagem": "temakihot.avif",
+      "imagem": "temakihot1.avif",
       "tipo": "produto"
     },
     {
@@ -53,7 +53,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Entradas",
       "ativo": true,
       "ordem": 1,
-      "imagem": "sunomono.jpg",
+      "imagem": "sunomono.avif",
       "tipo": "produto"
     },
     {
@@ -64,7 +64,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Entradas",
       "ativo": true,
       "ordem": 2,
-      "imagem": "bolinhodesalmao.avif",
+      "imagem": "bolinhodsalmao.avif",
       "tipo": "produto"
     },
     {
@@ -86,7 +86,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Onigiris",
       "ativo": true,
       "ordem": 1,
-      "imagem": "",
+      "imagem": "onifila.avif",
       "tipo": "produto"
     },
     {
@@ -97,7 +97,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Onigiris",
       "ativo": true,
       "ordem": 2,
-      "imagem": "",
+      "imagem": "onigre.avif",
       "tipo": "produto"
     },
     {
@@ -496,7 +496,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Pokes",
       "ativo": true,
       "ordem": 1,
-      "imagem": "pokesalmaotradicional.avif",
+      "imagem": "poktra.avif",
       "tipo": "produto",
       "partes": [
         {
@@ -531,7 +531,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Pokes",
       "ativo": true,
       "ordem": 2,
-      "imagem": "",
+      "imagem": "pokpri.avif",
       "tipo": "produto"
     },
     {
@@ -553,7 +553,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Temakis",
       "ativo": true,
       "ordem": 2,
-      "imagem": "temakisalmaocreamchese.avif",
+      "imagem": "temafi.avif",
       "tipo": "produto"
     },
     {
@@ -564,7 +564,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Combos",
       "ativo": true,
       "ordem": 1,
-      "imagem": "",
+      "imagem": "hakone.avif",
       "tipo": "produto"
     },
     {
@@ -575,7 +575,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Combos",
       "ativo": true,
       "ordem": 2,
-      "imagem": "",
+      "imagem": "matsue.avif",
       "tipo": "produto"
     },
     {
@@ -586,7 +586,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Combos",
       "ativo": true,
       "ordem": 3,
-      "imagem": "",
+      "imagem": "miyazaki.avif",
       "tipo": "produto"
     },
     {
@@ -597,7 +597,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Combos",
       "ativo": true,
       "ordem": 4,
-      "imagem": "",
+      "imagem": "osaka.avif",
       "tipo": "produto"
     },
     {
@@ -608,7 +608,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Combos",
       "ativo": true,
       "ordem": 5,
-      "imagem": "",
+      "imagem": "atami.avif",
       "tipo": "produto"
     },
     {
@@ -619,7 +619,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Combos",
       "ativo": true,
       "ordem": 6,
-      "imagem": "",
+      "imagem": "kyoto.avif",
       "tipo": "produto"
     },
     {
@@ -630,7 +630,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Combos",
       "ativo": true,
       "ordem": 7,
-      "imagem": "",
+      "imagem": "nara.avif",
       "tipo": "produto"
     },
     {
@@ -641,7 +641,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Combos",
       "ativo": true,
       "ordem": 8,
-      "imagem": "",
+      "imagem": "yokohama.avif",
       "tipo": "produto"
     },
     {
@@ -652,7 +652,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Salmão",
       "ativo": true,
       "ordem": 1,
-      "imagem": "jowjellyspicy.avif",
+      "imagem": "jowspi.avif",
       "tipo": "produto"
     },
     {
@@ -663,7 +663,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Salmão",
       "ativo": true,
       "ordem": 2,
-      "imagem": "niguiridesalmao.avif",
+      "imagem": "nigsal.avif",
       "tipo": "produto"
     },
     {
@@ -674,7 +674,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Salmão",
       "ativo": true,
       "ordem": 3,
-      "imagem": "jowdesalmao.avif",
+      "imagem": "jowsal.avif",
       "tipo": "produto"
     },
     {
@@ -685,7 +685,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Salmão",
       "ativo": true,
       "ordem": 4,
-      "imagem": "carpacciodesalmao.avif",
+      "imagem": "carpa.avif",
       "tipo": "produto"
     },
     {
@@ -696,7 +696,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Salmão",
       "ativo": true,
       "ordem": 5,
-      "imagem": "sashimidesalmao.avif",
+      "imagem": "sashimi.avif",
       "tipo": "produto"
     },
     {
@@ -707,7 +707,7 @@ window.VETERA_CATALOGO = {
       "categoria": "Salmão",
       "ativo": true,
       "ordem": 6,
-      "imagem": "",
+      "imagem": "gunkasix.avif",
       "tipo": "produto"
     }
   ],
