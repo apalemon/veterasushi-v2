@@ -4,15 +4,15 @@
 
 // Endereço base do restaurante
 const ENDERECO_BASE = {
-    endereco: 'Rua Doutor Joao Palombini, 580, Ipanema, Porto Alegre, RS',
-    lat: -30.134,   // Coordenadas de Ipanema, Porto Alegre
-    lng: -51.230
+    endereco: 'Rua José Bráulio da Fonseca, 170, Hípica, Porto Alegre, RS',
+    lat: -30.1587585,
+    lng: -51.1858942
 };
 
 // Configurações de entrega
 const CONFIG_ENTREGA = {
-    taxaMinima: 3.00,      // R$ 3,00 mínimo (até 2km)
-    taxaPorKm: 4.00,       // R$ 4,00 por km adicional acima de 2km
+    distanciaGratisAteKm: 1,
+    taxaPorKm: 3.99,
     distanciaMaxima: 12    // Máximo 12km
 };
 
@@ -120,38 +120,41 @@ function calcularDistanciaHaversine(lat1, lon1, lat2, lon2) {
 
 // Calcular taxa de entrega baseada na distância
 function calcularTaxaEntrega(distancia) {
-    if (!distancia || distancia <= 0) {
+    const distanciaNumerica = typeof distancia === 'number'
+        ? distancia
+        : (typeof distancia === 'string' && distancia.trim() !== '' ? Number(distancia) : NaN);
+    if (!Number.isFinite(distanciaNumerica) || distanciaNumerica < 0) {
         return {
             sucesso: false,
             taxa: 0,
-            mensagem: 'Distância inválida'
+            mensagem: 'Distância inválida',
+            distancia: null
         };
     }
     
     // Verificar se está dentro do raio de entrega
-    if (distancia > CONFIG_ENTREGA.distanciaMaxima) {
+    if (distanciaNumerica > CONFIG_ENTREGA.distanciaMaxima) {
         return {
             sucesso: false,
             taxa: 0,
-            distancia: parseFloat(distancia.toFixed(2)),
-            mensagem: `Endereço muito distante! A distância de ${distancia.toFixed(2)}km excede nosso limite de entrega de ${CONFIG_ENTREGA.distanciaMaxima}km. Infelizmente não podemos realizar entregas nesta região.`
+            distancia: parseFloat(distanciaNumerica.toFixed(2)),
+            mensagem: `Endereço muito distante! A distância de ${distanciaNumerica.toFixed(2)}km excede nosso limite de entrega de ${CONFIG_ENTREGA.distanciaMaxima}km. Infelizmente não podemos realizar entregas nesta região.`
         };
     }
     
-    // Calcular taxa
-    let taxa = CONFIG_ENTREGA.taxaMinima; // Taxa mínima (até 2km)
-    
-    // Acima de 2km: R$ 4,00 por cada km adicional
-    if (distancia > 2) {
-        const kmExtras = distancia - 2;
-        taxa += kmExtras * CONFIG_ENTREGA.taxaPorKm;
-    }
+    const kmCobrados = distanciaNumerica <= CONFIG_ENTREGA.distanciaGratisAteKm
+        ? 0
+        : Math.ceil(distanciaNumerica - CONFIG_ENTREGA.distanciaGratisAteKm);
+    const taxa = Number((kmCobrados * CONFIG_ENTREGA.taxaPorKm).toFixed(2));
+    const distanciaFormatada = parseFloat(distanciaNumerica.toFixed(2));
     
     return {
         sucesso: true,
-        taxa: parseFloat(taxa.toFixed(2)),
-        distancia: parseFloat(distancia.toFixed(2)),
-        mensagem: `Taxa de entrega: R$ ${taxa.toFixed(2)} (${distancia.toFixed(2)}km)`
+        taxa,
+        distancia: distanciaFormatada,
+        mensagem: taxa === 0
+            ? `Entrega grátis (${distanciaFormatada.toFixed(2)}km)`
+            : `Taxa de entrega: R$ ${taxa.toFixed(2)} (${distanciaFormatada.toFixed(2)}km)`
     };
 }
 

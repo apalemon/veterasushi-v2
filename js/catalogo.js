@@ -6,7 +6,7 @@ window.VETERA_CATALOGO = {
       "nome": "Big Hot Hot Recheado",
       "descricao": "Hot Roll Filadélfia recheado com salmão e cream cheese, finalizado com molho tarê.",
       "preco": 50.90,
-      "categoria": "Hots",
+      "categoria": "Hot's",
       "ativo": true,
       "ordem": 1,
       "tipo": "produto"
@@ -16,7 +16,7 @@ window.VETERA_CATALOGO = {
       "nome": "Hot Roll Filadélfia (10 pcs)",
       "descricao": "10 unidades com salmão e cream cheese.",
       "preco": 27.90,
-      "categoria": "Hots",
+      "categoria": "Hot's",
       "ativo": true,
       "ordem": 2,
       "tipo": "produto"
@@ -26,7 +26,7 @@ window.VETERA_CATALOGO = {
       "nome": "Hot Roll Filadélfia (20 pcs)",
       "descricao": "20 unidades com salmão e cream cheese.",
       "preco": 54.90,
-      "categoria": "Hots",
+      "categoria": "Hot's",
       "ativo": true,
       "ordem": 3,
       "tipo": "produto"
@@ -36,7 +36,7 @@ window.VETERA_CATALOGO = {
       "nome": "Temaki Hot Salmão Cozido",
       "descricao": "Temaki crocante, empanado e frito, com arroz temperado e alga.",
       "preco": 43.90,
-      "categoria": "Hots",
+      "categoria": "Hot's",
       "ativo": true,
       "ordem": 4,
       "imagem": "temakihot.avif",
@@ -89,7 +89,7 @@ window.VETERA_CATALOGO = {
       "nome": "Combo Personalizado 27 Peças à Sua Escolha",
       "descricao": "Monte o combo escolhendo suas peças.",
       "preco": 84.90,
-      "categoria": "Monte Seu Combo",
+      "categoria": "Monte seu Combo",
       "ativo": true,
       "ordem": 1,
       "imagem": "combo_27.avif",
@@ -186,7 +186,7 @@ window.VETERA_CATALOGO = {
       "nome": "Combo Personalizado 32 Peças à Sua Escolha",
       "descricao": "Monte o combo escolhendo suas peças. Possui as mesmas opções do combo de 27 peças.",
       "preco": 92.90,
-      "categoria": "Monte Seu Combo",
+      "categoria": "Monte seu Combo",
       "ativo": true,
       "ordem": 2,
       "imagem": "combo_32.avif",
@@ -283,7 +283,7 @@ window.VETERA_CATALOGO = {
       "nome": "Combo Personalizado 37 Peças à Sua Escolha",
       "descricao": "Monte o combo escolhendo suas peças. Possui as mesmas opções do combo de 27 peças.",
       "preco": 103.90,
-      "categoria": "Monte Seu Combo",
+      "categoria": "Monte seu Combo",
       "ativo": true,
       "ordem": 3,
       "imagem": "combo_37.avif",
@@ -380,7 +380,7 @@ window.VETERA_CATALOGO = {
       "nome": "Combo Personalizado 42 Peças à Sua Escolha",
       "descricao": "Monte o combo escolhendo suas peças. Possui as mesmas opções, com partes 3 a 5 entre R$ 0,00 e R$ 16,00.",
       "preco": 137.90,
-      "categoria": "Monte Seu Combo",
+      "categoria": "Monte seu Combo",
       "ativo": true,
       "ordem": 4,
       "imagem": "combo_42.jpg",
@@ -686,14 +686,14 @@ window.VETERA_CATALOGO = {
     }
   ],
   "categorias": [
-    { "nome": "Hots", "ordem": 0, "divisoria": false },
+    { "nome": "Hot's", "ordem": 0, "divisoria": false },
     { "nome": "Entradas", "ordem": 1, "divisoria": false },
     { "nome": "Onigiris", "ordem": 2, "divisoria": false },
-    { "nome": "Monte Seu Combo", "ordem": 3, "divisoria": false },
+    { "nome": "Monte seu Combo", "ordem": 3, "divisoria": false },
     { "nome": "Pokes", "ordem": 4, "divisoria": false },
-    { "nome": "Temakis", "ordem": 5, "divisoria": false },
-    { "nome": "Combos", "ordem": 6, "divisoria": false },
-    { "nome": "Salmão", "ordem": 7, "divisoria": false }
+    { "nome": "Combos", "ordem": 5, "divisoria": false },
+    { "nome": "Salmão", "ordem": 6, "divisoria": false },
+    { "nome": "Temakis", "ordem": 7, "divisoria": false }
   ],
   "complementos": []
 };
